@@ -486,17 +486,26 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 				}
 
 				if (stepUpdate.has("toolConfirmationRequest")) {
+					JsonNode req = stepUpdate.get("toolConfirmationRequest");
 					String toolName = "unknown";
-					if (stepUpdate.has("invokeSubagent"))
+					JsonNode args = null;
+					if (req.has("invokeSubagent"))
 						toolName = "invoke_subagent";
-					else if (stepUpdate.has("runCommand"))
+					else if (req.has("runCommand"))
 						toolName = "run_command";
-					else if (stepUpdate.has("fileEdit"))
+					else if (req.has("fileEdit"))
 						toolName = "file_edit";
-					else if (stepUpdate.has("finish"))
+					else if (req.has("finish"))
 						toolName = "finish";
+					else if (req.has("customToolCall")) {
+						toolName = req.get("customToolCall").path("name").asText("unknown");
+						try {
+							String argsStr = req.get("customToolCall").path("argumentsJson").asText("{}");
+							args = jsonMapper.readTree(argsStr);
+						} catch (Exception e) {}
+					}
 
-					Policy.Decision decision = evaluatePolicies(toolName, null);
+					Policy.Decision decision = evaluatePolicies(toolName, args);
 					boolean accepted = (decision != Policy.Decision.DENY);
 
 					try {
