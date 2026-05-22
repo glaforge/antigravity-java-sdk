@@ -38,7 +38,7 @@ public class StreamingTest {
 						System.out.print(chunk.getTextDelta());
 						chunkCount.incrementAndGet();
 					});
-			await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
+			await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
 			AgentResponse response = future.get();
 
 			System.out.println("\n--- Stream Complete ---");

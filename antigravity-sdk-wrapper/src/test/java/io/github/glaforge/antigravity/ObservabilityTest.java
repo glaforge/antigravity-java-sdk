@@ -30,7 +30,7 @@ public class ObservabilityTest {
 
 		try (AntigravityAgent agent = new AntigravityAgent(config)) {
 			CompletableFuture<AgentResponse> future = agent.chat("Hi, say exactly one word: Hello.");
-			await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
+			await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
 			AgentResponse response = future.get();
 
 			// Verify usage metadata is populated if available

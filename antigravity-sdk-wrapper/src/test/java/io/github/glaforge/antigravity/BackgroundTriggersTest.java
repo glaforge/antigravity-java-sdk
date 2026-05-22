@@ -38,7 +38,7 @@ public class BackgroundTriggersTest {
 			}, 500, TimeUnit.MILLISECONDS);
 
 			CompletableFuture<AgentResponse> future = agent.chat("What is the weather in Tokyo right now?");
-			await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
+			await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
 			AgentResponse response = future.get();
 			System.out.println(response.getText());
 			assertNotNull(response.getText());

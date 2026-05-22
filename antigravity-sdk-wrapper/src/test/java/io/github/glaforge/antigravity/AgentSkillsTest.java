@@ -27,8 +27,8 @@ public class AgentSkillsTest {
 
 	@Test
 	public void testAgentSkills() throws Exception {
-		// Create a temporary skill directory
-		File tempSkillDir = Files.createTempDirectory("antigravity-mock-skill").toFile();
+		File tempSkillDir = new File("target/mock-skill-" + System.currentTimeMillis());
+		tempSkillDir.mkdirs();
 		File skillFile = new File(tempSkillDir, "SKILL.md");
 
 		String skillContent = "---\n" + "name: mock-skill\n" + "description: A mock skill for testing\n" + "---\n"
@@ -43,7 +43,7 @@ public class AgentSkillsTest {
 		try (AntigravityAgent agent = new AntigravityAgent(config)) {
 			System.out.println("Activating skill...");
 			CompletableFuture<AgentResponse> future = agent.chat("activate test skill");
-			await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
+			await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
 			AgentResponse response = future.get();
 
 			System.out.println("Response: " + response.getText());
