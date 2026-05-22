@@ -291,10 +291,8 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 		this.currentUsage = null;
 		this.hasStructuredOutput = false;
 
-		String combinedPrompt = inputs.stream()
-				.filter(i -> i instanceof AgentInput.Text)
-				.map(i -> ((AgentInput.Text) i).text())
-				.reduce("", (a, b) -> a + b);
+		String combinedPrompt = inputs.stream().filter(i -> i instanceof AgentInput.Text)
+				.map(i -> ((AgentInput.Text) i).text()).reduce("", (a, b) -> a + b);
 
 		triggerPreTurn(combinedPrompt).thenAccept(res -> {
 			if (!res.allow()) {
@@ -325,9 +323,7 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 			}
 		});
 
-		return currentChatFuture.thenCompose(resp ->
-				triggerPostTurn(resp.getText()).thenApply(v -> resp)
-		);
+		return currentChatFuture.thenCompose(resp -> triggerPostTurn(resp.getText()).thenApply(v -> resp));
 	}
 
 	private CompletableFuture<Void> triggerSessionStart() {
@@ -355,7 +351,8 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 		for (AgentHook hook : config.getHooks()) {
 			if (hook instanceof PreTurnHook pth) {
 				future = future.thenCompose(res -> {
-					if (!res.allow()) return CompletableFuture.completedFuture(res);
+					if (!res.allow())
+						return CompletableFuture.completedFuture(res);
 					return pth.onPreTurn(prompt);
 				});
 			}
@@ -378,7 +375,8 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 		for (AgentHook hook : config.getHooks()) {
 			if (hook instanceof PreToolCallDecideHook ptcd) {
 				future = future.thenCompose(res -> {
-					if (!res.allow()) return CompletableFuture.completedFuture(res);
+					if (!res.allow())
+						return CompletableFuture.completedFuture(res);
 					return ptcd.onPreToolCallDecide(call);
 				});
 			}
@@ -401,7 +399,8 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 		for (AgentHook hook : config.getHooks()) {
 			if (hook instanceof OnToolErrorHook teh) {
 				future = future.thenCompose(res -> {
-					if (res != null) return CompletableFuture.completedFuture(res);
+					if (res != null)
+						return CompletableFuture.completedFuture(res);
 					return teh.onToolError(call, err);
 				});
 			}
@@ -622,11 +621,9 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	private void sendToolResponse(String callId, String resultJson) {
 		try {
 			InputEvent responseEvent = InputEvent.newBuilder()
-					.setToolResponse(
-							ToolResponse.newBuilder().setId(callId).setResponseJson(resultJson).build())
+					.setToolResponse(ToolResponse.newBuilder().setId(callId).setResponseJson(resultJson).build())
 					.build();
-			String responsePayload = JsonFormat.printer().omittingInsignificantWhitespace()
-					.print(responseEvent);
+			String responsePayload = JsonFormat.printer().omittingInsignificantWhitespace().print(responseEvent);
 			webSocket.sendText(responsePayload, true);
 		} catch (Exception e) {
 			e.printStackTrace();

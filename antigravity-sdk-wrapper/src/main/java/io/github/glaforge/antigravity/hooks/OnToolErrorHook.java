@@ -4,5 +4,5 @@ import java.util.concurrent.CompletableFuture;
 
 @FunctionalInterface
 public interface OnToolErrorHook extends AgentHook {
-    CompletableFuture<Object> onToolError(ToolCall toolCall, Throwable error);
+	CompletableFuture<Object> onToolError(ToolCall toolCall, Throwable error);
 }

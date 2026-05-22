@@ -4,5 +4,5 @@ import java.util.concurrent.CompletableFuture;
 
 @FunctionalInterface
 public interface PostTurnHook extends AgentHook {
-    CompletableFuture<Void> onPostTurn(String response);
+	CompletableFuture<Void> onPostTurn(String response);
 }

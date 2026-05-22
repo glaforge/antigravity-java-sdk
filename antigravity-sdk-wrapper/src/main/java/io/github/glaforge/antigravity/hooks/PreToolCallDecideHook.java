@@ -4,5 +4,5 @@ import java.util.concurrent.CompletableFuture;
 
 @FunctionalInterface
 public interface PreToolCallDecideHook extends AgentHook {
-    CompletableFuture<HookResult> onPreToolCallDecide(ToolCall toolCall);
+	CompletableFuture<HookResult> onPreToolCallDecide(ToolCall toolCall);
 }

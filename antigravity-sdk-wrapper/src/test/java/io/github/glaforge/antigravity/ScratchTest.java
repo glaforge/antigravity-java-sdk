@@ -15,10 +15,8 @@ public class ScratchTest {
 		File tempDir = Files.createTempDirectory("antigravity-scratch").toFile();
 		System.out.println("Using temp dir: " + tempDir.getAbsolutePath());
 
-		AgentConfig config1 = AgentConfig.builder()
-				.persona("You are a helpful assistant.")
-				.saveDir(tempDir.getAbsolutePath())
-				.build();
+		AgentConfig config1 = AgentConfig.builder().persona("You are a helpful assistant.")
+				.saveDir(tempDir.getAbsolutePath()).build();
 
 		String conversationId;
 		try (AntigravityAgent agent1 = new AntigravityAgent(config1)) {
@@ -46,12 +44,12 @@ public class ScratchTest {
 		boolean foundStateFile = false;
 		for (File f : files) {
 			System.out.println(f.getName());
-			if (f.getName().equals(conversationId + ".json") || f.getName().contains(conversationId) || f.getName().contains("state")) {
+			if (f.getName().equals(conversationId + ".json") || f.getName().contains(conversationId)
+					|| f.getName().contains("state")) {
 				foundStateFile = true;
 			}
 		}
-		
-		// Typically localharness manages this dir structure, we just ensure it's not empty
-		assertTrue(files.length > 0, "Expected some state files or directories to be created");
+
+		assertTrue(foundStateFile, "Expected some state files or directories to be created for the conversation");
 	}
 }

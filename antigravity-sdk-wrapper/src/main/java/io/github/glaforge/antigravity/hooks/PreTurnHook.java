@@ -4,5 +4,5 @@ import java.util.concurrent.CompletableFuture;
 
 @FunctionalInterface
 public interface PreTurnHook extends AgentHook {
-    CompletableFuture<HookResult> onPreTurn(String prompt);
+	CompletableFuture<HookResult> onPreTurn(String prompt);
 }

@@ -4,5 +4,5 @@ import java.util.concurrent.CompletableFuture;
 
 @FunctionalInterface
 public interface OnSessionStartHook extends AgentHook {
-    CompletableFuture<Void> onSessionStart();
+	CompletableFuture<Void> onSessionStart();
 }

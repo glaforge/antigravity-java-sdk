@@ -4,5 +4,5 @@ import java.util.concurrent.CompletableFuture;
 
 @FunctionalInterface
 public interface OnCompactionHook extends AgentHook {
-    CompletableFuture<Void> onCompaction(Object stepData);
+	CompletableFuture<Void> onCompaction(Object stepData);
 }
