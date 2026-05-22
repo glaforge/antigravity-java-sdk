@@ -81,9 +81,9 @@
     </dependencyManagement>
 
     <scm>
-        <connection>scm:git:git://github.com/google/antigravity-sdk-for-java.git</connection>
-        <developerConnection>scm:git:git@github.com:google/antigravity-sdk-for-java.git</developerConnection>
-        <url>https://github.com/google/antigravity-sdk-for-java</url>
+        <connection>scm:git:git://github.com/glaforge/antigravity-java-sdk.git</connection>
+        <developerConnection>scm:git:git@github.com:glaforge/antigravity-java-sdk.git</developerConnection>
+        <url>https://github.com/glaforge/antigravity-java-sdk</url>
         <tag>HEAD</tag>
     </scm>
 
