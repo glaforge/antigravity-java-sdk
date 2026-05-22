@@ -1,0 +1,185 @@
+syntax = "proto3";
+
+package antigravity.localharness;
+
+option java_multiple_files = true;
+option java_package = "io.github.glaforge.antigravity.localharness";
+option java_outer_classname = "LocalHarnessProto";
+
+message InputConfig {
+  string storage_directory = 1;
+}
+
+message InitializeConversationEvent {
+  HarnessConfig config = 1;
+}
+
+message InputEvent {
+  oneof event {
+    InitializeConversationEvent initialize_conversation = 1;
+    UserInput user_input = 2; // Deprecated, use complex_user_input
+    UserInput complex_user_input = 6;
+    ToolResponse tool_response = 3;
+    UserQuestionsResponse question_response = 4;
+    bool halt_request = 5;
+    string automated_trigger = 7;
+  }
+}
+
+message UserInput {
+  repeated Part parts = 1;
+  message Part {
+    string text = 1;
+    Media media = 2;
+  }
+  message Media {
+    string mime_type = 1;
+    string description = 2;
+    bytes data = 3;
+  }
+}
+
+message ToolResponse {
+  string id = 1;
+  string response_json = 2;
+}
+
+message HarnessConfig {
+  string cascade_id = 1;
+  GeminiConfig gemini_config = 2; 
+  GemmaConfig gemma_config = 3; 
+  SystemInstructions system_instructions = 4;
+  repeated Tool tools = 5;
+  HarnessSideTools harness_side_tools = 6;
+  uint32 compaction_threshold = 7;
+  repeated Workspace workspaces = 8;
+  repeated string skills_paths = 9;
+  string finish_tool_schema_json = 10;
+  bytes initial_trajectory = 11;
+  string app_data_dir = 12;
+}
+
+message Workspace {
+  FilesystemWorkspace filesystem_workspace = 1;
+}
+
+message FilesystemWorkspace {
+  string directory = 1;
+}
+
+message GeminiConfig {
+  string api_key = 1;
+  string base_url = 2;
+  string model_name = 3;
+  string thinking_level = 4;
+  bool enable_url_context = 5;
+  bool enable_google_search = 6;
+}
+
+message GemmaConfig {
+  string base_url = 1;
+  string model_name = 2;
+}
+
+message SystemInstructions {
+  CustomSystemInstructions custom = 1;
+  AppendedSystemInstructions appended = 2;
+}
+
+message CustomSystemInstructions {
+  repeated Part part = 1;
+  message Part {
+    string text = 1;
+  }
+}
+
+message AppendedSystemInstructions {
+  string custom_identity = 1;
+  repeated Section appended_sections = 2;
+  message Section {
+    string title = 1;
+    string content = 2;
+  }
+}
+
+message StepUpdate {
+  string text = 20;
+}
+
+message Tool {
+  string name = 1;
+  string description = 2;
+  string parameters_json_schema = 3;
+  string response_json_schema = 4;
+}
+
+message HarnessSideTools {
+  FindToolConfig find = 1;
+  RunCommandToolConfig run_command = 2;
+  SubagentsConfig subagents = 3;
+  UserQuestionsConfig user_questions = 4;
+  FileEditToolConfig file_edit = 5;
+  ViewFileToolConfig view_file = 6;
+  WriteToFileToolConfig write_to_file = 7;
+  GrepSearchToolConfig grep_search = 8;
+  ListDirToolConfig list_dir = 9;
+  PermissionsConfig permissions = 10;
+  GenerateImageToolConfig generate_image = 11;
+}
+
+message FindToolConfig { bool enabled = 1; }
+message RunCommandToolConfig { bool enabled = 1; }
+message SubagentsConfig { bool enabled = 1; }
+message UserQuestionsConfig { bool enabled = 1; }
+
+message UserQuestionsRequest {
+  repeated UserQuestion questions = 1;
+}
+
+message UserQuestion {
+  oneof kind {
+    MultipleChoice multiple_choice = 1;
+  }
+}
+
+message MultipleChoice {
+  string question = 1;
+  repeated string choices = 2;
+  bool is_multi_select = 3;
+}
+
+message UserQuestionsResponse {
+  string trajectory_id = 1;
+  int32 step_index = 2;
+  bool cancelled = 3;
+  
+  message QuestionsResponse {
+    repeated UserQuestionAnswer answers = 1;
+  }
+  
+  QuestionsResponse response = 4;
+}
+
+message UserQuestionAnswer {
+  oneof answer {
+    bool unanswered = 1;
+    MultipleChoiceAnswer multiple_choice_answer = 2;
+  }
+}
+
+message MultipleChoiceAnswer {
+  repeated int32 selected_choice_indices = 1;
+  string freeform_response = 2;
+}
+message FileEditToolConfig { bool enabled = 1; }
+message ViewFileToolConfig { bool enabled = 1; }
+message WriteToFileToolConfig { bool enabled = 1; }
+message GrepSearchToolConfig { bool enabled = 1; }
+message ListDirToolConfig { bool enabled = 1; }
+message GenerateImageToolConfig { bool enabled = 1; string model_name = 2; }
+message PermissionsConfig { bool enforce_workspace_validation = 1; }
+
+message OutputConfig {
+  int32 port = 1;
+  string api_key = 2;
+}
