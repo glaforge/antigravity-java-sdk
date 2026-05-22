@@ -10,6 +10,7 @@ This file (`AGENTS.md`) provides context and instructions for AI agents working 
 
 ## 🛠️ Build & Commands
 
+*   **Java Version**: This project uses **Java 21**. Agents must ensure they use Java 21 compatible syntax and standard library features.
 *   **Maven Wrapper**: Always use the provided Maven wrapper (`./mvnw`). Do not rely on globally installed `mvn` or `gradle`.
 *   **Compilation**: `./mvnw clean compile`
 *   **Testing**: `./mvnw test`
