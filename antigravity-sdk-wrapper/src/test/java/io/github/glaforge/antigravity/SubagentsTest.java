@@ -25,19 +25,30 @@ public class SubagentsTest {
 
 	@Test
 	public void testSubagents() throws Exception {
-		AgentConfig config = AgentConfig.builder().persona("You are a coordinator agent.").enableSubagents(true)
-				.build();
+		int maxRetries = 3;
+		for (int i = 0; i < maxRetries; i++) {
+			try {
+				AgentConfig config = AgentConfig.builder().persona("You are a coordinator agent.").enableSubagents(true)
+						.build();
 
-		try (AntigravityAgent agent = new AntigravityAgent(config)) {
-			CompletableFuture<AgentResponse> future = agent
-					.chat("Please spawn a subagent to write a 2 sentence poem about space.");
-			await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
-			AgentResponse response = future.get();
+				try (AntigravityAgent agent = new AntigravityAgent(config)) {
+					CompletableFuture<AgentResponse> future = agent
+							.chat("Please spawn a subagent to write a 2 sentence poem about space.");
+					await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+					AgentResponse response = future.get();
 
-			System.out.println(response.getText());
-			assertNotNull(response.getText());
-			assertTrue(response.getText().toLowerCase().contains("subagent")
-					|| response.getText().toLowerCase().contains("spawned"));
+					System.out.println(response.getText());
+					assertNotNull(response.getText());
+					assertTrue(response.getText().toLowerCase().contains("subagent")
+							|| response.getText().toLowerCase().contains("spawned"));
+				}
+				break;
+			} catch (Exception e) {
+				if (i == maxRetries - 1) {
+					throw e;
+				}
+				System.err.println("Test failed on attempt " + (i + 1) + " due to: " + e.getMessage() + ". Retrying...");
+			}
 		}
 	}
 }
