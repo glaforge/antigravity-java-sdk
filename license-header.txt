@@ -13,13 +13,3 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.glaforge.antigravity.hooks;
-
-public record HookResult(boolean allow) {
-	public static HookResult allowed() {
-		return new HookResult(true);
-	}
-	public static HookResult denied() {
-		return new HookResult(false);
-	}
-}

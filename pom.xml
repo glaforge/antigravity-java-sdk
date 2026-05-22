@@ -31,6 +31,9 @@
                 <configuration>
                     <java>
                         <eclipse/>
+                        <licenseHeader>
+                            <file>${maven.multiModuleProjectDirectory}/license-header.txt</file>
+                        </licenseHeader>
                     </java>
                 </configuration>
             </plugin>
