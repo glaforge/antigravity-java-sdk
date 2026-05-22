@@ -9,6 +9,8 @@
     </parent>
 
     <artifactId>antigravity-sdk-wrapper</artifactId>
+    <name>Antigravity Java SDK - Wrapper</name>
+    <description>The main Java wrapper and client for the Antigravity localharness.</description>
 
     <dependencies>
         <dependency>

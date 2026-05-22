@@ -7,6 +7,26 @@
     <version>0.0.2-SNAPSHOT</version>
     <packaging>pom</packaging>
 
+    <name>Antigravity Java SDK</name>
+    <description>A Java SDK for building agents using the Antigravity localharness.</description>
+    <url>https://github.com/glaforge/antigravity-java-sdk</url>
+
+    <licenses>
+        <license>
+            <name>The Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>glaforge</id>
+            <name>Guillaume Laforge</name>
+            <email>glaforge@google.com</email>
+        </developer>
+    </developers>
+
     <modules>
         <module>antigravity-sdk-protocol</module>
         <module>antigravity-sdk-wrapper</module>

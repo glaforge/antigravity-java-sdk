@@ -9,6 +9,8 @@
     </parent>
 
     <artifactId>antigravity-sdk-protocol</artifactId>
+    <name>Antigravity Java SDK - Protocol</name>
+    <description>The Protocol Buffers definitions and generated classes for Antigravity Java SDK.</description>
 
     <dependencies>
         <dependency>
