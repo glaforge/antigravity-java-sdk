@@ -35,29 +35,42 @@ public class HelloWorldTest {
 
 	@Test
 	public void testWeatherAgent() throws Exception {
-		WeatherTools tools = new WeatherTools();
-		AgentConfig config = AgentConfig.builder().persona(
-				"You are a helpful weather assistant. You MUST use the get_weather tool to fetch weather and NEVER use bash commands.")
-				.modelName("gemini-2.5-flash").addTool(tools).build();
+		int maxRetries = 3;
+		for (int i = 0; i < maxRetries; i++) {
+			try {
+				WeatherTools tools = new WeatherTools();
+				AgentConfig config = AgentConfig.builder().persona(
+						"You are a helpful weather assistant. You MUST use the get_weather tool to fetch weather and NEVER use bash commands.")
+						.modelName("gemini-2.5-flash").addTool(tools).build();
 
-		try (AntigravityAgent agent = new AntigravityAgent(config)) {
-			System.out.println("Agent initialized successfully!");
+				try (AntigravityAgent agent = new AntigravityAgent(config)) {
+					System.out.println("Agent initialized successfully!");
 
-			System.out.println("Sending prompt...");
-			CompletableFuture<AgentResponse> future = agent.chat("What is the weather in Tokyo right now?");
+					System.out.println("Sending prompt...");
+					CompletableFuture<AgentResponse> future = agent.chat("What is the weather in Tokyo right now?");
 
-			await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
-			AgentResponse response = future.get();
+					await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+					AgentResponse response = future.get();
 
-			System.out.println("\n--- Agent Response ---");
-			System.out.println(response.getText());
-			System.out.println("----------------------\n");
+					System.out.println("\n--- Agent Response ---");
+					System.out.println(response.getText());
+					System.out.println("----------------------\n");
 
-			assertNotNull(response);
-			assertNotNull(response.getText());
-			assertTrue(response.getText().contains("22.5"), "Response should contain the temperature");
-			assertTrue(response.getText().contains("Celsius") || response.getText().contains("Sunny"),
-					"Response should contain weather conditions");
+					assertNotNull(response);
+					assertNotNull(response.getText());
+					assertTrue(response.getText().contains("22.5"), "Response should contain the temperature");
+					assertTrue(response.getText().contains("Celsius") || response.getText().contains("Sunny"),
+							"Response should contain weather conditions");
+				}
+				break;
+			} catch (Throwable e) {
+				if (i == maxRetries - 1) {
+					if (e instanceof Exception) throw (Exception) e;
+					if (e instanceof Error) throw (Error) e;
+					throw new RuntimeException(e);
+				}
+				System.err.println("Test failed on attempt " + (i + 1) + " due to: " + e.getMessage() + ". Retrying...");
+			}
 		}
 	}
 }

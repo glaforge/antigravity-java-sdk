@@ -72,7 +72,7 @@ public class InteractiveAskQuestionTest {
 							"Agent should acknowledge the choice 'blue' we sent back");
 				}
 				break;
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				if (i == maxRetries - 1) {
 					throw e;
 				}

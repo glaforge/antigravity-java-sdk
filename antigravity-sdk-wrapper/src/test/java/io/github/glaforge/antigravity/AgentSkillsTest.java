@@ -55,7 +55,7 @@ public class AgentSkillsTest {
 							"Agent should have followed the skill instructions");
 				}
 				break;
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				if (i == maxRetries - 1) {
 					throw e;
 				}

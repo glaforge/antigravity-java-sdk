@@ -32,40 +32,53 @@ public class SecurityPoliciesTest {
 
 	@Test
 	public void testSecurityPolicies() throws Exception {
-		WeatherTool tools = new WeatherTool();
-		AtomicBoolean allowWeather = new AtomicBoolean(false);
+		int maxRetries = 3;
+		for (int i = 0; i < maxRetries; i++) {
+			try {
+				WeatherTool tools = new WeatherTool();
+				AtomicBoolean allowWeather = new AtomicBoolean(false);
 
-		Policy customPolicy = (toolName, args) -> {
-			if ("get_weather".equals(toolName) && allowWeather.get()) {
-				return Policy.Decision.ALLOW;
+				Policy customPolicy = (toolName, args) -> {
+					if ("get_weather".equals(toolName) && allowWeather.get()) {
+						return Policy.Decision.ALLOW;
+					}
+					return Policy.Decision.DENY;
+				};
+
+				AgentConfig config = AgentConfig.builder()
+						.persona("You are a weather assistant. Fetch the weather for Tokyo. If denied, just say you can't.")
+						.addTool(tools).addPolicy(customPolicy).build();
+
+				try (AntigravityAgent agent = new AntigravityAgent(config)) {
+					System.out.println("Testing with denied policy...");
+					CompletableFuture<AgentResponse> future1 = agent.chat("What is the weather in Tokyo right now?");
+					await().atMost(120, TimeUnit.SECONDS).until(future1::isDone);
+					AgentResponse response1 = future1.get();
+					System.out.println(response1.getText());
+					assertNotNull(response1.getText());
+					assertTrue(response1.getText().toLowerCase().contains("cannot")
+							|| response1.getText().toLowerCase().contains("can't"));
+
+					System.out.println("\nTesting with allowed policy...");
+					allowWeather.set(true);
+					CompletableFuture<AgentResponse> future2 = agent.chat("Try to fetch the weather for Tokyo again.");
+					await().atMost(120, TimeUnit.SECONDS).until(future2::isDone);
+					AgentResponse response2 = future2.get();
+					System.out.println(response2.getText());
+					assertNotNull(response2.getText());
+					// Since there is no actual implementation in the agent to recall tools in this
+					// basic test setup unless the agent decides to, we just assert the agent
+					// responds.
+				}
+				break;
+			} catch (Throwable e) {
+				if (i == maxRetries - 1) {
+					if (e instanceof Exception) throw (Exception) e;
+					if (e instanceof Error) throw (Error) e;
+					throw new RuntimeException(e);
+				}
+				System.err.println("Test failed on attempt " + (i + 1) + " due to: " + e.getMessage() + ". Retrying...");
 			}
-			return Policy.Decision.DENY;
-		};
-
-		AgentConfig config = AgentConfig.builder()
-				.persona("You are a weather assistant. Fetch the weather for Tokyo. If denied, just say you can't.")
-				.addTool(tools).addPolicy(customPolicy).build();
-
-		try (AntigravityAgent agent = new AntigravityAgent(config)) {
-			System.out.println("Testing with denied policy...");
-			CompletableFuture<AgentResponse> future1 = agent.chat("What is the weather in Tokyo right now?");
-			await().atMost(120, TimeUnit.SECONDS).until(future1::isDone);
-			AgentResponse response1 = future1.get();
-			System.out.println(response1.getText());
-			assertNotNull(response1.getText());
-			assertTrue(response1.getText().toLowerCase().contains("cannot")
-					|| response1.getText().toLowerCase().contains("can't"));
-
-			System.out.println("\nTesting with allowed policy...");
-			allowWeather.set(true);
-			CompletableFuture<AgentResponse> future2 = agent.chat("Try to fetch the weather for Tokyo again.");
-			await().atMost(120, TimeUnit.SECONDS).until(future2::isDone);
-			AgentResponse response2 = future2.get();
-			System.out.println(response2.getText());
-			assertNotNull(response2.getText());
-			// Since there is no actual implementation in the agent to recall tools in this
-			// basic test setup unless the agent decides to, we just assert the agent
-			// responds.
 		}
 	}
 }

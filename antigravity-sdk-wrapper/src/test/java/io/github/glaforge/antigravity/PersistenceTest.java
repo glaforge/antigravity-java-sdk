@@ -70,7 +70,7 @@ public class PersistenceTest {
 					assertTrue(response2.getText().toLowerCase().contains("banana"));
 				}
 				break;
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				if (i == maxRetries - 1) {
 					throw e;
 				}

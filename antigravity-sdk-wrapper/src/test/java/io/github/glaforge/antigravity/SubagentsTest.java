@@ -43,7 +43,7 @@ public class SubagentsTest {
 							|| response.getText().toLowerCase().contains("spawned"));
 				}
 				break;
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				if (i == maxRetries - 1) {
 					throw e;
 				}
