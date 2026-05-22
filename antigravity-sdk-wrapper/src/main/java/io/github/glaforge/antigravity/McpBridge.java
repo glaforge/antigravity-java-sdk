@@ -134,7 +134,7 @@ public class McpBridge {
 		public Object execute(JsonNode arguments) throws Exception {
 			Map<String, Object> argsMap = mapper.convertValue(arguments, new TypeReference<Map<String, Object>>() {
 			});
-			CallToolRequest request = new CallToolRequest(mcpTool.name(), argsMap);
+			CallToolRequest request = CallToolRequest.builder(mcpTool.name()).arguments(argsMap).build();
 			CallToolResult result = client.callTool(request);
 
 			if (result == null || result.content() == null) {
