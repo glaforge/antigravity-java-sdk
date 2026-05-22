@@ -331,7 +331,6 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 
 				InputEvent event = InputEvent.newBuilder().setComplexUserInput(userInputBuilder.build()).build();
 				String payload = JsonFormat.printer().omittingInsignificantWhitespace().print(event);
-				System.out.println("DEBUG JSON Payload: " + payload);
 				webSocket.sendText(payload, true);
 			} catch (Exception e) {
 				currentChatFuture.completeExceptionally(e);
@@ -435,7 +434,6 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 
 	private void handleIncomingMessage(WebSocket webSocket, String message) {
 		try {
-			System.out.println("DEBUG WS: " + message);
 			JsonNode payload = jsonMapper.readTree(message);
 
 			if (payload.has("stepUpdate")) {
@@ -472,7 +470,6 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 
 				if (stepUpdate.has("usageMetadata")) {
 					JsonNode usage = stepUpdate.get("usageMetadata");
-					System.out.println("Parsed Usage Metadata: " + usage.toString());
 					currentUsage = new UsageMetadata(usage.path("promptTokenCount").asInt(),
 							usage.path("cachedContentTokenCount").asInt(), usage.path("candidatesTokenCount").asInt(),
 							usage.path("thoughtsTokenCount").asInt(), usage.path("totalTokenCount").asInt());
@@ -502,7 +499,6 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 					Policy.Decision decision = evaluatePolicies(toolName, null);
 					boolean accepted = (decision != Policy.Decision.DENY);
 
-					System.out.println("Tool confirmation request for " + toolName + " accepted=" + accepted);
 					try {
 						String trajectoryId = stepUpdate.get("trajectoryId").asText();
 						int stepIndex = stepUpdate.get("stepIndex").asInt();
@@ -543,7 +539,6 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 
 										String payloadJson = com.google.protobuf.util.JsonFormat.printer()
 												.omittingInsignificantWhitespace().print(inputEvent);
-										System.out.println("DEBUG WS SENDING: " + payloadJson);
 										webSocket.sendText(payloadJson, true);
 									} catch (Exception e) {
 										e.printStackTrace();
@@ -598,14 +593,12 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 				ToolCall parsedCall = new ToolCall(name, args);
 				triggerPreToolCallDecide(parsedCall).thenAccept(res -> {
 					if (!res.allow()) {
-						System.out.println("Hook denied execution of custom tool: " + name);
 						sendToolResponse(callId, "{\"error\": \"Execution denied by hook\"}");
 						return;
 					}
 
 					Policy.Decision decision = evaluatePolicies(name, args);
 					if (decision == Policy.Decision.DENY) {
-						System.out.println("Policy denied execution of custom tool: " + name);
 						sendToolResponse(callId, "{\"error\": \"Execution denied by policy\"}");
 						return;
 					}
@@ -648,7 +641,6 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	@Override
 	public void close() throws Exception {
 		triggerSessionEnd().join();
-		System.out.println("Closing agent...");
 
 		if (mcpBridge != null) {
 			mcpBridge.close();
@@ -665,14 +657,11 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 		if (goProcess != null && goProcess.isAlive()) {
 			boolean exited = goProcess.waitFor(2, TimeUnit.SECONDS);
 			if (!exited) {
-				System.out.println("Stdin closed, cleaning up...");
 				goProcess.getOutputStream().close();
 				exited = goProcess.waitFor(3, TimeUnit.SECONDS);
 			}
 
-			System.out.println("Process exited gracefully: " + exited);
 			if (!exited) {
-				System.out.println("Force killing process...");
 				goProcess.destroyForcibly();
 			}
 		}

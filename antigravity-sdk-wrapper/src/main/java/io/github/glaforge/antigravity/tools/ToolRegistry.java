@@ -42,14 +42,12 @@ public class ToolRegistry {
 
 				method.setAccessible(true);
 				registry.put(toolName, new ToolMethodHandler(serviceInstance, method));
-				System.out.println("Successfully registered native tool: " + toolName);
 			}
 		}
 	}
 
 	public void registerDynamicTool(DynamicTool tool) {
 		dynamicRegistry.put(tool.getName(), tool);
-		System.out.println("Successfully registered dynamic tool: " + tool.getName());
 	}
 
 	public List<Tool> getToolDefinitions() {
