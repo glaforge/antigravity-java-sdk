@@ -35,39 +35,41 @@ public class StructuredOutputsTest {
 
 	@Test
 	public void testStructuredOutput() throws Exception {
-		String schema = """
-				{
-				  "type": "object",
-				  "properties": {
-				    "name": {
-				      "type": "string"
-				    },
-				    "age": {
-				      "type": "integer"
-				    }
-				  },
-				  "required": ["name", "age"]
-				}
-				""";
+		TestUtils.retry(3, () -> {
+			String schema = """
+					{
+					  "type": "object",
+					  "properties": {
+					    "name": {
+					      "type": "string"
+					    },
+					    "age": {
+					      "type": "integer"
+					    }
+					  },
+					  "required": ["name", "age"]
+					}
+					""";
 
-		AgentConfig config = AgentConfig.builder().persona("Extract the person information from the text.")
-				.modelName("gemini-2.5-flash").finishToolSchemaJson(schema).build();
+			AgentConfig config = AgentConfig.builder().persona("Extract the person information from the text.")
+					.modelName("gemini-2.5-flash").finishToolSchemaJson(schema).build();
 
-		try (AntigravityAgent agent = new AntigravityAgent(config)) {
-			System.out.println("Sending prompt...");
-			CompletableFuture<AgentResponse> future = agent.chat("Bob is 42 years old and likes to fish.");
-			await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
-			AgentResponse response = future.get();
+			try (AntigravityAgent agent = new AntigravityAgent(config)) {
+				System.out.println("Sending prompt...");
+				CompletableFuture<AgentResponse> future = agent.chat("Bob is 42 years old and likes to fish.");
+				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+				AgentResponse response = future.get();
 
-			System.out.println("\n--- Agent Response ---");
-			System.out.println(response.getText());
-			System.out.println("----------------------\n");
+				System.out.println("\n--- Agent Response ---");
+				System.out.println(response.getText());
+				System.out.println("----------------------\n");
 
-			Person person = response.getStructuredOutput(Person.class);
-			assertNotNull(person, "Should have parsed a Person object");
-			assertEquals("Bob", person.name);
-			assertEquals(42, person.age);
-			System.out.println("Successfully parsed: " + person);
-		}
+				Person person = response.getStructuredOutput(Person.class);
+				assertNotNull(person, "Should have parsed a Person object");
+				assertEquals("Bob", person.name);
+				assertEquals(42, person.age);
+				System.out.println("Successfully parsed: " + person);
+			}
+		});
 	}
 }

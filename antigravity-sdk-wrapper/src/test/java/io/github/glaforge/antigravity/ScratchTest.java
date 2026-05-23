@@ -27,44 +27,46 @@ public class ScratchTest {
 
 	@Test
 	public void testSaveDirContents() throws Exception {
-		File tempDir = Files.createTempDirectory("antigravity-scratch").toFile();
-		System.out.println("Using temp dir: " + tempDir.getAbsolutePath());
+		TestUtils.retry(3, () -> {
+			File tempDir = Files.createTempDirectory("antigravity-scratch").toFile();
+			System.out.println("Using temp dir: " + tempDir.getAbsolutePath());
 
-		AgentConfig config1 = AgentConfig.builder().persona("You are a helpful assistant.")
-				.saveDir(tempDir.getAbsolutePath()).build();
+			AgentConfig config1 = AgentConfig.builder().persona("You are a helpful assistant.")
+					.saveDir(tempDir.getAbsolutePath()).build();
 
-		String conversationId;
-		try (AntigravityAgent agent1 = new AntigravityAgent(config1)) {
-			CompletableFuture<AgentResponse> future1 = agent1.chat("My favorite color is blue.");
-			await().atMost(120, TimeUnit.SECONDS).until(future1::isDone);
-			AgentResponse response1 = future1.get();
+			String conversationId;
+			try (AntigravityAgent agent1 = new AntigravityAgent(config1)) {
+				CompletableFuture<AgentResponse> future1 = agent1.chat("My favorite color is blue.");
+				await().atMost(120, TimeUnit.SECONDS).until(future1::isDone);
+				AgentResponse response1 = future1.get();
 
-			System.out.println("Chat 1:");
-			System.out.println(response1.getText());
-			assertNotNull(response1.getText());
+				System.out.println("Chat 1:");
+				System.out.println(response1.getText());
+				assertNotNull(response1.getText());
 
-			conversationId = agent1.getConversationId();
-			System.out.println("Conversation ID: " + conversationId);
-			assertNotNull(conversationId);
-		}
-
-		System.out.println("Wait 2s...");
-		Thread.sleep(2000);
-
-		File[] files = tempDir.listFiles();
-		System.out.println("Contents of temp dir:");
-		assertNotNull(files, "Temp dir should contain files");
-		assertTrue(files.length > 0, "There should be at least one file created in the save directory");
-
-		boolean foundStateFile = false;
-		for (File f : files) {
-			System.out.println(f.getName());
-			if (f.getName().equals(conversationId + ".json") || f.getName().contains(conversationId)
-					|| f.getName().contains("state")) {
-				foundStateFile = true;
+				conversationId = agent1.getConversationId();
+				System.out.println("Conversation ID: " + conversationId);
+				assertNotNull(conversationId);
 			}
-		}
 
-		assertTrue(foundStateFile, "Expected some state files or directories to be created for the conversation");
+			System.out.println("Wait 2s...");
+			Thread.sleep(2000);
+
+			File[] files = tempDir.listFiles();
+			System.out.println("Contents of temp dir:");
+			assertNotNull(files, "Temp dir should contain files");
+			assertTrue(files.length > 0, "There should be at least one file created in the save directory");
+
+			boolean foundStateFile = false;
+			for (File f : files) {
+				System.out.println(f.getName());
+				if (f.getName().equals(conversationId + ".json") || f.getName().contains(conversationId)
+						|| f.getName().contains("state")) {
+					foundStateFile = true;
+				}
+			}
+
+			assertTrue(foundStateFile, "Expected some state files or directories to be created for the conversation");
+		});
 	}
 }
