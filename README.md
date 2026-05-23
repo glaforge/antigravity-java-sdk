@@ -49,7 +49,7 @@ try (AntigravityAgent agent = new AntigravityAgent(config)) {
 }
 ```
 
-### 3. Tool Calling (Agent Skills)
+### 3. Tool Calling
 
 Provide custom tools that the agent can execute during its turn.
 
@@ -72,7 +72,19 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
-### 4. Security Policies
+### 4. Agent Skills
+
+Extend your agent with complex capabilities by loading file-based skills containing instructions, resources, and examples.
+
+```java
+AgentConfig config = AgentConfig.builder()
+    .systemPrompt("You are a specialized developer.")
+    .addSkillPath("/path/to/my-agent-skill")
+    .addSkillPath("/path/to/another-skill")
+    .build();
+```
+
+### 5. Security Policies
 
 Restrict which tools the agent is allowed to execute using Security Policies.
 
@@ -83,7 +95,7 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
-### 5. Lifecycle Hooks
+### 6. Lifecycle Hooks
 
 Hook into the agent's execution lifecycle to monitor, intercept, or modify interactions.
 
@@ -102,7 +114,7 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
-### 6. Model Context Protocol (MCP)
+### 7. Model Context Protocol (MCP)
 
 Seamlessly connect to Model Context Protocol (MCP) servers to expand your agent's capabilities dynamically.
 
@@ -118,7 +130,7 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
-### 7. Multimodal Inputs
+### 8. Multimodal Inputs
 
 Pass images, audio, and video directly to the agent.
 
@@ -131,7 +143,7 @@ AgentInput input = AgentInput.builder()
 AgentResponse response = agent.turn(input);
 ```
 
-### 8. Structured Outputs
+### 9. Structured Outputs
 
 Force the agent to respond in a specific JSON schema format.
 
@@ -141,7 +153,7 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
-### 9. Subagents
+### 10. Subagents
 
 Agents can spawn and delegate tasks to subagents.
 
