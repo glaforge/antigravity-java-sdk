@@ -9,7 +9,7 @@
 
     <name>Antigravity Java SDK</name>
     <description>A Java SDK for building agents using the Antigravity localharness.</description>
-    <url child.inherit.append.path="false">https://github.com/glaforge/antigravity-java-sdk</url>
+    <url>https://github.com/glaforge/antigravity-java-sdk</url>
 
     <licenses>
         <license>
@@ -98,7 +98,7 @@
         </dependencies>
     </dependencyManagement>
 
-    <scm child.inherit.append.path="false">
+    <scm>
         <connection>scm:git:git://github.com/glaforge/antigravity-java-sdk.git</connection>
         <developerConnection>scm:git:git@github.com:glaforge/antigravity-java-sdk.git</developerConnection>
         <url>https://github.com/glaforge/antigravity-java-sdk</url>
