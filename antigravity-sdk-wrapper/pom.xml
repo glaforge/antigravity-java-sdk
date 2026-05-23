@@ -13,6 +13,10 @@
     <description>The main Java wrapper and client for the Antigravity localharness.</description>
     <url>https://github.com/glaforge/antigravity-java-sdk</url>
 
+    <properties>
+        <jreleaser.skip>true</jreleaser.skip>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.awaitility</groupId>

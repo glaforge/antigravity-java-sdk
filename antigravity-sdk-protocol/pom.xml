@@ -13,6 +13,10 @@
     <description>The Protocol Buffers definitions and generated classes for Antigravity Java SDK.</description>
     <url>https://github.com/glaforge/antigravity-java-sdk</url>
 
+    <properties>
+        <jreleaser.skip>true</jreleaser.skip>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.google.protobuf</groupId>
