@@ -18,7 +18,8 @@ package io.github.glaforge.antigravity.hooks;
 /**
  * Represents the result of an authorization or validation hook.
  *
- * @param allow true if the action is allowed, false if denied
+ * @param allow
+ *            true if the action is allowed, false if denied
  */
 public record HookResult(boolean allow) {
 	/**

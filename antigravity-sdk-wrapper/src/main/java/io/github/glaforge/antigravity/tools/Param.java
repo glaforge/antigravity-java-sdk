@@ -21,24 +21,24 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation used to expose a Java method as a tool to the Antigravity agent.
+ * Annotation used to describe a parameter of a tool method.
  */
-@Target(ElementType.METHOD)
+@Target(ElementType.PARAMETER)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface AntigravityTool {
+public @interface Param {
 	/**
-	 * Overrides the tool name sent to the Go harness.
-	 * If empty, the method name is used.
+	 * The name of the parameter in the JSON schema. If empty, the Java parameter
+	 * name is used (requires -parameters compiler flag).
 	 *
-	 * @return the tool name
+	 * @return the parameter name
 	 */
 	String name() default "";
-	
+
 	/**
-	 * Explains what the tool does.
-	 * This description is passed to the LLM.
+	 * Explains what the parameter represents. This description is passed to the LLM
+	 * in the JSON schema.
 	 *
-	 * @return the tool description
+	 * @return the parameter description
 	 */
 	String description() default "";
 }

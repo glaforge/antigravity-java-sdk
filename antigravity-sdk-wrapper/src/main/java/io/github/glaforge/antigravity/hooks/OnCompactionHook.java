@@ -18,15 +18,17 @@ package io.github.glaforge.antigravity.hooks;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * A hook that is triggered when the agent's internal context is compacted.
- * This can be used to monitor context size or perform actions when history is summarized.
+ * A hook that is triggered when the agent's internal context is compacted. This
+ * can be used to monitor context size or perform actions when history is
+ * summarized.
  */
 @FunctionalInterface
 public interface OnCompactionHook extends AgentHook {
 	/**
 	 * Called when a compaction event occurs.
 	 *
-	 * @param stepData the data representing the compaction step
+	 * @param stepData
+	 *            the data representing the compaction step
 	 * @return a CompletableFuture that completes when the hook is finished
 	 */
 	CompletableFuture<Void> onCompaction(Object stepData);

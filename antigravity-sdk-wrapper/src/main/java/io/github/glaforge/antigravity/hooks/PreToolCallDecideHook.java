@@ -25,7 +25,8 @@ public interface PreToolCallDecideHook extends AgentHook {
 	/**
 	 * Called before a tool is executed to decide if it should proceed.
 	 *
-	 * @param toolCall the tool call to evaluate
+	 * @param toolCall
+	 *            the tool call to evaluate
 	 * @return a CompletableFuture containing the HookResult for the decision
 	 */
 	CompletableFuture<HookResult> onPreToolCallDecide(ToolCall toolCall);

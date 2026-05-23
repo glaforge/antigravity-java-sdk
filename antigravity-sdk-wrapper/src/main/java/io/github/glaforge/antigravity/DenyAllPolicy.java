@@ -18,11 +18,11 @@ package io.github.glaforge.antigravity;
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**
- * A policy that automatically denies all tool executions.
- * This can be used as a restrictive default policy.
+ * A policy that automatically denies all tool executions. This can be used as a
+ * restrictive default policy.
  */
 public class DenyAllPolicy implements Policy {
-	
+
 	/**
 	 * Constructs a new DenyAllPolicy.
 	 */

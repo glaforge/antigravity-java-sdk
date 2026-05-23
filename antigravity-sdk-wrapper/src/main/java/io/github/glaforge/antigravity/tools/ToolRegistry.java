@@ -17,14 +17,16 @@ package io.github.glaforge.antigravity.tools;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
-import io.github.glaforge.antigravity.localharness.Tool;
 import io.github.glaforge.antigravity.DynamicTool;
+import io.github.glaforge.antigravity.ToolBuilderFactory;
 
 /**
  * Manages the registration and execution of tools for the agent.
@@ -37,19 +39,22 @@ public class ToolRegistry {
 	/**
 	 * Default constructor.
 	 */
-	public ToolRegistry() {}
+	public ToolRegistry() {
+	}
 
 	/**
-	 * Scans the provided object for methods annotated with {@literal @}AntigravityTool and registers them.
+	 * Scans the provided object for methods annotated with {@literal @}Tool and
+	 * registers them.
 	 *
-	 * @param serviceInstance the object containing the tool methods
+	 * @param serviceInstance
+	 *            the object containing the tool methods
 	 */
 	public void registerToolsFromObject(Object serviceInstance) {
 		Class<?> clazz = serviceInstance.getClass();
 
 		for (Method method : clazz.getDeclaredMethods()) {
-			if (method.isAnnotationPresent(AntigravityTool.class)) {
-				AntigravityTool annotation = method.getAnnotation(AntigravityTool.class);
+			if (method.isAnnotationPresent(Tool.class)) {
+				Tool annotation = method.getAnnotation(Tool.class);
 
 				String toolName = annotation.name().isEmpty() ? method.getName() : annotation.name();
 
@@ -62,7 +67,8 @@ public class ToolRegistry {
 	/**
 	 * Registers a dynamic tool implementation directly.
 	 *
-	 * @param tool the DynamicTool instance to register
+	 * @param tool
+	 *            the DynamicTool instance to register
 	 */
 	public void registerDynamicTool(DynamicTool tool) {
 		dynamicRegistry.put(tool.getName(), tool);
@@ -73,30 +79,53 @@ public class ToolRegistry {
 	 *
 	 * @return a list of Tool definitions
 	 */
-	public List<Tool> getToolDefinitions() {
-		List<Tool> definitions = new ArrayList<>();
+	public List<Object> getToolDefinitions() {
+		List<Object> definitions = new ArrayList<>();
 
 		for (Map.Entry<String, ToolMethodHandler> entry : registry.entrySet()) {
-			AntigravityTool annotation = entry.getValue().method().getAnnotation(AntigravityTool.class);
-			StringBuilder properties = new StringBuilder();
+			Tool annotation = entry.getValue().method().getAnnotation(Tool.class);
+			ObjectNode parametersNode = mapper.createObjectNode();
+			parametersNode.put("type", "object");
+			ObjectNode properties = parametersNode.putObject("properties");
+			ArrayNode required = mapper.createArrayNode();
+
 			Parameter[] params = entry.getValue().method().getParameters();
-			for (int i = 0; i < params.length; i++) {
-				Parameter p = params[i];
-				String typeStr = "string";
-				if (p.getType() == int.class || p.getType() == Integer.class)
-					typeStr = "integer";
-				else if (p.getType() == boolean.class || p.getType() == Boolean.class)
-					typeStr = "boolean";
-				else if (p.getType() == double.class || p.getType() == Double.class)
-					typeStr = "number";
-				properties.append("\"").append(p.getName()).append("\": {\"type\": \"").append(typeStr).append("\"}");
-				if (i < params.length - 1)
-					properties.append(", ");
+			for (Parameter p : params) {
+				String paramName = p.getName();
+				String description = "";
+
+				if (p.isAnnotationPresent(Param.class)) {
+					Param paramAnno = p.getAnnotation(Param.class);
+					if (!paramAnno.name().isEmpty()) {
+						paramName = paramAnno.name();
+					}
+					description = paramAnno.description();
+				}
+
+				ObjectNode paramSchema = generateSchema(p.getParameterizedType());
+				if (!description.isEmpty()) {
+					paramSchema.put("description", description);
+				}
+
+				properties.set(paramName, paramSchema);
+				required.add(paramName);
 			}
 
-			String parametersJsonSchema = "{\"type\": \"object\", \"properties\": {" + properties.toString() + "}}";
-			definitions.add(Tool.newBuilder().setName(entry.getKey()).setDescription(annotation.description())
-					.setParametersJsonSchema(parametersJsonSchema).build());
+			if (required.size() > 0) {
+				parametersNode.set("required", required);
+			}
+
+			String parametersJsonSchema = "";
+			try {
+				parametersJsonSchema = mapper.writeValueAsString(parametersNode);
+			} catch (Exception e) {
+				throw new RuntimeException("Failed to generate schema", e);
+			}
+
+			var builder = ToolBuilderFactory.newToolBuilder();
+			builder.setName(entry.getKey()).setDescription(annotation.description())
+					.setParametersJsonSchema(parametersJsonSchema);
+			definitions.add(builder.build());
 		}
 		for (DynamicTool dt : dynamicRegistry.values()) {
 			definitions.add(dt.getDefinition());
@@ -105,13 +134,68 @@ public class ToolRegistry {
 		return definitions;
 	}
 
+	private ObjectNode generateSchema(java.lang.reflect.Type genericType) {
+		ObjectNode schema = mapper.createObjectNode();
+		Class<?> type;
+		java.lang.reflect.Type[] typeArgs = null;
+
+		if (genericType instanceof java.lang.reflect.ParameterizedType pType) {
+			type = (Class<?>) pType.getRawType();
+			typeArgs = pType.getActualTypeArguments();
+		} else if (genericType instanceof Class) {
+			type = (Class<?>) genericType;
+		} else {
+			type = Object.class;
+		}
+
+		if (type == String.class || type == CharSequence.class) {
+			schema.put("type", "string");
+		} else if (type == int.class || type == Integer.class || type == long.class || type == Long.class) {
+			schema.put("type", "integer");
+		} else if (type == double.class || type == Double.class || type == float.class || type == Float.class) {
+			schema.put("type", "number");
+		} else if (type == boolean.class || type == Boolean.class) {
+			schema.put("type", "boolean");
+		} else if (type.isEnum()) {
+			schema.put("type", "string");
+			ArrayNode enumNodes = schema.putArray("enum");
+			for (Object e : type.getEnumConstants()) {
+				enumNodes.add(e.toString());
+			}
+		} else if (List.class.isAssignableFrom(type) || type.isArray()) {
+			schema.put("type", "array");
+			if (type.isArray()) {
+				schema.set("items", generateSchema(type.getComponentType()));
+			} else if (typeArgs != null && typeArgs.length > 0) {
+				schema.set("items", generateSchema(typeArgs[0]));
+			} else {
+				schema.set("items", mapper.createObjectNode());
+			}
+		} else {
+			schema.put("type", "object");
+			ObjectNode properties = schema.putObject("properties");
+			for (java.lang.reflect.Field f : type.getDeclaredFields()) {
+				if (java.lang.reflect.Modifier.isStatic(f.getModifiers())
+						|| java.lang.reflect.Modifier.isTransient(f.getModifiers())) {
+					continue;
+				}
+				properties.set(f.getName(), generateSchema(f.getGenericType()));
+			}
+		}
+
+		return schema;
+	}
+
 	/**
 	 * Executes a registered tool by name with the given JSON arguments.
 	 *
-	 * @param toolName the name of the tool to execute
-	 * @param arguments the JSON node containing the arguments
+	 * @param toolName
+	 *            the name of the tool to execute
+	 * @param arguments
+	 *            the JSON node containing the arguments
 	 * @return a JSON string representation of the tool's execution result
-	 * @throws Exception if tool execution fails
+	 * @throws Exception
+	 *             if tool execution fails
 	 */
 	public String execute(String toolName, JsonNode arguments) throws Exception {
 		if (dynamicRegistry.containsKey(toolName)) {
@@ -143,6 +227,13 @@ public class ToolRegistry {
 		for (int i = 0; i < parameters.length; i++) {
 			Parameter param = parameters[i];
 			String name = param.getName();
+			if (param.isAnnotationPresent(Param.class)) {
+				Param paramAnno = param.getAnnotation(Param.class);
+				if (!paramAnno.name().isEmpty()) {
+					name = paramAnno.name();
+				}
+			}
+
 			Class<?> type = param.getType();
 
 			if (arguments == null || !arguments.has(name)) {

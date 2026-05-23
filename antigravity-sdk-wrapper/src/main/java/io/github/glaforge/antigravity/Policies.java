@@ -136,8 +136,10 @@ public final class Policies {
 		/**
 		 * Evaluates the policy condition.
 		 *
-		 * @param toolName the name of the tool
-		 * @param arguments the arguments provided to the tool
+		 * @param toolName
+		 *            the name of the tool
+		 * @param arguments
+		 *            the arguments provided to the tool
 		 * @return true if the condition is met
 		 */
 		boolean test(String toolName, JsonNode arguments);

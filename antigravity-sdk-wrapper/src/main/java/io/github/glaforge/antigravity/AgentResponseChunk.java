@@ -25,8 +25,10 @@ public class AgentResponseChunk {
 	/**
 	 * Constructs a new chunk.
 	 *
-	 * @param textDelta the text delta
-	 * @param thoughtsDelta the thoughts delta
+	 * @param textDelta
+	 *            the text delta
+	 * @param thoughtsDelta
+	 *            the thoughts delta
 	 */
 	public AgentResponseChunk(String textDelta, String thoughtsDelta) {
 		this.textDelta = textDelta != null ? textDelta : "";

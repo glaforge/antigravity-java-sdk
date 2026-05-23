@@ -29,7 +29,7 @@ public abstract class McpServerConfig {
 	 */
 	public enum TransportType {
 		/** Standard Input/Output transport. */
-		STDIO, 
+		STDIO,
 		/** Server-Sent Events transport. */
 		SSE
 	}
@@ -39,7 +39,8 @@ public abstract class McpServerConfig {
 	/**
 	 * Constructs a new configuration with the specified transport type.
 	 * 
-	 * @param type The transport type.
+	 * @param type
+	 *            The transport type.
 	 */
 	protected McpServerConfig(TransportType type) {
 		this.type = type;

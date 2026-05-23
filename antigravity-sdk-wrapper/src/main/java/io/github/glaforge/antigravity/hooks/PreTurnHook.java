@@ -25,7 +25,8 @@ public interface PreTurnHook extends AgentHook {
 	/**
 	 * Called before the agent's turn.
 	 *
-	 * @param prompt the initial prompt or input
+	 * @param prompt
+	 *            the initial prompt or input
 	 * @return a CompletableFuture containing the HookResult for the execution
 	 */
 	CompletableFuture<HookResult> onPreTurn(String prompt);

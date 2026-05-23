@@ -1,17 +1,18 @@
 # Antigravity SDK for Java
 
-Welcome to the **Antigravity SDK for Java**, an unofficial Java port of the Antigravity AI Agent SDK! 
+Welcome to the **Antigravity SDK for Java**, an unofficial Java port of the Python-based [Antigravity SDK](https://antigravity.google/product/antigravity-sdk)! 
 
-This library allows you to build, configure, and execute powerful AI agents in Java, bridging the gap for enterprise Java developers who want to harness the power of Antigravity.
+This library allows you to build, configure, host, and execute powerful AI agents in Java, bridging the gap for enterprise Java developers who want to harness the power of Antigravity.
 
 > [!NOTE]
-> This entire project was autonomously generated and implemented using the **Antigravity CLI**!
+> This entire project was autonomously generated and implemented using the **Antigravity CLI**
+> under the guidance of a human developer (me!).
 
 ## How it works
 
 The official Antigravity SDK (currently available in Python) operates by wrapping a core, pre-compiled Go binary (`localharness`) that manages the underlying agent interactions, state, and websocket communications. 
 
-To build this Java SDK, we reverse-engineered the Python implementation's internal gRPC and WebSocket protocol layer. We extract the appropriate native Go binary from the upstream Python wheels at build time, spawn it as a subprocess, and seamlessly orchestrate the exact same agent capabilities in native Java.
+To build this Java SDK, I reverse-engineered the Python implementation's internal gRPC and WebSocket protocol layer. I extract the appropriate native Go binary from the upstream Python wheels at build time, spawn it as a subprocess, and seamlessly orchestrate the exact same agent capabilities in native Java.
 
 ## Features & Usage
 
@@ -50,17 +51,46 @@ try (AntigravityAgent agent = new AntigravityAgent(config)) {
 
 ### 3. Tool Calling
 
-Provide custom tools that the agent can execute during its turn.
+Provide custom tools that the agent can execute during its turn. The SDK provides two ways to do this:
+
+#### Annotated Tools (Recommended)
+
+The easiest way is to use the `@Tool` and `@Param` annotations. The SDK will automatically generate the required JSON Schema for the LLM, seamlessly parsing primitives and complex POJO/Record arguments.
+
+```java
+public class MyToolbox {
+    @Tool(name = "get_weather", description = "Get the weather for a location.")
+    public String getWeather(
+        @Param(name = "location", description = "The city and state, e.g. San Francisco, CA") String location
+    ) {
+        return "The weather in " + location + " is sunny.";
+    }
+}
+
+AgentConfig config = AgentConfig.builder()
+    .persona("You can fetch the weather.")
+    .addTool(new MyToolbox())
+    .build();
+```
+
+#### Dynamic Tools
+
+For advanced use-cases where tools need to be defined at runtime without classes, you can implement the `DynamicTool` interface directly and provide the raw JSON Schema:
 
 ```java
 AgentConfig config = AgentConfig.builder()
     .persona("You can fetch the weather.")
-    .addTool(new AntigravityTool() {
+    .addTool(new DynamicTool() {
         @Override
         public String getName() { return "get_weather"; }
         
-        @Override
-        public String getDescription() { return "Get the weather for a location."; }
+        public Tool getDefinition() {
+            return Tool.newBuilder()
+                .setName("get_weather")
+                .setDescription("Get the weather for a location.")
+                .setParametersJsonSchema("{\"type\":\"object\",\"properties\":{\"location\":{\"type\":\"string\"}}}")
+                .build();
+        }
         
         @Override
         public Object execute(JsonNode arguments) {

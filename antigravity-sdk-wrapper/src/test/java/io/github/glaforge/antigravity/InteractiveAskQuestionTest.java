@@ -31,53 +31,46 @@ public class InteractiveAskQuestionTest {
 
 	@Test
 	public void testAskQuestionInteraction() throws Exception {
-		int maxRetries = 3;
-		for (int i = 0; i < maxRetries; i++) {
-			try {
-				AtomicReference<UserQuestionsRequest> capturedRequest = new AtomicReference<>();
+		TestUtils.retry(3, () -> {
+			AtomicReference<UserQuestionsRequest> capturedRequest = new AtomicReference<>();
 
-				AgentHook mockAskHook = new OnInteractionHook() {
-					@Override
-					public CompletableFuture<java.util.List<UserQuestionAnswer>> onInteraction(UserQuestionsRequest request) {
-						capturedRequest.set(request);
+			AgentHook mockAskHook = new OnInteractionHook() {
+				@Override
+				public CompletableFuture<java.util.List<UserQuestionAnswer>> onInteraction(
+						UserQuestionsRequest request) {
+					capturedRequest.set(request);
 
-						MultipleChoiceAnswer choiceAns = MultipleChoiceAnswer.newBuilder().addSelectedChoiceIndices(1)
-								.setFreeformResponse("I pick blue").build();
+					MultipleChoiceAnswer choiceAns = MultipleChoiceAnswer.newBuilder().addSelectedChoiceIndices(1)
+							.setFreeformResponse("I pick blue").build();
 
-						UserQuestionAnswer answer = UserQuestionAnswer.newBuilder().setMultipleChoiceAnswer(choiceAns).build();
+					UserQuestionAnswer answer = UserQuestionAnswer.newBuilder().setMultipleChoiceAnswer(choiceAns)
+							.build();
 
-						return CompletableFuture.completedFuture(java.util.List.of(answer));
-					}
-				};
-
-				AgentConfig config = AgentConfig.builder().allowUserQuestions(true).addHook(mockAskHook).build();
-
-				try (AntigravityAgent agent = new AntigravityAgent(config)) {
-					AgentInput prompt = new AgentInput.Text(
-							"Ask me a multiple choice question with 3 options: red, blue, green. Then tell me what I chose.");
-					CompletableFuture<AgentResponse> responseFuture = agent.chat(List.of(prompt));
-
-					await().atMost(120, TimeUnit.SECONDS).until(responseFuture::isDone);
-					AgentResponse response = responseFuture.get();
-
-					assertNotNull(capturedRequest.get(), "Agent should have requested interaction");
-
-					assertTrue(capturedRequest.get().getQuestionsCount() > 0, "Should have at least one question");
-					UserQuestion q = capturedRequest.get().getQuestions(0);
-
-					assertTrue(q.hasMultipleChoice());
-					assertEquals(3, q.getMultipleChoice().getChoicesCount());
-
-					assertTrue(response.getText().toLowerCase().contains("blue"),
-							"Agent should acknowledge the choice 'blue' we sent back");
+					return CompletableFuture.completedFuture(java.util.List.of(answer));
 				}
-				break;
-			} catch (Throwable e) {
-				if (i == maxRetries - 1) {
-					throw e;
-				}
-				System.err.println("Test failed on attempt " + (i + 1) + " due to: " + e.getMessage() + ". Retrying...");
+			};
+
+			AgentConfig config = AgentConfig.builder().allowUserQuestions(true).addHook(mockAskHook).build();
+
+			try (AntigravityAgent agent = new AntigravityAgent(config)) {
+				AgentInput prompt = new AgentInput.Text(
+						"Ask me a multiple choice question with 3 options: red, blue, green. Then tell me what I chose.");
+				CompletableFuture<AgentResponse> responseFuture = agent.chat(List.of(prompt));
+
+				await().atMost(120, TimeUnit.SECONDS).until(responseFuture::isDone);
+				AgentResponse response = responseFuture.get();
+
+				assertNotNull(capturedRequest.get(), "Agent should have requested interaction");
+
+				assertTrue(capturedRequest.get().getQuestionsCount() > 0, "Should have at least one question");
+				UserQuestion q = capturedRequest.get().getQuestions(0);
+
+				assertTrue(q.hasMultipleChoice());
+				assertEquals(3, q.getMultipleChoice().getChoicesCount());
+
+				assertTrue(response.getText().toLowerCase().contains("blue"),
+						"Agent should acknowledge the choice 'blue' we sent back");
 			}
-		}
+		});
 	}
 }

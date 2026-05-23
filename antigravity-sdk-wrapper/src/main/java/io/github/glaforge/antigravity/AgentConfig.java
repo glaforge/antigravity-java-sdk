@@ -184,7 +184,8 @@ public class AgentConfig {
 	 */
 	public static class Builder {
 		/** Default constructor. */
-		public Builder() {}
+		public Builder() {
+		}
 		private String persona = "";
 		private String modelName = "gemini-2.5-flash";
 		private List<Object> toolInstances = new ArrayList<>();
@@ -203,7 +204,8 @@ public class AgentConfig {
 		/**
 		 * Sets the persona.
 		 *
-		 * @param persona the persona
+		 * @param persona
+		 *            the persona
 		 * @return this builder
 		 */
 		public Builder persona(String persona) {
@@ -214,7 +216,8 @@ public class AgentConfig {
 		/**
 		 * Sets the model name.
 		 *
-		 * @param modelName the model name
+		 * @param modelName
+		 *            the model name
 		 * @return this builder
 		 */
 		public Builder modelName(String modelName) {
@@ -225,7 +228,8 @@ public class AgentConfig {
 		/**
 		 * Adds a tool instance.
 		 *
-		 * @param toolInstance the tool instance
+		 * @param toolInstance
+		 *            the tool instance
 		 * @return this builder
 		 */
 		public Builder addTool(Object toolInstance) {
@@ -236,7 +240,8 @@ public class AgentConfig {
 		/**
 		 * Adds a skill path.
 		 *
-		 * @param skillPath the skill path
+		 * @param skillPath
+		 *            the skill path
 		 * @return this builder
 		 */
 		public Builder addSkillPath(String skillPath) {
@@ -247,7 +252,8 @@ public class AgentConfig {
 		/**
 		 * Enables or disables subagents.
 		 *
-		 * @param enableSubagents true to enable subagents
+		 * @param enableSubagents
+		 *            true to enable subagents
 		 * @return this builder
 		 */
 		public Builder enableSubagents(boolean enableSubagents) {
@@ -258,7 +264,8 @@ public class AgentConfig {
 		/**
 		 * Enables or disables user questions.
 		 *
-		 * @param allowUserQuestions true to allow user questions
+		 * @param allowUserQuestions
+		 *            true to allow user questions
 		 * @return this builder
 		 */
 		public Builder allowUserQuestions(boolean allowUserQuestions) {
@@ -269,7 +276,8 @@ public class AgentConfig {
 		/**
 		 * Adds a hook.
 		 *
-		 * @param hook the hook
+		 * @param hook
+		 *            the hook
 		 * @return this builder
 		 */
 		public Builder addHook(AgentHook hook) {
@@ -280,7 +288,8 @@ public class AgentConfig {
 		/**
 		 * Sets the save directory.
 		 *
-		 * @param saveDir the save directory
+		 * @param saveDir
+		 *            the save directory
 		 * @return this builder
 		 */
 		public Builder saveDir(String saveDir) {
@@ -291,7 +300,8 @@ public class AgentConfig {
 		/**
 		 * Sets the app data directory.
 		 *
-		 * @param appDataDir the app data directory
+		 * @param appDataDir
+		 *            the app data directory
 		 * @return this builder
 		 */
 		public Builder appDataDir(String appDataDir) {
@@ -302,7 +312,8 @@ public class AgentConfig {
 		/**
 		 * Sets the conversation ID.
 		 *
-		 * @param conversationId the conversation ID
+		 * @param conversationId
+		 *            the conversation ID
 		 * @return this builder
 		 */
 		public Builder conversationId(String conversationId) {
@@ -313,7 +324,8 @@ public class AgentConfig {
 		/**
 		 * Adds a policy.
 		 *
-		 * @param policy the policy
+		 * @param policy
+		 *            the policy
 		 * @return this builder
 		 */
 		public Builder addPolicy(Policy policy) {
@@ -324,7 +336,8 @@ public class AgentConfig {
 		/**
 		 * Sets the finish tool schema JSON.
 		 *
-		 * @param finishToolSchemaJson the JSON schema
+		 * @param finishToolSchemaJson
+		 *            the JSON schema
 		 * @return this builder
 		 */
 		public Builder finishToolSchemaJson(String finishToolSchemaJson) {
@@ -335,7 +348,8 @@ public class AgentConfig {
 		/**
 		 * Adds an MCP server configuration.
 		 *
-		 * @param mcpServerConfig the MCP server configuration
+		 * @param mcpServerConfig
+		 *            the MCP server configuration
 		 * @return this builder
 		 */
 		public Builder addMcpServer(McpServerConfig mcpServerConfig) {

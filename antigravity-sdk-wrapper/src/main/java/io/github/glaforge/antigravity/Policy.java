@@ -18,8 +18,8 @@ package io.github.glaforge.antigravity;
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**
- * Defines a security policy for tool execution.
- * Policies can inspect the tool name and arguments to decide whether execution is allowed.
+ * Defines a security policy for tool execution. Policies can inspect the tool
+ * name and arguments to decide whether execution is allowed.
  */
 public interface Policy {
 	/**
@@ -27,18 +27,21 @@ public interface Policy {
 	 */
 	enum Decision {
 		/** Indicates the tool is allowed. */
-		ALLOW, 
+		ALLOW,
 		/** Indicates the tool is denied. */
-		DENY, 
+		DENY,
 		/** Indicates the policy defers to other policies. */
 		PASS
 	}
 
 	/**
-	 * Evaluates whether a tool call should be allowed based on its name and arguments.
+	 * Evaluates whether a tool call should be allowed based on its name and
+	 * arguments.
 	 *
-	 * @param toolName the name of the tool being called
-	 * @param arguments the arguments passed to the tool
+	 * @param toolName
+	 *            the name of the tool being called
+	 * @param arguments
+	 *            the arguments passed to the tool
 	 * @return the policy decision
 	 */
 	Decision evaluate(String toolName, JsonNode arguments);

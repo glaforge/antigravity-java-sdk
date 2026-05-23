@@ -26,9 +26,12 @@ public class AgentResponse {
 	/**
 	 * Constructs an AgentResponse.
 	 *
-	 * @param text the text response
-	 * @param thoughts the thoughts of the agent
-	 * @param usageMetadata the usage metadata
+	 * @param text
+	 *            the text response
+	 * @param thoughts
+	 *            the thoughts of the agent
+	 * @param usageMetadata
+	 *            the usage metadata
 	 */
 	public AgentResponse(String text, String thoughts, UsageMetadata usageMetadata) {
 		this.text = text != null ? text : "";
@@ -64,10 +67,13 @@ public class AgentResponse {
 	/**
 	 * Parses the text response as JSON and maps it to the specified class.
 	 *
-	 * @param <T> the type to return
-	 * @param type the class to map to
+	 * @param <T>
+	 *            the type to return
+	 * @param type
+	 *            the class to map to
 	 * @return the mapped object
-	 * @throws Exception if mapping fails
+	 * @throws Exception
+	 *             if mapping fails
 	 */
 	public <T> T getStructuredOutput(Class<T> type) throws Exception {
 		com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();

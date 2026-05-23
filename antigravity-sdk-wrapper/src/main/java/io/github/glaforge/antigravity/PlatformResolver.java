@@ -22,7 +22,8 @@ public class PlatformResolver {
 	/**
 	 * Default constructor.
 	 */
-	public PlatformResolver() {}
+	public PlatformResolver() {
+	}
 
 	/**
 	 * Returns the platform slice string representing the OS and architecture.

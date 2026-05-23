@@ -27,15 +27,15 @@ public class StreamingTest {
 	@Test
 	public void testStreaming() throws Exception {
 		TestUtils.retry(3, () -> {
-			AgentConfig config = AgentConfig.builder().persona("You are a helpful assistant.").modelName("gemini-2.5-flash")
-					.build();
+			AgentConfig config = AgentConfig.builder().persona("You are a helpful assistant.")
+					.modelName("gemini-2.5-flash").build();
 
 			try (AntigravityAgent agent = new AntigravityAgent(config)) {
 				System.out.println("Starting chat stream...");
 				AtomicInteger chunkCount = new AtomicInteger(0);
 
-				CompletableFuture<AgentResponse> future = agent.chatStream("Write a 3 sentence story about a brave knight.",
-						chunk -> {
+				CompletableFuture<AgentResponse> future = agent
+						.chatStream("Write a 3 sentence story about a brave knight.", chunk -> {
 							System.out.print(chunk.getTextDelta());
 							chunkCount.incrementAndGet();
 						});

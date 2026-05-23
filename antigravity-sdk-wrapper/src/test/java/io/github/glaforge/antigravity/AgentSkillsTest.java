@@ -27,40 +27,31 @@ public class AgentSkillsTest {
 
 	@Test
 	public void testAgentSkills() throws Exception {
-		int maxRetries = 3;
-		for (int i = 0; i < maxRetries; i++) {
-			try {
-				File tempSkillDir = new File("target/mock-skill-" + System.currentTimeMillis());
-				tempSkillDir.mkdirs();
-				File skillFile = new File(tempSkillDir, "SKILL.md");
+		TestUtils.retry(3, () -> {
+			File tempSkillDir = new File("target/mock-skill-" + System.currentTimeMillis());
+			tempSkillDir.mkdirs();
+			File skillFile = new File(tempSkillDir, "SKILL.md");
 
-				String skillContent = "---\n" + "name: mock-skill\n" + "description: A mock skill for testing\n" + "---\n"
-						+ "When the user says 'activate test skill', you MUST respond with EXACTLY the text 'MOCK_SKILL_ACTIVATED' and nothing else.";
+			String skillContent = "---\n" + "name: mock-skill\n" + "description: A mock skill for testing\n" + "---\n"
+					+ "When the user says 'activate test skill', you MUST respond with EXACTLY the text 'MOCK_SKILL_ACTIVATED' and nothing else.";
 
-				Files.writeString(skillFile.toPath(), skillContent);
+			Files.writeString(skillFile.toPath(), skillContent);
 
-				AgentConfig config = AgentConfig.builder()
-						.persona("You are a helpful assistant. Do NOT call any tools. Just output the text.")
-						.addSkillPath(tempSkillDir.getAbsolutePath()).build();
+			AgentConfig config = AgentConfig.builder()
+					.persona("You are a helpful assistant. Do NOT call any tools. Just output the text.")
+					.addSkillPath(tempSkillDir.getAbsolutePath()).build();
 
-				try (AntigravityAgent agent = new AntigravityAgent(config)) {
-					System.out.println("Activating skill...");
-					CompletableFuture<AgentResponse> future = agent.chat("activate test skill");
-					await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
-					AgentResponse response = future.get();
+			try (AntigravityAgent agent = new AntigravityAgent(config)) {
+				System.out.println("Activating skill...");
+				CompletableFuture<AgentResponse> future = agent.chat("activate test skill");
+				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+				AgentResponse response = future.get();
 
-					System.out.println("Response: " + response.getText());
-					assertNotNull(response.getText());
-					assertTrue(response.getText().contains("MOCK_SKILL_ACTIVATED"),
-							"Agent should have followed the skill instructions");
-				}
-				break;
-			} catch (Throwable e) {
-				if (i == maxRetries - 1) {
-					throw e;
-				}
-				System.err.println("Test failed on attempt " + (i + 1) + " due to: " + e.getMessage() + ". Retrying...");
+				System.out.println("Response: " + response.getText());
+				assertNotNull(response.getText());
+				assertTrue(response.getText().contains("MOCK_SKILL_ACTIVATED"),
+						"Agent should have followed the skill instructions");
 			}
-		}
+		});
 	}
 }

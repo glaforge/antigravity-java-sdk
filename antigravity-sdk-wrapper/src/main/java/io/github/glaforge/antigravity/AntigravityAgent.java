@@ -44,7 +44,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * The main agent class that manages the lifecycle and interaction with the local harness.
+ * The main agent class that manages the lifecycle and interaction with the
+ * local harness.
  */
 public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	private final Process goProcess;
@@ -75,9 +76,11 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 
 	@Override
 	/**
-	 * Fires a trigger with the specified text to interrupt the agent and supply new information.
+	 * Fires a trigger with the specified text to interrupt the agent and supply new
+	 * information.
 	 *
-	 * @param triggerText the text content of the trigger
+	 * @param triggerText
+	 *            the text content of the trigger
 	 */
 	public void fireTrigger(String triggerText) {
 		try {
@@ -105,8 +108,10 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	/**
 	 * Constructs a new AntigravityAgent with the specified configuration.
 	 *
-	 * @param config the configuration for the agent
-	 * @throws Exception if an error occurs during initialization
+	 * @param config
+	 *            the configuration for the agent
+	 * @throws Exception
+	 *             if an error occurs during initialization
 	 */
 	public AntigravityAgent(AgentConfig config) throws Exception {
 		this.config = config;
@@ -238,11 +243,14 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 					.setAppDataDir(config.getAppDataDir() != null ? config.getAppDataDir() : "")
 					.setGeminiConfig(
 							GeminiConfig.newBuilder().setModelName(config.getModelName()).setApiKey(apiKey).build())
-					.setSystemInstructions(SystemInstructions.newBuilder()
-							.setAppended(AppendedSystemInstructions.newBuilder().setCustomIdentity(config.getPersona())
-									.build())
-							.build())
-					.addAllTools(toolRegistry.getToolDefinitions()).addAllSkillsPaths(config.getSkillsPaths());
+					.setSystemInstructions(SystemInstructions.newBuilder().setAppended(
+							AppendedSystemInstructions.newBuilder().setCustomIdentity(config.getPersona()).build())
+							.build());
+			for (Object obj : toolRegistry.getToolDefinitions()) {
+				Tool toolDef = (Tool) obj;
+				configBuilder.addTools(toolDef);
+			}
+			configBuilder.addAllSkillsPaths(config.getSkillsPaths());
 
 			if (config.getFinishToolSchemaJson() != null) {
 				configBuilder.setFinishToolSchemaJson(config.getFinishToolSchemaJson());
@@ -297,7 +305,8 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 						@Override
 						public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
 							if (currentChatFuture != null && !currentChatFuture.isDone()) {
-								currentChatFuture.completeExceptionally(new RuntimeException("WebSocket closed unexpectedly: " + statusCode + " " + reason));
+								currentChatFuture.completeExceptionally(new RuntimeException(
+										"WebSocket closed unexpectedly: " + statusCode + " " + reason));
 							}
 							return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
 						}
@@ -311,10 +320,12 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	}
 
 	/**
-	 * Registers all tools defined in the given service instance.
-	 * Tools are discovered by scanning the instance for methods annotated with {@literal @}AntigravityTool.
+	 * Registers all tools defined in the given service instance. Tools are
+	 * discovered by scanning the instance for methods annotated with
+	 * {@literal @}AntigravityTool.
 	 *
-	 * @param serviceInstance the instance containing tool methods
+	 * @param serviceInstance
+	 *            the instance containing tool methods
 	 */
 	public void registerTools(Object serviceInstance) {
 		toolRegistry.registerToolsFromObject(serviceInstance);
@@ -323,7 +334,8 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	/**
 	 * Sends a single text message to the agent and waits for the final response.
 	 *
-	 * @param text the text message
+	 * @param text
+	 *            the text message
 	 * @return a CompletableFuture containing the AgentResponse
 	 */
 	public CompletableFuture<AgentResponse> chat(String text) {
@@ -333,7 +345,8 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	/**
 	 * Sends multiple inputs to the agent and waits for the final response.
 	 *
-	 * @param inputs the inputs to send
+	 * @param inputs
+	 *            the inputs to send
 	 * @return a CompletableFuture containing the AgentResponse
 	 */
 	public CompletableFuture<AgentResponse> chat(AgentInput... inputs) {
@@ -343,7 +356,8 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	/**
 	 * Sends a list of inputs to the agent and waits for the final response.
 	 *
-	 * @param inputs the list of inputs
+	 * @param inputs
+	 *            the list of inputs
 	 * @return a CompletableFuture containing the AgentResponse
 	 */
 	public CompletableFuture<AgentResponse> chat(List<AgentInput> inputs) {
@@ -353,8 +367,10 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	/**
 	 * Sends a text message to the agent and streams the response chunks.
 	 *
-	 * @param text the text message
-	 * @param onChunk a consumer to handle the incoming chunks
+	 * @param text
+	 *            the text message
+	 * @param onChunk
+	 *            a consumer to handle the incoming chunks
 	 * @return a CompletableFuture containing the final AgentResponse
 	 */
 	public CompletableFuture<AgentResponse> chatStream(String text, Consumer<AgentResponseChunk> onChunk) {
@@ -364,8 +380,10 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	/**
 	 * Sends a list of inputs to the agent and streams the response chunks.
 	 *
-	 * @param inputs the list of inputs
-	 * @param onChunk a consumer to handle the incoming chunks
+	 * @param inputs
+	 *            the list of inputs
+	 * @param onChunk
+	 *            a consumer to handle the incoming chunks
 	 * @return a CompletableFuture containing the final AgentResponse
 	 */
 	public CompletableFuture<AgentResponse> chatStream(List<AgentInput> inputs, Consumer<AgentResponseChunk> onChunk) {
@@ -575,7 +593,8 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 						try {
 							String argsStr = req.get("customToolCall").path("argumentsJson").asText("{}");
 							args = jsonMapper.readTree(argsStr);
-						} catch (Exception e) {}
+						} catch (Exception e) {
+						}
 					}
 
 					Policy.Decision decision = evaluatePolicies(toolName, args);
@@ -600,24 +619,23 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 						int stepIndex = stepUpdate.get("stepIndex").asInt();
 
 						String json = stepUpdate.get("questionsRequest").toString();
-						io.github.glaforge.antigravity.localharness.UserQuestionsRequest.Builder reqBuilder = io.github.glaforge.antigravity.localharness.UserQuestionsRequest
-								.newBuilder();
+						UserQuestionsRequest.Builder reqBuilder = UserQuestionsRequest.newBuilder();
 						com.google.protobuf.util.JsonFormat.parser().ignoringUnknownFields().merge(json, reqBuilder);
-						io.github.glaforge.antigravity.localharness.UserQuestionsRequest req = reqBuilder.build();
+						UserQuestionsRequest req = reqBuilder.build();
 
 						for (AgentHook hook : config.getHooks()) {
 							if (hook instanceof OnInteractionHook) {
 								((OnInteractionHook) hook).onInteraction(req).thenAccept(resp -> {
 									try {
-										io.github.glaforge.antigravity.localharness.UserQuestionsResponse.QuestionsResponse questionsResp = io.github.glaforge.antigravity.localharness.UserQuestionsResponse.QuestionsResponse
+										UserQuestionsResponse.QuestionsResponse questionsResp = UserQuestionsResponse.QuestionsResponse
 												.newBuilder().addAllAnswers(resp).build();
 
-										io.github.glaforge.antigravity.localharness.UserQuestionsResponse fullResp = io.github.glaforge.antigravity.localharness.UserQuestionsResponse
-												.newBuilder().setTrajectoryId(trajectoryId).setStepIndex(stepIndex)
+										UserQuestionsResponse fullResp = UserQuestionsResponse.newBuilder()
+												.setTrajectoryId(trajectoryId).setStepIndex(stepIndex)
 												.setResponse(questionsResp).build();
 
-										io.github.glaforge.antigravity.localharness.InputEvent inputEvent = io.github.glaforge.antigravity.localharness.InputEvent
-												.newBuilder().setQuestionResponse(fullResp).build();
+										InputEvent inputEvent = InputEvent.newBuilder().setQuestionResponse(fullResp)
+												.build();
 
 										String payloadJson = com.google.protobuf.util.JsonFormat.printer()
 												.omittingInsignificantWhitespace().print(inputEvent);

@@ -28,11 +28,16 @@ public class UsageMetadata {
 	/**
 	 * Constructs a UsageMetadata instance.
 	 *
-	 * @param promptTokenCount the number of prompt tokens
-	 * @param cachedContentTokenCount the number of cached tokens
-	 * @param candidatesTokenCount the number of candidate tokens
-	 * @param thoughtsTokenCount the number of thoughts tokens
-	 * @param totalTokenCount the total number of tokens
+	 * @param promptTokenCount
+	 *            the number of prompt tokens
+	 * @param cachedContentTokenCount
+	 *            the number of cached tokens
+	 * @param candidatesTokenCount
+	 *            the number of candidate tokens
+	 * @param thoughtsTokenCount
+	 *            the number of thoughts tokens
+	 * @param totalTokenCount
+	 *            the total number of tokens
 	 */
 	public UsageMetadata(int promptTokenCount, int cachedContentTokenCount, int candidatesTokenCount,
 			int thoughtsTokenCount, int totalTokenCount) {

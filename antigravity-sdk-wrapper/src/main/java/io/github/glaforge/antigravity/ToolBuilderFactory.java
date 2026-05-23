@@ -13,17 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.glaforge.antigravity.hooks;
+package io.github.glaforge.antigravity;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import io.github.glaforge.antigravity.localharness.Tool;
 
-/**
- * Represents a tool call with its arguments.
- *
- * @param name
- *            the name of the tool
- * @param args
- *            the JSON arguments provided to the tool
- */
-public record ToolCall(String name, JsonNode args) {
+public class ToolBuilderFactory {
+	public static Tool.Builder newToolBuilder() {
+		return Tool.newBuilder();
+	}
 }
