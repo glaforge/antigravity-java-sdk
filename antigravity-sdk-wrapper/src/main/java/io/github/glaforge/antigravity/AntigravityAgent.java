@@ -285,6 +285,22 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 							webSocket.request(1);
 							return null;
 						}
+
+						@Override
+						public void onError(WebSocket webSocket, Throwable error) {
+							if (currentChatFuture != null && !currentChatFuture.isDone()) {
+								currentChatFuture.completeExceptionally(error);
+							}
+							WebSocket.Listener.super.onError(webSocket, error);
+						}
+
+						@Override
+						public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+							if (currentChatFuture != null && !currentChatFuture.isDone()) {
+								currentChatFuture.completeExceptionally(new RuntimeException("WebSocket closed unexpectedly: " + statusCode + " " + reason));
+							}
+							return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
+						}
 					}).join();
 		} catch (Exception e) {
 			if (goProcess.isAlive())
