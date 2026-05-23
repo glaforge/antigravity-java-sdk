@@ -11,6 +11,7 @@
     <artifactId>antigravity-sdk-wrapper</artifactId>
     <name>Antigravity Java SDK - Wrapper</name>
     <description>The main Java wrapper and client for the Antigravity localharness.</description>
+    <url>https://github.com/glaforge/antigravity-java-sdk</url>
 
     <dependencies>
         <dependency>

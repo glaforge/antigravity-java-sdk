@@ -11,6 +11,7 @@
     <artifactId>antigravity-sdk-protocol</artifactId>
     <name>Antigravity Java SDK - Protocol</name>
     <description>The Protocol Buffers definitions and generated classes for Antigravity Java SDK.</description>
+    <url>https://github.com/glaforge/antigravity-java-sdk</url>
 
     <dependencies>
         <dependency>
