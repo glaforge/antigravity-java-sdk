@@ -17,7 +17,16 @@ package io.github.glaforge.antigravity.hooks;
 
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * A hook executed before a tool call is decided upon.
+ */
 @FunctionalInterface
 public interface PreToolCallDecideHook extends AgentHook {
+	/**
+	 * Called before a tool is executed to decide if it should proceed.
+	 *
+	 * @param toolCall the tool call to evaluate
+	 * @return a CompletableFuture containing the HookResult for the decision
+	 */
 	CompletableFuture<HookResult> onPreToolCallDecide(ToolCall toolCall);
 }

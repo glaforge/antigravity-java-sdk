@@ -15,6 +15,9 @@
  */
 package io.github.glaforge.antigravity.hooks;
 
+/**
+ * Base interface for all agent hooks.
+ */
 public interface AgentHook {
 	// Marker interface for all hooks
 }

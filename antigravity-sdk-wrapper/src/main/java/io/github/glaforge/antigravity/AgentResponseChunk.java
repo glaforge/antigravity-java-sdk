@@ -15,18 +15,37 @@
  */
 package io.github.glaforge.antigravity;
 
+/**
+ * Represents a streaming chunk of the agent's response.
+ */
 public class AgentResponseChunk {
 	private final String textDelta;
 	private final String thoughtsDelta;
 
+	/**
+	 * Constructs a new chunk.
+	 *
+	 * @param textDelta the text delta
+	 * @param thoughtsDelta the thoughts delta
+	 */
 	public AgentResponseChunk(String textDelta, String thoughtsDelta) {
 		this.textDelta = textDelta != null ? textDelta : "";
 		this.thoughtsDelta = thoughtsDelta != null ? thoughtsDelta : "";
 	}
 
+	/**
+	 * Returns the text delta.
+	 *
+	 * @return the text delta
+	 */
 	public String getTextDelta() {
 		return textDelta;
 	}
+	/**
+	 * Returns the thoughts delta.
+	 *
+	 * @return the thoughts delta
+	 */
 	public String getThoughtsDelta() {
 		return thoughtsDelta;
 	}

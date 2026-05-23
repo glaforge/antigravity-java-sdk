@@ -33,6 +33,8 @@ public final class Policies {
 	 * A policy that unconditionally allows all tool calls. WARNING: Use with
 	 * caution. This gives the agent completely unrestricted access to the file
 	 * system and command execution.
+	 *
+	 * @return a policy that allows all tool calls
 	 */
 	public static Policy allowAll() {
 		return (toolName, arguments) -> Policy.Decision.ALLOW;
@@ -40,6 +42,8 @@ public final class Policies {
 
 	/**
 	 * A policy that unconditionally denies all tool calls.
+	 *
+	 * @return a policy that denies all tool calls
 	 */
 	public static Policy denyAll() {
 		return (toolName, arguments) -> Policy.Decision.DENY;
@@ -47,6 +51,8 @@ public final class Policies {
 
 	/**
 	 * A policy that unconditionally passes evaluation to the next policy.
+	 *
+	 * @return a policy that defers the decision
 	 */
 	public static Policy passAll() {
 		return (toolName, arguments) -> Policy.Decision.PASS;
@@ -57,6 +63,7 @@ public final class Policies {
 	 * 
 	 * @param targetToolName
 	 *            the name of the tool to allow (e.g. "run_command")
+	 * @return a policy allowing the specified tool
 	 */
 	public static Policy allowTool(String targetToolName) {
 		return (toolName, arguments) -> targetToolName.equals(toolName) ? Policy.Decision.ALLOW : Policy.Decision.PASS;
@@ -67,6 +74,7 @@ public final class Policies {
 	 * 
 	 * @param targetToolName
 	 *            the name of the tool to deny (e.g. "run_command")
+	 * @return a policy denying the specified tool
 	 */
 	public static Policy denyTool(String targetToolName) {
 		return (toolName, arguments) -> targetToolName.equals(toolName) ? Policy.Decision.DENY : Policy.Decision.PASS;
@@ -77,6 +85,7 @@ public final class Policies {
 	 * 
 	 * @param targetToolNames
 	 *            the names of the tools to allow
+	 * @return a policy allowing the specified tools
 	 */
 	public static Policy allowTools(String... targetToolNames) {
 		Set<String> tools = Set.copyOf(Arrays.asList(targetToolNames));
@@ -88,6 +97,7 @@ public final class Policies {
 	 * 
 	 * @param targetToolNames
 	 *            the names of the tools to deny
+	 * @return a policy denying the specified tools
 	 */
 	public static Policy denyTools(String... targetToolNames) {
 		Set<String> tools = Set.copyOf(Arrays.asList(targetToolNames));
@@ -99,6 +109,7 @@ public final class Policies {
 	 * 
 	 * @param condition
 	 *            a predicate evaluating the tool name and its arguments
+	 * @return a policy conditionally allowing tool execution
 	 */
 	public static Policy allowIf(PolicyCondition condition) {
 		return (toolName,
@@ -110,6 +121,7 @@ public final class Policies {
 	 * 
 	 * @param condition
 	 *            a predicate evaluating the tool name and its arguments
+	 * @return a policy conditionally denying tool execution
 	 */
 	public static Policy denyIf(PolicyCondition condition) {
 		return (toolName,
@@ -121,6 +133,13 @@ public final class Policies {
 	 */
 	@FunctionalInterface
 	public interface PolicyCondition {
+		/**
+		 * Evaluates the policy condition.
+		 *
+		 * @param toolName the name of the tool
+		 * @param arguments the arguments provided to the tool
+		 * @return true if the condition is met
+		 */
 		boolean test(String toolName, JsonNode arguments);
 	}
 }

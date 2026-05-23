@@ -17,7 +17,15 @@ package io.github.glaforge.antigravity.hooks;
 
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * A hook executed at the end of a session.
+ */
 @FunctionalInterface
 public interface OnSessionEndHook extends AgentHook {
+	/**
+	 * Called when the session ends.
+	 *
+	 * @return a CompletableFuture representing the asynchronous execution
+	 */
 	CompletableFuture<Void> onSessionEnd();
 }

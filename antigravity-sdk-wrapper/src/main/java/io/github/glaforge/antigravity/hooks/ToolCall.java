@@ -17,5 +17,11 @@ package io.github.glaforge.antigravity.hooks;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+/**
+ * Represents a tool call with its arguments.
+ *
+ * @param name the name of the tool
+ * @param args the JSON arguments provided to the tool
+ */
 public record ToolCall(String name, JsonNode args) {
 }

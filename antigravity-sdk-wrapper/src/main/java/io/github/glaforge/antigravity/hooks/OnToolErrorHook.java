@@ -17,7 +17,17 @@ package io.github.glaforge.antigravity.hooks;
 
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * A hook executed when a tool execution encounters an error.
+ */
 @FunctionalInterface
 public interface OnToolErrorHook extends AgentHook {
+	/**
+	 * Called when a tool error occurs.
+	 *
+	 * @param toolCall the tool call that caused the error
+	 * @param error the error that was thrown
+	 * @return a CompletableFuture containing the fallback or handled result
+	 */
 	CompletableFuture<Object> onToolError(ToolCall toolCall, Throwable error);
 }

@@ -17,7 +17,17 @@ package io.github.glaforge.antigravity.hooks;
 
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * A hook executed after a tool call completes.
+ */
 @FunctionalInterface
 public interface PostToolCallHook extends AgentHook {
+	/**
+	 * Called after a tool call is executed.
+	 *
+	 * @param toolCall the tool call that was executed
+	 * @param result the result returned by the tool
+	 * @return a CompletableFuture representing the asynchronous execution
+	 */
 	CompletableFuture<Void> onPostToolCall(ToolCall toolCall, Object result);
 }

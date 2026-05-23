@@ -43,6 +43,9 @@ import java.util.List;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+/**
+ * The main agent class that manages the lifecycle and interaction with the local harness.
+ */
 public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	private final Process goProcess;
 	private WebSocket webSocket;
@@ -99,6 +102,12 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 
 	private final AgentConfig config;
 
+	/**
+	 * Constructs a new AntigravityAgent with the specified configuration.
+	 *
+	 * @param config the configuration for the agent
+	 * @throws Exception if an error occurs during initialization
+	 */
 	public AntigravityAgent(AgentConfig config) throws Exception {
 		this.config = config;
 		this.policies = config.getPolicies();
@@ -295,22 +304,54 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 		toolRegistry.registerToolsFromObject(serviceInstance);
 	}
 
+	/**
+	 * Sends a single text message to the agent and waits for the final response.
+	 *
+	 * @param text the text message
+	 * @return a CompletableFuture containing the AgentResponse
+	 */
 	public CompletableFuture<AgentResponse> chat(String text) {
 		return chatStream(List.of(AgentInput.Text.of(text)), null);
 	}
 
+	/**
+	 * Sends multiple inputs to the agent and waits for the final response.
+	 *
+	 * @param inputs the inputs to send
+	 * @return a CompletableFuture containing the AgentResponse
+	 */
 	public CompletableFuture<AgentResponse> chat(AgentInput... inputs) {
 		return chatStream(List.of(inputs), null);
 	}
 
+	/**
+	 * Sends a list of inputs to the agent and waits for the final response.
+	 *
+	 * @param inputs the list of inputs
+	 * @return a CompletableFuture containing the AgentResponse
+	 */
 	public CompletableFuture<AgentResponse> chat(List<AgentInput> inputs) {
 		return chatStream(inputs, null);
 	}
 
+	/**
+	 * Sends a text message to the agent and streams the response chunks.
+	 *
+	 * @param text the text message
+	 * @param onChunk a consumer to handle the incoming chunks
+	 * @return a CompletableFuture containing the final AgentResponse
+	 */
 	public CompletableFuture<AgentResponse> chatStream(String text, Consumer<AgentResponseChunk> onChunk) {
 		return chatStream(List.of(AgentInput.Text.of(text)), onChunk);
 	}
 
+	/**
+	 * Sends a list of inputs to the agent and streams the response chunks.
+	 *
+	 * @param inputs the list of inputs
+	 * @param onChunk a consumer to handle the incoming chunks
+	 * @return a CompletableFuture containing the final AgentResponse
+	 */
 	public CompletableFuture<AgentResponse> chatStream(List<AgentInput> inputs, Consumer<AgentResponseChunk> onChunk) {
 		if (currentChatFuture != null && !currentChatFuture.isDone()) {
 			throw new IllegalStateException("An existing chat request is still processing.");

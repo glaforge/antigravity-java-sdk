@@ -17,7 +17,15 @@ package io.github.glaforge.antigravity.hooks;
 
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * A hook executed at the start of a session.
+ */
 @FunctionalInterface
 public interface OnSessionStartHook extends AgentHook {
+	/**
+	 * Called when the session starts.
+	 *
+	 * @return a CompletableFuture representing the asynchronous execution
+	 */
 	CompletableFuture<Void> onSessionStart();
 }

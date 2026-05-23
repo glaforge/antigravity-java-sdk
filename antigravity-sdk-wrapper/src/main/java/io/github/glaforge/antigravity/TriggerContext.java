@@ -15,6 +15,9 @@
  */
 package io.github.glaforge.antigravity;
 
+/**
+ * Defines a context in which triggers can be fired to interrupt or supply data to an agent.
+ */
 public interface TriggerContext {
 	/**
 	 * Fires a trigger with the specified text to interrupt the agent and supply new information.

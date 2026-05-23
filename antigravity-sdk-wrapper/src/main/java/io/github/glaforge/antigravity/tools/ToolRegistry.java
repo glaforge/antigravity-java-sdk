@@ -26,11 +26,24 @@ import java.util.ArrayList;
 import io.github.glaforge.antigravity.localharness.Tool;
 import io.github.glaforge.antigravity.DynamicTool;
 
+/**
+ * Manages the registration and execution of tools for the agent.
+ */
 public class ToolRegistry {
 	private final Map<String, ToolMethodHandler> registry = new HashMap<>();
 	private final Map<String, DynamicTool> dynamicRegistry = new HashMap<>();
 	private final JsonMapper mapper = JsonMapper.builder().build();
 
+	/**
+	 * Default constructor.
+	 */
+	public ToolRegistry() {}
+
+	/**
+	 * Scans the provided object for methods annotated with {@literal @}AntigravityTool and registers them.
+	 *
+	 * @param serviceInstance the object containing the tool methods
+	 */
 	public void registerToolsFromObject(Object serviceInstance) {
 		Class<?> clazz = serviceInstance.getClass();
 
@@ -46,10 +59,20 @@ public class ToolRegistry {
 		}
 	}
 
+	/**
+	 * Registers a dynamic tool implementation directly.
+	 *
+	 * @param tool the DynamicTool instance to register
+	 */
 	public void registerDynamicTool(DynamicTool tool) {
 		dynamicRegistry.put(tool.getName(), tool);
 	}
 
+	/**
+	 * Generates Protobuf Tool definitions for all registered tools.
+	 *
+	 * @return a list of Tool definitions
+	 */
 	public List<Tool> getToolDefinitions() {
 		List<Tool> definitions = new ArrayList<>();
 
@@ -82,6 +105,14 @@ public class ToolRegistry {
 		return definitions;
 	}
 
+	/**
+	 * Executes a registered tool by name with the given JSON arguments.
+	 *
+	 * @param toolName the name of the tool to execute
+	 * @param arguments the JSON node containing the arguments
+	 * @return a JSON string representation of the tool's execution result
+	 * @throws Exception if tool execution fails
+	 */
 	public String execute(String toolName, JsonNode arguments) throws Exception {
 		if (dynamicRegistry.containsKey(toolName)) {
 			Object result = dynamicRegistry.get(toolName).execute(arguments);

@@ -15,6 +15,9 @@
  */
 package io.github.glaforge.antigravity;
 
+/**
+ * Represents the token usage metadata for an agent response.
+ */
 public class UsageMetadata {
 	private final int promptTokenCount;
 	private final int cachedContentTokenCount;
@@ -22,6 +25,15 @@ public class UsageMetadata {
 	private final int thoughtsTokenCount;
 	private final int totalTokenCount;
 
+	/**
+	 * Constructs a UsageMetadata instance.
+	 *
+	 * @param promptTokenCount the number of prompt tokens
+	 * @param cachedContentTokenCount the number of cached tokens
+	 * @param candidatesTokenCount the number of candidate tokens
+	 * @param thoughtsTokenCount the number of thoughts tokens
+	 * @param totalTokenCount the total number of tokens
+	 */
 	public UsageMetadata(int promptTokenCount, int cachedContentTokenCount, int candidatesTokenCount,
 			int thoughtsTokenCount, int totalTokenCount) {
 		this.promptTokenCount = promptTokenCount;
@@ -31,18 +43,43 @@ public class UsageMetadata {
 		this.totalTokenCount = totalTokenCount;
 	}
 
+	/**
+	 * Returns the prompt token count.
+	 *
+	 * @return the prompt token count
+	 */
 	public int getPromptTokenCount() {
 		return promptTokenCount;
 	}
+	/**
+	 * Returns the cached content token count.
+	 *
+	 * @return the cached content token count
+	 */
 	public int getCachedContentTokenCount() {
 		return cachedContentTokenCount;
 	}
+	/**
+	 * Returns the candidates token count.
+	 *
+	 * @return the candidates token count
+	 */
 	public int getCandidatesTokenCount() {
 		return candidatesTokenCount;
 	}
+	/**
+	 * Returns the thoughts token count.
+	 *
+	 * @return the thoughts token count
+	 */
 	public int getThoughtsTokenCount() {
 		return thoughtsTokenCount;
 	}
+	/**
+	 * Returns the total token count.
+	 *
+	 * @return the total token count
+	 */
 	public int getTotalTokenCount() {
 		return totalTokenCount;
 	}

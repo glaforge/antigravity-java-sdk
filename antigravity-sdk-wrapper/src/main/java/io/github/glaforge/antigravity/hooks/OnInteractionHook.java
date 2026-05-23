@@ -19,6 +19,15 @@ import java.util.concurrent.CompletableFuture;
 import io.github.glaforge.antigravity.localharness.UserQuestionsRequest;
 import io.github.glaforge.antigravity.localharness.UserQuestionAnswer;
 
+/**
+ * A hook executed when the agent needs to interact with the user to ask questions.
+ */
 public interface OnInteractionHook extends AgentHook {
+	/**
+	 * Called when the agent requires answers to questions.
+	 *
+	 * @param request the request containing questions
+	 * @return a CompletableFuture with the list of answers
+	 */
 	CompletableFuture<java.util.List<UserQuestionAnswer>> onInteraction(UserQuestionsRequest request);
 }

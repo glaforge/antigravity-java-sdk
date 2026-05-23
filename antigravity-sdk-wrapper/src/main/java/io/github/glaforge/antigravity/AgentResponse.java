@@ -15,27 +15,60 @@
  */
 package io.github.glaforge.antigravity;
 
+/**
+ * Represents the final response from the agent.
+ */
 public class AgentResponse {
 	private final String text;
 	private final String thoughts;
 	private final UsageMetadata usageMetadata;
 
+	/**
+	 * Constructs an AgentResponse.
+	 *
+	 * @param text the text response
+	 * @param thoughts the thoughts of the agent
+	 * @param usageMetadata the usage metadata
+	 */
 	public AgentResponse(String text, String thoughts, UsageMetadata usageMetadata) {
 		this.text = text != null ? text : "";
 		this.thoughts = thoughts != null ? thoughts : "";
 		this.usageMetadata = usageMetadata;
 	}
 
+	/**
+	 * Returns the text response.
+	 *
+	 * @return the text response
+	 */
 	public String getText() {
 		return text;
 	}
+	/**
+	 * Returns the thoughts of the agent.
+	 *
+	 * @return the thoughts of the agent
+	 */
 	public String getThoughts() {
 		return thoughts;
 	}
+	/**
+	 * Returns the usage metadata.
+	 *
+	 * @return the usage metadata
+	 */
 	public UsageMetadata getUsageMetadata() {
 		return usageMetadata;
 	}
 
+	/**
+	 * Parses the text response as JSON and maps it to the specified class.
+	 *
+	 * @param <T> the type to return
+	 * @param type the class to map to
+	 * @return the mapped object
+	 * @throws Exception if mapping fails
+	 */
 	public <T> T getStructuredOutput(Class<T> type) throws Exception {
 		com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
 		return mapper.readValue(text, type);

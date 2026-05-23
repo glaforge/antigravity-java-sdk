@@ -15,7 +15,20 @@
  */
 package io.github.glaforge.antigravity;
 
+/**
+ * Resolves the underlying OS and architecture platform.
+ */
 public class PlatformResolver {
+	/**
+	 * Default constructor.
+	 */
+	public PlatformResolver() {}
+
+	/**
+	 * Returns the platform slice string representing the OS and architecture.
+	 *
+	 * @return the platform slice string
+	 */
 	public static String getPlatformSlice() {
 		String os = System.getProperty("os.name").toLowerCase();
 		String arch = System.getProperty("os.arch").toLowerCase();
