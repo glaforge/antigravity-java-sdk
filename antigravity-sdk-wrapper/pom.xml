@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.github.glaforge.antigravity</groupId>
         <artifactId>antigravity-sdk-parent</artifactId>
-        <version>0.0.5-SNAPSHOT</version>
+        <version>0.0.5</version>
     </parent>
 
     <artifactId>antigravity-sdk-wrapper</artifactId>
