@@ -46,6 +46,12 @@ public class McpBridge {
 	private final ObjectMapper mapper = new ObjectMapper();
 
 	/**
+	 * Constructs a new McpBridge.
+	 */
+	public McpBridge() {
+	}
+
+	/**
 	 * Connects to all configured MCP servers and initializes the tools.
 	 * 
 	 * @param configs
@@ -74,6 +80,8 @@ public class McpBridge {
 	}
 
 	/**
+	 * Gets the list of discovered tools from all connected MCP servers.
+	 * 
 	 * @return All discovered tools from the connected MCP servers.
 	 */
 	public List<DynamicTool> getDiscoveredTools() {

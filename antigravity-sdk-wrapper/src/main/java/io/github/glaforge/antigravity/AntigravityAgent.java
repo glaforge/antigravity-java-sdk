@@ -61,11 +61,21 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	private final McpBridge mcpBridge;
 	private StringBuilder wsBuffer = new StringBuilder();
 
+	/**
+	 * Returns the unique ID of the conversation.
+	 *
+	 * @return the conversation ID
+	 */
 	public String getConversationId() {
 		return conversationId;
 	}
 
 	@Override
+	/**
+	 * Fires a trigger with the specified text to interrupt the agent and supply new information.
+	 *
+	 * @param triggerText the text content of the trigger
+	 */
 	public void fireTrigger(String triggerText) {
 		try {
 			InputEvent event = InputEvent.newBuilder().setAutomatedTrigger(triggerText).build();
@@ -275,6 +285,12 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 		triggerSessionStart().join();
 	}
 
+	/**
+	 * Registers all tools defined in the given service instance.
+	 * Tools are discovered by scanning the instance for methods annotated with {@literal @}AntigravityTool.
+	 *
+	 * @param serviceInstance the instance containing tool methods
+	 */
 	public void registerTools(Object serviceInstance) {
 		toolRegistry.registerToolsFromObject(serviceInstance);
 	}

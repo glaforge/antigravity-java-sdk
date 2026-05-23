@@ -20,9 +20,25 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ * Annotation used to expose a Java method as a tool to the Antigravity agent.
+ */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface AntigravityTool {
-	String name() default ""; // Overrides the tool name sent to Go
-	String description() default ""; // Explains what the tool does
+	/**
+	 * Overrides the tool name sent to the Go harness.
+	 * If empty, the method name is used.
+	 *
+	 * @return the tool name
+	 */
+	String name() default "";
+	
+	/**
+	 * Explains what the tool does.
+	 * This description is passed to the LLM.
+	 *
+	 * @return the tool description
+	 */
+	String description() default "";
 }

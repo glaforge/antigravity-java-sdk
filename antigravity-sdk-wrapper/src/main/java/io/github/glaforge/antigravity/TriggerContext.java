@@ -16,5 +16,10 @@
 package io.github.glaforge.antigravity;
 
 public interface TriggerContext {
+	/**
+	 * Fires a trigger with the specified text to interrupt the agent and supply new information.
+	 *
+	 * @param triggerText the text content of the trigger
+	 */
 	void fireTrigger(String triggerText);
 }

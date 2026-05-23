@@ -24,16 +24,32 @@ import java.util.Map;
  */
 public abstract class McpServerConfig {
 
+	/**
+	 * Defines the transport mechanism for the MCP server connection.
+	 */
 	public enum TransportType {
-		STDIO, SSE
+		/** Standard Input/Output transport. */
+		STDIO, 
+		/** Server-Sent Events transport. */
+		SSE
 	}
 
 	private final TransportType type;
 
+	/**
+	 * Constructs a new configuration with the specified transport type.
+	 * 
+	 * @param type The transport type.
+	 */
 	protected McpServerConfig(TransportType type) {
 		this.type = type;
 	}
 
+	/**
+	 * Gets the transport type of this configuration.
+	 * 
+	 * @return The transport type.
+	 */
 	public TransportType getType() {
 		return type;
 	}
@@ -46,6 +62,7 @@ public abstract class McpServerConfig {
 	 *            The executable command (e.g. "python3", "npx", "node").
 	 * @param args
 	 *            The arguments to pass to the command.
+	 * @return A new StdioMcpServerConfig instance.
 	 */
 	public static StdioMcpServerConfig stdio(String command, List<String> args) {
 		return new StdioMcpServerConfig(command, args);
@@ -57,6 +74,7 @@ public abstract class McpServerConfig {
 	 * 
 	 * @param url
 	 *            The SSE endpoint URL.
+	 * @return A new SseMcpServerConfig instance.
 	 */
 	public static SseMcpServerConfig sse(String url) {
 		return new SseMcpServerConfig(url, null);
@@ -70,11 +88,15 @@ public abstract class McpServerConfig {
 	 *            The SSE endpoint URL.
 	 * @param headers
 	 *            HTTP headers to send (e.g. for authentication).
+	 * @return A new SseMcpServerConfig instance.
 	 */
 	public static SseMcpServerConfig sse(String url, Map<String, String> headers) {
 		return new SseMcpServerConfig(url, headers);
 	}
 
+	/**
+	 * Configuration for an MCP server that communicates over Standard Input/Output.
+	 */
 	public static class StdioMcpServerConfig extends McpServerConfig {
 		private final String command;
 		private final List<String> args;
@@ -85,15 +107,28 @@ public abstract class McpServerConfig {
 			this.args = args;
 		}
 
+		/**
+		 * Gets the command used to start the server.
+		 * 
+		 * @return The command.
+		 */
 		public String getCommand() {
 			return command;
 		}
 
+		/**
+		 * Gets the arguments passed to the command.
+		 * 
+		 * @return The list of arguments.
+		 */
 		public List<String> getArgs() {
 			return args;
 		}
 	}
 
+	/**
+	 * Configuration for an MCP server that connects over Server-Sent Events (SSE).
+	 */
 	public static class SseMcpServerConfig extends McpServerConfig {
 		private final String url;
 		private final Map<String, String> headers;
@@ -104,10 +139,20 @@ public abstract class McpServerConfig {
 			this.headers = headers;
 		}
 
+		/**
+		 * Gets the SSE endpoint URL.
+		 * 
+		 * @return The URL.
+		 */
 		public String getUrl() {
 			return url;
 		}
 
+		/**
+		 * Gets the HTTP headers to send with the connection.
+		 * 
+		 * @return The map of headers.
+		 */
 		public Map<String, String> getHeaders() {
 			return headers;
 		}

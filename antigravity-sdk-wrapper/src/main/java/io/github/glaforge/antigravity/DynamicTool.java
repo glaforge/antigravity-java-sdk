@@ -25,11 +25,15 @@ import io.github.glaforge.antigravity.localharness.Tool;
 public interface DynamicTool {
 
 	/**
+	 * Returns the unique name of the tool.
+	 * 
 	 * @return The unique name of the tool.
 	 */
 	String getName();
 
 	/**
+	 * Returns the Protobuf definition of the tool schema used by the harness.
+	 * 
 	 * @return The Protobuf definition of the tool schema used by the harness.
 	 */
 	Tool getDefinition();
