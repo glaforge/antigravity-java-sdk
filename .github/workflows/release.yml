@@ -44,11 +44,23 @@ jobs:
           git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "git@github.com:"
           ./mvnw -ntp -B -Prelease release:prepare release:perform
 
+      - name: Publish with JReleaser
+        env:
+          JRELEASER_MAVENCENTRAL_USERNAME: ${{ secrets.JRELEASER_MAVENCENTRAL_USERNAME }}
+          JRELEASER_MAVENCENTRAL_TOKEN: ${{ secrets.JRELEASER_MAVENCENTRAL_TOKEN }}
+          JRELEASER_GPG_PASSPHRASE: ${{ secrets.JRELEASER_GPG_PASSPHRASE }}
+          JRELEASER_GPG_PUBLIC_KEY: ${{ secrets.JRELEASER_GPG_PUBLIC_KEY }}
+          JRELEASER_GPG_SECRET_KEY: ${{ secrets.JRELEASER_GPG_SECRET_KEY }}
+          JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd target/checkout
+          ./mvnw -ntp -B -Ppublication -N jreleaser:full-release
+
       - name: JReleaser output
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: jreleaser-release
           path: |
-            target/jreleaser/trace.log
-            target/jreleaser/output.properties
+            target/checkout/target/jreleaser/trace.log
+            target/checkout/target/jreleaser/output.properties
