@@ -17,7 +17,20 @@ package io.github.glaforge.antigravity;
 
 import io.github.glaforge.antigravity.localharness.Tool;
 
+/**
+ * Factory for creating Tool builders.
+ */
 public class ToolBuilderFactory {
+	/**
+	 * Default constructor.
+	 */
+	public ToolBuilderFactory() {
+	}
+	/**
+	 * Creates a new Tool builder.
+	 *
+	 * @return a Tool.Builder instance
+	 */
 	public static Tool.Builder newToolBuilder() {
 		return Tool.newBuilder();
 	}

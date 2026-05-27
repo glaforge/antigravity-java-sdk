@@ -37,15 +37,16 @@ public class HelloWorldTest {
 	public void testWeatherAgent() throws Exception {
 		TestUtils.retry(3, () -> {
 			WeatherTools tools = new WeatherTools();
-			AgentConfig config = AgentConfig.builder().persona(
-					"You are a helpful weather assistant. You MUST use the get_weather tool to fetch weather and NEVER use bash commands.")
-					.modelName("gemini-2.5-flash").addTool(tools).build();
-
-			try (AntigravityAgent agent = new AntigravityAgent(config)) {
+			try (Agent agent = Agent.builder().persona("""
+					You are a helpful weather assistant.
+					You MUST use the get_weather tool to fetch weather and NEVER use bash commands.
+					""").modelName("gemini-2.5-flash").addTool(tools)
+					.generation(GenerationConfig.builder().temperature(0.5).build()).build()) {
 				System.out.println("Agent initialized successfully!");
 
 				System.out.println("Sending prompt...");
-				CompletableFuture<AgentResponse> future = agent.chat("What is the weather in Tokyo right now?");
+				CompletableFuture<AgentResponse> future = agent.getConversation()
+						.chat("What is the weather in Tokyo right now?");
 
 				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();

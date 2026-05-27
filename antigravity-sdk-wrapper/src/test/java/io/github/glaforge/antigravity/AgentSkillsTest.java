@@ -37,13 +37,14 @@ public class AgentSkillsTest {
 
 			Files.writeString(skillFile.toPath(), skillContent);
 
-			AgentConfig config = AgentConfig.builder()
-					.persona("You are a helpful assistant. Do NOT call any tools. Just output the text.")
-					.addSkillPath(tempSkillDir.getAbsolutePath()).build();
+			AgentConfig config = AgentConfig.builder().persona("""
+					You are a helpful assistant.
+					Do NOT call any tools. Just output the text.
+					""").addSkillPath(tempSkillDir.getAbsolutePath()).build();
 
-			try (AntigravityAgent agent = new AntigravityAgent(config)) {
+			try (Agent agent = new Agent(config)) {
 				System.out.println("Activating skill...");
-				CompletableFuture<AgentResponse> future = agent.chat("activate test skill");
+				CompletableFuture<AgentResponse> future = agent.getConversation().chat("activate test skill");
 				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 

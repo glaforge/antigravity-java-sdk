@@ -21,9 +21,12 @@ import io.github.glaforge.antigravity.localharness.*;
 import io.github.glaforge.antigravity.hooks.*;
 import io.github.glaforge.antigravity.tools.ToolRegistry;
 import com.google.protobuf.util.JsonFormat;
+import com.google.protobuf.ByteString;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.io.OutputStream;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -47,7 +50,7 @@ import java.nio.file.Paths;
  * The main agent class that manages the lifecycle and interaction with the
  * local harness.
  */
-public class AntigravityAgent implements AutoCloseable, TriggerContext {
+public class Agent implements AutoCloseable, TriggerContext {
 	private final Process goProcess;
 	private WebSocket webSocket;
 	private final ToolRegistry toolRegistry = new ToolRegistry();
@@ -64,13 +67,33 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	private boolean hasStructuredOutput;
 	private final McpBridge mcpBridge;
 	private StringBuilder wsBuffer = new StringBuilder();
+	private final ConcurrentMap<String, Object> toolState = new ConcurrentHashMap<>();
+	private final SessionContext sessionContext = new SessionContext();
+
+	/**
+	 * Returns the conversation context for this agent.
+	 *
+	 * @return the conversation
+	 */
+	public Conversation getConversation() {
+		return new Conversation(this);
+	}
+
+	/**
+	 * Returns the usage metadata from the most recent turn.
+	 *
+	 * @return the usage metadata
+	 */
+	UsageMetadata getUsageMetadata() {
+		return currentUsage;
+	}
 
 	/**
 	 * Returns the unique ID of the conversation.
 	 *
 	 * @return the conversation ID
 	 */
-	public String getConversationId() {
+	String getConversationId() {
 		return conversationId;
 	}
 
@@ -106,14 +129,202 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	private final AgentConfig config;
 
 	/**
-	 * Constructs a new AntigravityAgent with the specified configuration.
+	 * Creates a new builder for the Agent.
+	 *
+	 * @return a new Agent.Builder instance
+	 */
+	public static Builder builder() {
+		return new Builder();
+	}
+
+	/**
+	 * Builder for Agent. delegates to AgentConfig.Builder internally.
+	 */
+	public static class Builder {
+		/**
+		 * Default constructor.
+		 */
+		public Builder() {
+		}
+		private final AgentConfig.Builder configBuilder = AgentConfig.builder();
+
+		/**
+		 * Sets the persona of the agent.
+		 *
+		 * @param persona
+		 *            the persona instructions
+		 * @return this builder
+		 */
+		public Builder persona(String persona) {
+			configBuilder.persona(persona);
+			return this;
+		}
+
+		/**
+		 * Sets the model name.
+		 *
+		 * @param modelName
+		 *            the model to use
+		 * @return this builder
+		 */
+		public Builder modelName(String modelName) {
+			configBuilder.modelName(modelName);
+			return this;
+		}
+
+		/**
+		 * Adds a tool to the agent.
+		 *
+		 * @param toolInstance
+		 *            the tool instance
+		 * @return this builder
+		 */
+		public Builder addTool(Object toolInstance) {
+			configBuilder.addTool(toolInstance);
+			return this;
+		}
+
+		/**
+		 * Adds a skill path.
+		 *
+		 * @param skillPath
+		 *            the skill path
+		 * @return this builder
+		 */
+		public Builder addSkillPath(String skillPath) {
+			configBuilder.addSkillPath(skillPath);
+			return this;
+		}
+
+		/**
+		 * Sets capabilities.
+		 *
+		 * @param capabilities
+		 *            the capabilities config
+		 * @return this builder
+		 */
+		public Builder capabilities(CapabilitiesConfig capabilities) {
+			configBuilder.capabilities(capabilities);
+			return this;
+		}
+
+		/**
+		 * Sets generation config.
+		 *
+		 * @param generation
+		 *            the generation config
+		 * @return this builder
+		 */
+		public Builder generation(GenerationConfig generation) {
+			configBuilder.generation(generation);
+			return this;
+		}
+
+		/**
+		 * Adds a hook.
+		 *
+		 * @param hook
+		 *            the hook
+		 * @return this builder
+		 */
+		public Builder addHook(AgentHook hook) {
+			configBuilder.addHook(hook);
+			return this;
+		}
+
+		/**
+		 * Sets the save directory.
+		 *
+		 * @param saveDir
+		 *            the directory to save
+		 * @return this builder
+		 */
+		public Builder saveDir(String saveDir) {
+			configBuilder.saveDir(saveDir);
+			return this;
+		}
+
+		/**
+		 * Sets app data directory.
+		 *
+		 * @param appDataDir
+		 *            the dir
+		 * @return this builder
+		 */
+		public Builder appDataDir(String appDataDir) {
+			configBuilder.appDataDir(appDataDir);
+			return this;
+		}
+
+		/**
+		 * Sets conversation ID.
+		 *
+		 * @param conversationId
+		 *            the ID
+		 * @return this builder
+		 */
+		public Builder conversationId(String conversationId) {
+			configBuilder.conversationId(conversationId);
+			return this;
+		}
+
+		/**
+		 * Adds a policy.
+		 *
+		 * @param policy
+		 *            the policy
+		 * @return this builder
+		 */
+		public Builder addPolicy(Policy policy) {
+			configBuilder.addPolicy(policy);
+			return this;
+		}
+
+		/**
+		 * Sets finish tool schema JSON.
+		 *
+		 * @param finishToolSchemaJson
+		 *            the JSON schema
+		 * @return this builder
+		 */
+		public Builder finishToolSchemaJson(String finishToolSchemaJson) {
+			configBuilder.finishToolSchemaJson(finishToolSchemaJson);
+			return this;
+		}
+
+		/**
+		 * Adds an MCP server config.
+		 *
+		 * @param mcpServerConfig
+		 *            the config
+		 * @return this builder
+		 */
+		public Builder addMcpServer(McpServerConfig mcpServerConfig) {
+			configBuilder.addMcpServer(mcpServerConfig);
+			return this;
+		}
+
+		/**
+		 * Builds the Agent.
+		 *
+		 * @return the configured Agent
+		 * @throws Exception
+		 *             if an error occurs
+		 */
+		public Agent build() throws Exception {
+			return new Agent(configBuilder.build());
+		}
+	}
+
+	/**
+	 * Constructs a new Agent with the specified configuration.
 	 *
 	 * @param config
 	 *            the configuration for the agent
 	 * @throws Exception
 	 *             if an error occurs during initialization
 	 */
-	public AntigravityAgent(AgentConfig config) throws Exception {
+	public Agent(AgentConfig config) throws Exception {
 		this.config = config;
 		this.policies = config.getPolicies();
 		for (Object tool : config.getToolInstances()) {
@@ -134,7 +345,7 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 		File tempExecutable = File.createTempFile("localharness-" + platformSlice + "-", ".tmp");
 		tempExecutable.deleteOnExit();
 
-		try (InputStream binaryStream = AntigravityAgent.class.getResourceAsStream(resourcePath)) {
+		try (InputStream binaryStream = Agent.class.getResourceAsStream(resourcePath)) {
 			if (binaryStream == null) {
 				throw new FileNotFoundException("Embedded Go harness engine asset missing for slice: " + platformSlice);
 			}
@@ -256,12 +467,12 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 				configBuilder.setFinishToolSchemaJson(config.getFinishToolSchemaJson());
 			}
 
-			if (config.isEnableSubagents() || config.isAllowUserQuestions()) {
+			if (config.getCapabilities().enableSubagents() || config.getCapabilities().allowUserQuestions()) {
 				HarnessSideTools.Builder capBuilder = HarnessSideTools.newBuilder();
-				if (config.isEnableSubagents()) {
+				if (config.getCapabilities().enableSubagents()) {
 					capBuilder.setSubagents(SubagentsConfig.newBuilder().setEnabled(true).build());
 				}
-				if (config.isAllowUserQuestions()) {
+				if (config.getCapabilities().allowUserQuestions()) {
 					capBuilder.setUserQuestions(UserQuestionsConfig.newBuilder().setEnabled(true).build());
 				}
 				configBuilder.setHarnessSideTools(capBuilder.build());
@@ -332,14 +543,14 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	}
 
 	/**
-	 * Sends a single text message to the agent and waits for the final response.
+	 * Sends a chat message and waits for the full response.
 	 *
-	 * @param text
-	 *            the text message
-	 * @return a CompletableFuture containing the AgentResponse
+	 * @param prompt
+	 *            the text prompt to send
+	 * @return a CompletableFuture containing the response
 	 */
-	public CompletableFuture<AgentResponse> chat(String text) {
-		return chatStream(List.of(AgentInput.Text.of(text)), null);
+	CompletableFuture<AgentResponse> chat(String prompt) {
+		return chatStream(List.of(AgentInput.Text.of(prompt)), null);
 	}
 
 	/**
@@ -349,19 +560,20 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	 *            the inputs to send
 	 * @return a CompletableFuture containing the AgentResponse
 	 */
-	public CompletableFuture<AgentResponse> chat(AgentInput... inputs) {
+	CompletableFuture<AgentResponse> chat(AgentInput... inputs) {
 		return chatStream(List.of(inputs), null);
 	}
 
 	/**
-	 * Sends a list of inputs to the agent and waits for the final response.
+	 * Sends a structured chat message with multiple inputs and waits for the full
+	 * response.
 	 *
-	 * @param inputs
-	 *            the list of inputs
-	 * @return a CompletableFuture containing the AgentResponse
+	 * @param prompt
+	 *            the list of inputs to send
+	 * @return a CompletableFuture containing the response
 	 */
-	public CompletableFuture<AgentResponse> chat(List<AgentInput> inputs) {
-		return chatStream(inputs, null);
+	CompletableFuture<AgentResponse> chat(List<AgentInput> prompt) {
+		return chatStream(prompt, null);
 	}
 
 	/**
@@ -373,7 +585,7 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	 *            a consumer to handle the incoming chunks
 	 * @return a CompletableFuture containing the final AgentResponse
 	 */
-	public CompletableFuture<AgentResponse> chatStream(String text, Consumer<AgentResponseChunk> onChunk) {
+	CompletableFuture<AgentResponse> chatStream(String text, Consumer<AgentResponseChunk> onChunk) {
 		return chatStream(List.of(AgentInput.Text.of(text)), onChunk);
 	}
 
@@ -386,23 +598,29 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	 *            a consumer to handle the incoming chunks
 	 * @return a CompletableFuture containing the final AgentResponse
 	 */
-	public CompletableFuture<AgentResponse> chatStream(List<AgentInput> inputs, Consumer<AgentResponseChunk> onChunk) {
-		if (currentChatFuture != null && !currentChatFuture.isDone()) {
-			throw new IllegalStateException("An existing chat request is still processing.");
+	CompletableFuture<AgentResponse> chatStream(List<AgentInput> inputs, Consumer<AgentResponseChunk> onChunk) {
+		if (this.currentChatFuture != null && !this.currentChatFuture.isDone()) {
+			return CompletableFuture.failedFuture(new IllegalStateException("A chat request is already in progress."));
 		}
+
 		this.currentChatFuture = new CompletableFuture<>();
 		this.currentChunkConsumer = onChunk;
 		this.currentText = new StringBuilder();
 		this.currentThoughts = new StringBuilder();
-		this.currentUsage = null;
 		this.hasStructuredOutput = false;
+		this.currentUsage = null;
 
-		String combinedPrompt = inputs.stream().filter(i -> i instanceof AgentInput.Text)
-				.map(i -> ((AgentInput.Text) i).text()).reduce("", (a, b) -> a + b);
+		StringBuilder combinedText = new StringBuilder();
+		for (AgentInput input : inputs) {
+			if (input instanceof AgentInput.Text t) {
+				combinedText.append(t.text()).append("\n");
+			}
+		}
+		String combinedPrompt = combinedText.toString().trim();
 
 		triggerPreTurn(combinedPrompt).thenAccept(res -> {
 			if (!res.allow()) {
-				currentChatFuture.completeExceptionally(new RuntimeException("Turn denied by hook"));
+				this.currentChatFuture.completeExceptionally(new IllegalStateException("Execution denied by hook"));
 				return;
 			}
 			try {
@@ -412,7 +630,7 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 						userInputBuilder.addParts(UserInput.Part.newBuilder().setText(t.text()).build());
 					} else if (input instanceof AgentInput.Media m) {
 						UserInput.Media.Builder mediaBuilder = UserInput.Media.newBuilder().setMimeType(m.mimeType())
-								.setData(com.google.protobuf.ByteString.copyFrom(m.data()));
+								.setData(ByteString.copyFrom(m.data()));
 						if (m.description() != null) {
 							mediaBuilder.setDescription(m.description());
 						}
@@ -422,9 +640,9 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 
 				InputEvent event = InputEvent.newBuilder().setComplexUserInput(userInputBuilder.build()).build();
 				String payload = JsonFormat.printer().omittingInsignificantWhitespace().print(event);
-				webSocket.sendText(payload, true);
+				this.webSocket.sendText(payload, true);
 			} catch (Exception e) {
-				currentChatFuture.completeExceptionally(e);
+				this.currentChatFuture.completeExceptionally(e);
 			}
 		});
 
@@ -458,7 +676,7 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 				future = future.thenCompose(res -> {
 					if (!res.allow())
 						return CompletableFuture.completedFuture(res);
-					return pth.onPreTurn(prompt);
+					return pth.onPreTurn(prompt, sessionContext);
 				});
 			}
 		}
@@ -469,7 +687,7 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 		CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
 		for (AgentHook hook : config.getHooks()) {
 			if (hook instanceof PostTurnHook pth) {
-				future = future.thenCompose(v -> pth.onPostTurn(response));
+				future = future.thenCompose(v -> pth.onPostTurn(response, sessionContext));
 			}
 		}
 		return future;
@@ -482,7 +700,7 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 				future = future.thenCompose(res -> {
 					if (!res.allow())
 						return CompletableFuture.completedFuture(res);
-					return ptcd.onPreToolCallDecide(call);
+					return ptcd.onPreToolCallDecide(call, sessionContext);
 				});
 			}
 		}
@@ -492,8 +710,8 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	private CompletableFuture<Void> triggerPostToolCall(ToolCall call, Object result) {
 		CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
 		for (AgentHook hook : config.getHooks()) {
-			if (hook instanceof PostToolCallHook ptch) {
-				future = future.thenCompose(v -> ptch.onPostToolCall(call, result));
+			if (hook instanceof PostToolCallHook pth) {
+				future = future.thenCompose(v -> pth.onPostToolCall(call, result, sessionContext));
 			}
 		}
 		return future;
@@ -502,11 +720,11 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	private CompletableFuture<Object> triggerOnToolError(ToolCall call, Throwable err) {
 		CompletableFuture<Object> future = CompletableFuture.completedFuture(null);
 		for (AgentHook hook : config.getHooks()) {
-			if (hook instanceof OnToolErrorHook teh) {
-				future = future.thenCompose(res -> {
-					if (res != null)
-						return CompletableFuture.completedFuture(res);
-					return teh.onToolError(call, err);
+			if (hook instanceof OnToolErrorHook oteh) {
+				future = future.thenCompose(recovery -> {
+					if (recovery != null)
+						return CompletableFuture.completedFuture(recovery);
+					return oteh.onToolError(call, err, sessionContext);
 				});
 			}
 		}
@@ -516,8 +734,8 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 	private CompletableFuture<Void> triggerOnCompaction(Object stepData) {
 		CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
 		for (AgentHook hook : config.getHooks()) {
-			if (hook instanceof OnCompactionHook cch) {
-				future = future.thenCompose(v -> cch.onCompaction(stepData));
+			if (hook instanceof OnCompactionHook och) {
+				future = future.thenCompose(v -> och.onCompaction(stepData, sessionContext));
 			}
 		}
 		return future;
@@ -620,7 +838,7 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 
 						String json = stepUpdate.get("questionsRequest").toString();
 						UserQuestionsRequest.Builder reqBuilder = UserQuestionsRequest.newBuilder();
-						com.google.protobuf.util.JsonFormat.parser().ignoringUnknownFields().merge(json, reqBuilder);
+						JsonFormat.parser().ignoringUnknownFields().merge(json, reqBuilder);
 						UserQuestionsRequest req = reqBuilder.build();
 
 						for (AgentHook hook : config.getHooks()) {
@@ -637,8 +855,8 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 										InputEvent inputEvent = InputEvent.newBuilder().setQuestionResponse(fullResp)
 												.build();
 
-										String payloadJson = com.google.protobuf.util.JsonFormat.printer()
-												.omittingInsignificantWhitespace().print(inputEvent);
+										String payloadJson = JsonFormat.printer().omittingInsignificantWhitespace()
+												.print(inputEvent);
 										webSocket.sendText(payloadJson, true);
 									} catch (Exception e) {
 										e.printStackTrace();
@@ -705,7 +923,32 @@ public class AntigravityAgent implements AutoCloseable, TriggerContext {
 
 					toolExecutor.submit(() -> {
 						try {
-							String resultJson = toolRegistry.execute(name, args);
+							String resultJson = toolRegistry.execute(name, args, new ToolContext() {
+								@Override
+								public String getConversationId() {
+									return Agent.this.getConversationId();
+								}
+								@Override
+								public boolean isIdle() {
+									return currentChatFuture == null;
+								}
+								@Override
+								public void send(String message) {
+									Agent.this.fireTrigger(message);
+								}
+								@Override
+								public Object getState(String key, Object defaultValue) {
+									return toolState.getOrDefault(key, defaultValue);
+								}
+								@Override
+								public void setState(String key, Object value) {
+									toolState.put(key, value);
+								}
+								@Override
+								public ConcurrentMap<String, Object> getStateMap() {
+									return toolState;
+								}
+							});
 							triggerPostToolCall(parsedCall, resultJson).join();
 							sendToolResponse(callId, resultJson);
 						} catch (Exception e) {

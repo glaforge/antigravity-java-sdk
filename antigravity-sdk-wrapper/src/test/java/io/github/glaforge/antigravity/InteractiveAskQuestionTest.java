@@ -36,8 +36,7 @@ public class InteractiveAskQuestionTest {
 
 			AgentHook mockAskHook = new OnInteractionHook() {
 				@Override
-				public CompletableFuture<java.util.List<UserQuestionAnswer>> onInteraction(
-						UserQuestionsRequest request) {
+				public CompletableFuture<List<UserQuestionAnswer>> onInteraction(UserQuestionsRequest request) {
 					capturedRequest.set(request);
 
 					MultipleChoiceAnswer choiceAns = MultipleChoiceAnswer.newBuilder().addSelectedChoiceIndices(1)
@@ -46,16 +45,18 @@ public class InteractiveAskQuestionTest {
 					UserQuestionAnswer answer = UserQuestionAnswer.newBuilder().setMultipleChoiceAnswer(choiceAns)
 							.build();
 
-					return CompletableFuture.completedFuture(java.util.List.of(answer));
+					return CompletableFuture.completedFuture(List.of(answer));
 				}
 			};
 
-			AgentConfig config = AgentConfig.builder().allowUserQuestions(true).addHook(mockAskHook).build();
+			AgentConfig config = AgentConfig.builder()
+					.capabilities(CapabilitiesConfig.builder().allowUserQuestions(true).build()).addHook(mockAskHook)
+					.build();
 
-			try (AntigravityAgent agent = new AntigravityAgent(config)) {
+			try (Agent agent = new Agent(config)) {
 				AgentInput prompt = new AgentInput.Text(
 						"Ask me a multiple choice question with 3 options: red, blue, green. Then tell me what I chose.");
-				CompletableFuture<AgentResponse> responseFuture = agent.chat(List.of(prompt));
+				CompletableFuture<AgentResponse> responseFuture = agent.getConversation().chat(List.of(prompt));
 
 				await().atMost(120, TimeUnit.SECONDS).until(responseFuture::isDone);
 				AgentResponse response = responseFuture.get();

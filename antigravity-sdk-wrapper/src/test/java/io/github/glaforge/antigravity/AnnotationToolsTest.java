@@ -40,15 +40,17 @@ public class AnnotationToolsTest {
 	@Test
 	public void testPojoToolInvocation() throws Exception {
 		TestUtils.retry(3, () -> {
-			AgentConfig config = AgentConfig.builder().persona(
-					"You are a weather bot. Always invoke the weather_forecast tool to get the weather, and tell the user the result.")
-					.addTool(new MyToolbox()).modelName("gemini-2.5-flash").build();
+			AgentConfig config = AgentConfig.builder().persona("""
+					You are a weather bot.
+					Always invoke the weather_forecast tool to get the weather, and tell the user the result.
+					""").addTool(new MyToolbox()).modelName("gemini-2.5-flash").build();
 
-			try (AntigravityAgent agent = new AntigravityAgent(config)) {
+			try (Agent agent = new Agent(config)) {
 				System.out.println("Agent initialized successfully!");
 
 				System.out.println("Sending prompt...");
-				AgentResponse response = agent.chat("What is the weather in Paris, France, zip 75001?").join();
+				AgentResponse response = agent.getConversation()
+						.chat("What is the weather in Paris, France, zip 75001?").join();
 				System.out.println("\n--- Agent Response ---");
 				System.out.println(response.getText());
 				System.out.println("----------------------\n");

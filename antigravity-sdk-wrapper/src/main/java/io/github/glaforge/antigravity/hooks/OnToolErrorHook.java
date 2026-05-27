@@ -15,6 +15,7 @@
  */
 package io.github.glaforge.antigravity.hooks;
 
+import io.github.glaforge.antigravity.SessionContext;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -28,8 +29,10 @@ public interface OnToolErrorHook extends AgentHook {
 	 * @param toolCall
 	 *            the tool call that caused the error
 	 * @param error
-	 *            the error that was thrown
+	 *            the exception thrown by the tool
+	 * @param context
+	 *            the session context for the current turn
 	 * @return a CompletableFuture containing the fallback or handled result
 	 */
-	CompletableFuture<Object> onToolError(ToolCall toolCall, Throwable error);
+	CompletableFuture<Object> onToolError(ToolCall toolCall, Throwable error, SessionContext context);
 }

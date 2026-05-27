@@ -54,9 +54,10 @@ public class StructuredOutputsTest {
 			AgentConfig config = AgentConfig.builder().persona("Extract the person information from the text.")
 					.modelName("gemini-2.5-flash").finishToolSchemaJson(schema).build();
 
-			try (AntigravityAgent agent = new AntigravityAgent(config)) {
+			try (Agent agent = new Agent(config)) {
 				System.out.println("Sending prompt...");
-				CompletableFuture<AgentResponse> future = agent.chat("Bob is 42 years old and likes to fish.");
+				CompletableFuture<AgentResponse> future = agent.getConversation()
+						.chat("Bob is 42 years old and likes to fish.");
 				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 

@@ -35,7 +35,7 @@ public class ScratchTest {
 					.saveDir(tempDir.getAbsolutePath()).build();
 
 			String conversationId;
-			try (AntigravityAgent agent1 = new AntigravityAgent(config1)) {
+			try (Agent agent1 = new Agent(config1)) {
 				CompletableFuture<AgentResponse> future1 = agent1.chat("My favorite color is blue.");
 				await().atMost(120, TimeUnit.SECONDS).until(future1::isDone);
 				AgentResponse response1 = future1.get();

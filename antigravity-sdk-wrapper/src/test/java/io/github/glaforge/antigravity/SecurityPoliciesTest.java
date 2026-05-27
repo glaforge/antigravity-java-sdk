@@ -43,13 +43,15 @@ public class SecurityPoliciesTest {
 				return Policy.Decision.DENY;
 			};
 
-			AgentConfig config = AgentConfig.builder()
-					.persona("You are a weather assistant. Fetch the weather for Tokyo. If denied, just say you can't.")
-					.addTool(tools).addPolicy(customPolicy).build();
+			AgentConfig config = AgentConfig.builder().persona("""
+					You are a weather assistant. Fetch the weather for Tokyo.
+					If denied, just say you can't.
+					""").addTool(tools).addPolicy(customPolicy).build();
 
-			try (AntigravityAgent agent = new AntigravityAgent(config)) {
+			try (Agent agent = new Agent(config)) {
 				System.out.println("Testing with denied policy...");
-				CompletableFuture<AgentResponse> future1 = agent.chat("What is the weather in Tokyo right now?");
+				CompletableFuture<AgentResponse> future1 = agent.getConversation()
+						.chat("What is the weather in Tokyo right now?");
 				await().atMost(120, TimeUnit.SECONDS).until(future1::isDone);
 				AgentResponse response1 = future1.get();
 				System.out.println(response1.getText());
@@ -59,7 +61,8 @@ public class SecurityPoliciesTest {
 
 				System.out.println("\nTesting with allowed policy...");
 				allowWeather.set(true);
-				CompletableFuture<AgentResponse> future2 = agent.chat("Try to fetch the weather for Tokyo again.");
+				CompletableFuture<AgentResponse> future2 = agent.getConversation()
+						.chat("Try to fetch the weather for Tokyo again.");
 				await().atMost(120, TimeUnit.SECONDS).until(future2::isDone);
 				AgentResponse response2 = future2.get();
 				System.out.println(response2.getText());

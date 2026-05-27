@@ -30,7 +30,7 @@ public class StreamingTest {
 			AgentConfig config = AgentConfig.builder().persona("You are a helpful assistant.")
 					.modelName("gemini-2.5-flash").build();
 
-			try (AntigravityAgent agent = new AntigravityAgent(config)) {
+			try (Agent agent = new Agent(config)) {
 				System.out.println("Starting chat stream...");
 				AtomicInteger chunkCount = new AtomicInteger(0);
 

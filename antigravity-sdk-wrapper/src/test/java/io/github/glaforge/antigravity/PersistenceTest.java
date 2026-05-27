@@ -36,7 +36,7 @@ public class PersistenceTest {
 			AgentConfig config1 = AgentConfig.builder().persona("You are a helpful assistant.")
 					.saveDir(tempDir.getAbsolutePath()).build();
 
-			try (AntigravityAgent agent1 = new AntigravityAgent(config1)) {
+			try (Agent agent1 = new Agent(config1)) {
 				CompletableFuture<AgentResponse> future1 = agent1
 						.chat("Please remember the secret code word is BANANA.");
 				await().atMost(120, TimeUnit.SECONDS).until(future1::isDone);
@@ -59,7 +59,7 @@ public class PersistenceTest {
 			AgentConfig config2 = AgentConfig.builder().persona("You are a helpful assistant.")
 					.saveDir(tempDir.getAbsolutePath()).conversationId(conversationId).build();
 
-			try (AntigravityAgent agent2 = new AntigravityAgent(config2)) {
+			try (Agent agent2 = new Agent(config2)) {
 				CompletableFuture<AgentResponse> future2 = agent2.chat("What is the secret code word?");
 				await().atMost(120, TimeUnit.SECONDS).until(future2::isDone);
 				AgentResponse response2 = future2.get();

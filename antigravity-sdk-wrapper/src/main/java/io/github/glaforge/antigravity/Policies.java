@@ -18,6 +18,7 @@ package io.github.glaforge.antigravity;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.Set;
 import java.util.Arrays;
+import java.util.function.BiPredicate;
 
 /**
  * Pre-packaged policies to control autonomous agent behavior and simplify
@@ -143,5 +144,57 @@ public final class Policies {
 		 * @return true if the condition is met
 		 */
 		boolean test(String toolName, JsonNode arguments);
+	}
+
+	/**
+	 * Creates a policy that delegates the decision to the user via a callback.
+	 *
+	 * @param prompter
+	 *            a BiPredicate taking the tool name and arguments, and returning
+	 *            true to allow or false to deny.
+	 * @return a policy that asks the user for confirmation
+	 */
+	public static Policy askUser(BiPredicate<String, JsonNode> prompter) {
+		return (toolName,
+				arguments) -> prompter.test(toolName, arguments) ? Policy.Decision.ALLOW : Policy.Decision.DENY;
+	}
+
+	/**
+	 * Creates a policy that asks the user for confirmation only when the agent
+	 * tries to run a command.
+	 *
+	 * @param prompter
+	 *            a BiPredicate taking the tool name and arguments, and returning
+	 *            true to allow or false to deny.
+	 * @return a policy that asks the user before running a command
+	 */
+	public static Policy confirmRunCommand(BiPredicate<String, JsonNode> prompter) {
+		return (toolName, arguments) -> {
+			if ("run_command".equals(toolName)) {
+				return prompter.test(toolName, arguments) ? Policy.Decision.ALLOW : Policy.Decision.DENY;
+			}
+			return Policy.Decision.PASS;
+		};
+	}
+
+	/**
+	 * Creates a policy that asks the user for confirmation when the agent tries to
+	 * run a command or edit a file.
+	 *
+	 * @param prompter
+	 *            a BiPredicate taking the tool name and arguments, and returning
+	 *            true to allow or false to deny.
+	 * @return a policy that asks the user before running a command or editing a
+	 *         file
+	 */
+	public static Policy confirmRunCommandOrFileEdit(BiPredicate<String, JsonNode> prompter) {
+		return (toolName, arguments) -> {
+			if ("run_command".equals(toolName) || "file_edit".equals(toolName)
+					|| "replace_file_content".equals(toolName) || "multi_replace_file_content".equals(toolName)
+					|| "write_to_file".equals(toolName)) {
+				return prompter.test(toolName, arguments) ? Policy.Decision.ALLOW : Policy.Decision.DENY;
+			}
+			return Policy.Decision.PASS;
+		};
 	}
 }

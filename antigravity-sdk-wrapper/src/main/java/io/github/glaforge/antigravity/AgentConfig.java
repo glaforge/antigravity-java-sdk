@@ -22,15 +22,15 @@ import java.util.Collections;
 import io.github.glaforge.antigravity.hooks.AgentHook;
 
 /**
- * Configuration for the AntigravityAgent.
+ * Configuration for the Agent.
  */
 public class AgentConfig {
 	private final String persona;
 	private final String modelName;
 	private final List<Object> toolInstances;
 	private final List<String> skillsPaths;
-	private final boolean enableSubagents;
-	private final boolean allowUserQuestions;
+	private final CapabilitiesConfig capabilities;
+	private final GenerationConfig generation;
 	private final Path workspaceDir;
 	private final List<AgentHook> hooks;
 	private final String saveDir;
@@ -45,8 +45,8 @@ public class AgentConfig {
 		this.modelName = builder.modelName;
 		this.toolInstances = new ArrayList<>(builder.toolInstances);
 		this.skillsPaths = new ArrayList<>(builder.skillsPaths);
-		this.enableSubagents = builder.enableSubagents;
-		this.allowUserQuestions = builder.allowUserQuestions;
+		this.capabilities = builder.capabilities != null ? builder.capabilities : CapabilitiesConfig.builder().build();
+		this.generation = builder.generation;
 		this.workspaceDir = builder.workspaceDir;
 		this.hooks = new ArrayList<>(builder.hooks);
 		this.saveDir = builder.saveDir;
@@ -90,20 +90,20 @@ public class AgentConfig {
 		return Collections.unmodifiableList(skillsPaths);
 	}
 	/**
-	 * Returns whether subagents are enabled.
+	 * Returns the capabilities configuration.
 	 *
-	 * @return whether subagents are enabled
+	 * @return the capabilities configuration
 	 */
-	public boolean isEnableSubagents() {
-		return enableSubagents;
+	public CapabilitiesConfig getCapabilities() {
+		return capabilities;
 	}
 	/**
-	 * Returns whether user questions are allowed.
+	 * Returns the generation configuration.
 	 *
-	 * @return whether user questions are allowed
+	 * @return the generation configuration
 	 */
-	public boolean isAllowUserQuestions() {
-		return allowUserQuestions;
+	public GenerationConfig getGeneration() {
+		return generation;
 	}
 	/**
 	 * Returns the workspace directory.
@@ -190,8 +190,8 @@ public class AgentConfig {
 		private String modelName = "gemini-2.5-flash";
 		private List<Object> toolInstances = new ArrayList<>();
 		private List<String> skillsPaths = new ArrayList<>();
-		private boolean enableSubagents = false;
-		private boolean allowUserQuestions = false;
+		private CapabilitiesConfig capabilities = CapabilitiesConfig.builder().build();
+		private GenerationConfig generation = null;
 		private Path workspaceDir = Path.of(System.getProperty("user.dir"));
 		private List<AgentHook> hooks = new ArrayList<>();
 		private String saveDir = System.getProperty("java.io.tmpdir") + "/antigravity-java";
@@ -250,26 +250,26 @@ public class AgentConfig {
 		}
 
 		/**
-		 * Enables or disables subagents.
+		 * Sets the capabilities configuration.
 		 *
-		 * @param enableSubagents
-		 *            true to enable subagents
+		 * @param capabilities
+		 *            the capabilities configuration
 		 * @return this builder
 		 */
-		public Builder enableSubagents(boolean enableSubagents) {
-			this.enableSubagents = enableSubagents;
+		public Builder capabilities(CapabilitiesConfig capabilities) {
+			this.capabilities = capabilities;
 			return this;
 		}
 
 		/**
-		 * Enables or disables user questions.
+		 * Sets the generation configuration.
 		 *
-		 * @param allowUserQuestions
-		 *            true to allow user questions
+		 * @param generation
+		 *            the generation configuration
 		 * @return this builder
 		 */
-		public Builder allowUserQuestions(boolean allowUserQuestions) {
-			this.allowUserQuestions = allowUserQuestions;
+		public Builder generation(GenerationConfig generation) {
+			this.generation = generation;
 			return this;
 		}
 

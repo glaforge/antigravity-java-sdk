@@ -16,6 +16,7 @@
 package io.github.glaforge.antigravity.hooks;
 
 import java.util.concurrent.CompletableFuture;
+import io.github.glaforge.antigravity.SessionContext;
 
 /**
  * A hook that is triggered when the agent's internal context is compacted. This
@@ -28,8 +29,10 @@ public interface OnCompactionHook extends AgentHook {
 	 * Called when a compaction event occurs.
 	 *
 	 * @param stepData
-	 *            the data representing the compaction step
+	 *            data concerning the compacted step
+	 * @param context
+	 *            the session context for the current turn
 	 * @return a CompletableFuture that completes when the hook is finished
 	 */
-	CompletableFuture<Void> onCompaction(Object stepData);
+	CompletableFuture<Void> onCompaction(Object stepData, SessionContext context);
 }

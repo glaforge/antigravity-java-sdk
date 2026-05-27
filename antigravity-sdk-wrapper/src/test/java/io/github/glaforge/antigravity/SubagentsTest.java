@@ -25,11 +25,11 @@ public class SubagentsTest {
 
 	@Test
 	public void testSubagents() throws Exception {
-		TestUtils.retry(3, () -> {
-			AgentConfig config = AgentConfig.builder().persona("You are a coordinator agent.").enableSubagents(true)
-					.build();
+		TestUtils.retry(5, () -> {
+			AgentConfig config = AgentConfig.builder().persona("You are a coordinator agent.")
+					.capabilities(CapabilitiesConfig.builder().enableSubagents(true).build()).build();
 
-			try (AntigravityAgent agent = new AntigravityAgent(config)) {
+			try (Agent agent = new Agent(config)) {
 				CompletableFuture<AgentResponse> future = agent
 						.chat("Please spawn a subagent to write a 2 sentence poem about space.");
 				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);

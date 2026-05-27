@@ -16,6 +16,7 @@
 package io.github.glaforge.antigravity.hooks;
 
 import java.util.concurrent.CompletableFuture;
+import io.github.glaforge.antigravity.SessionContext;
 
 /**
  * A hook executed before an agent begins its turn.
@@ -26,8 +27,10 @@ public interface PreTurnHook extends AgentHook {
 	 * Called before the agent's turn.
 	 *
 	 * @param prompt
-	 *            the initial prompt or input
+	 *            the initial prompt provided to the agent for this turn
+	 * @param context
+	 *            the session context for the current turn
 	 * @return a CompletableFuture containing the HookResult for the execution
 	 */
-	CompletableFuture<HookResult> onPreTurn(String prompt);
+	CompletableFuture<HookResult> onPreTurn(String prompt, SessionContext context);
 }

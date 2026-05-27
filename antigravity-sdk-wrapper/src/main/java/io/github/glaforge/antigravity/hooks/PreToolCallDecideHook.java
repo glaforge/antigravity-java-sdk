@@ -15,6 +15,7 @@
  */
 package io.github.glaforge.antigravity.hooks;
 
+import io.github.glaforge.antigravity.SessionContext;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -26,8 +27,10 @@ public interface PreToolCallDecideHook extends AgentHook {
 	 * Called before a tool is executed to decide if it should proceed.
 	 *
 	 * @param toolCall
-	 *            the tool call to evaluate
+	 *            the tool call that the agent is proposing to execute
+	 * @param context
+	 *            the session context for the current conversation
 	 * @return a CompletableFuture containing the HookResult for the decision
 	 */
-	CompletableFuture<HookResult> onPreToolCallDecide(ToolCall toolCall);
+	CompletableFuture<HookResult> onPreToolCallDecide(ToolCall toolCall, SessionContext context);
 }

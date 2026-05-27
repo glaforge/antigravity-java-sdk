@@ -15,6 +15,8 @@
  */
 package io.github.glaforge.antigravity;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 /**
  * Represents the final response from the agent.
  */
@@ -76,7 +78,7 @@ public class AgentResponse {
 	 *             if mapping fails
 	 */
 	public <T> T getStructuredOutput(Class<T> type) throws Exception {
-		com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+		ObjectMapper mapper = new ObjectMapper();
 		return mapper.readValue(text, type);
 	}
 

@@ -15,6 +15,7 @@
  */
 package io.github.glaforge.antigravity.hooks;
 
+import io.github.glaforge.antigravity.SessionContext;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -28,8 +29,10 @@ public interface PostToolCallHook extends AgentHook {
 	 * @param toolCall
 	 *            the tool call that was executed
 	 * @param result
-	 *            the result returned by the tool
+	 *            the result returned by the tool execution
+	 * @param context
+	 *            the session context for the current turn
 	 * @return a CompletableFuture representing the asynchronous execution
 	 */
-	CompletableFuture<Void> onPostToolCall(ToolCall toolCall, Object result);
+	CompletableFuture<Void> onPostToolCall(ToolCall toolCall, Object result, SessionContext context);
 }

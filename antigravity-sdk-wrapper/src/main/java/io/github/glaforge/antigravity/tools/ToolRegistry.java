@@ -19,14 +19,19 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.List;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import io.github.glaforge.antigravity.DynamicTool;
 import io.github.glaforge.antigravity.ToolBuilderFactory;
+import io.github.glaforge.antigravity.ToolContext;
 
 /**
  * Manages the registration and execution of tools for the agent.
@@ -91,6 +96,10 @@ public class ToolRegistry {
 
 			Parameter[] params = entry.getValue().method().getParameters();
 			for (Parameter p : params) {
+				if (p.getType() == ToolContext.class) {
+					continue;
+				}
+
 				String paramName = p.getName();
 				String description = "";
 
@@ -134,12 +143,12 @@ public class ToolRegistry {
 		return definitions;
 	}
 
-	private ObjectNode generateSchema(java.lang.reflect.Type genericType) {
+	private ObjectNode generateSchema(Type genericType) {
 		ObjectNode schema = mapper.createObjectNode();
 		Class<?> type;
-		java.lang.reflect.Type[] typeArgs = null;
+		Type[] typeArgs = null;
 
-		if (genericType instanceof java.lang.reflect.ParameterizedType pType) {
+		if (genericType instanceof ParameterizedType pType) {
 			type = (Class<?>) pType.getRawType();
 			typeArgs = pType.getActualTypeArguments();
 		} else if (genericType instanceof Class) {
@@ -174,9 +183,8 @@ public class ToolRegistry {
 		} else {
 			schema.put("type", "object");
 			ObjectNode properties = schema.putObject("properties");
-			for (java.lang.reflect.Field f : type.getDeclaredFields()) {
-				if (java.lang.reflect.Modifier.isStatic(f.getModifiers())
-						|| java.lang.reflect.Modifier.isTransient(f.getModifiers())) {
+			for (Field f : type.getDeclaredFields()) {
+				if (Modifier.isStatic(f.getModifiers()) || Modifier.isTransient(f.getModifiers())) {
 					continue;
 				}
 				properties.set(f.getName(), generateSchema(f.getGenericType()));
@@ -193,11 +201,13 @@ public class ToolRegistry {
 	 *            the name of the tool to execute
 	 * @param arguments
 	 *            the JSON node containing the arguments
+	 * @param toolContext
+	 *            the context for the tool execution
 	 * @return a JSON string representation of the tool's execution result
 	 * @throws Exception
 	 *             if tool execution fails
 	 */
-	public String execute(String toolName, JsonNode arguments) throws Exception {
+	public String execute(String toolName, JsonNode arguments, ToolContext toolContext) throws Exception {
 		if (dynamicRegistry.containsKey(toolName)) {
 			Object result = dynamicRegistry.get(toolName).execute(arguments);
 			if (result instanceof String) {
@@ -211,7 +221,7 @@ public class ToolRegistry {
 			throw new IllegalArgumentException("Unknown tool requested: " + toolName);
 		}
 
-		Object[] parsedArgs = resolveArguments(handler.method(), arguments);
+		Object[] parsedArgs = resolveArguments(handler.method(), arguments, toolContext);
 		Object result = handler.method().invoke(handler.instance(), parsedArgs);
 
 		if (result instanceof String) {
@@ -220,12 +230,19 @@ public class ToolRegistry {
 		return mapper.writeValueAsString(result);
 	}
 
-	private Object[] resolveArguments(Method method, JsonNode arguments) throws Exception {
+	private Object[] resolveArguments(Method method, JsonNode arguments, ToolContext toolContext) throws Exception {
 		Parameter[] parameters = method.getParameters();
 		Object[] parsedValues = new Object[parameters.length];
 
 		for (int i = 0; i < parameters.length; i++) {
 			Parameter param = parameters[i];
+			Class<?> type = param.getType();
+
+			if (type == ToolContext.class) {
+				parsedValues[i] = toolContext;
+				continue;
+			}
+
 			String name = param.getName();
 			if (param.isAnnotationPresent(Param.class)) {
 				Param paramAnno = param.getAnnotation(Param.class);
@@ -233,8 +250,6 @@ public class ToolRegistry {
 					name = paramAnno.name();
 				}
 			}
-
-			Class<?> type = param.getType();
 
 			if (arguments == null || !arguments.has(name)) {
 				parsedValues[i] = null;

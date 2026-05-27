@@ -29,8 +29,9 @@ public class ObservabilityTest {
 			AgentConfig config = AgentConfig.builder().persona("You are a helpful assistant.")
 					.modelName("gemini-2.5-flash").build();
 
-			try (AntigravityAgent agent = new AntigravityAgent(config)) {
-				CompletableFuture<AgentResponse> future = agent.chat("Hi, say exactly one word: Hello.");
+			try (Agent agent = new Agent(config)) {
+				CompletableFuture<AgentResponse> future = agent.getConversation()
+						.chat("Hi, say exactly one word: Hello.");
 				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 
@@ -38,7 +39,7 @@ public class ObservabilityTest {
 				UsageMetadata usage = response.getUsageMetadata();
 				if (usage != null) {
 					System.out.println("Metadata: " + usage);
-					assertTrue(usage.getPromptTokenCount() >= 0, "Prompt tokens should be >= 0");
+					assertTrue(usage.promptTokenCount() >= 0, "Prompt tokens should be >= 0");
 				} else {
 					System.out.println("Metadata was not returned by the harness in this test run.");
 				}

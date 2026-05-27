@@ -49,30 +49,32 @@ public class HooksTest {
 				events.add("end");
 				return CompletableFuture.completedFuture(null);
 			};
-			PreTurnHook preTurnHook = (prompt) -> {
+			PreTurnHook preTurnHook = (prompt, context) -> {
 				events.add("pre_turn:" + prompt);
 				return CompletableFuture.completedFuture(HookResult.allowed());
 			};
-			PostTurnHook postTurnHook = (resp) -> {
+			PostTurnHook postTurnHook = (resp, context) -> {
 				events.add("post_turn");
 				return CompletableFuture.completedFuture(null);
 			};
-			PreToolCallDecideHook preToolHook = (call) -> {
+			PreToolCallDecideHook preToolHook = (call, context) -> {
 				events.add("pre_tool:" + call.name());
 				return CompletableFuture.completedFuture(HookResult.allowed());
 			};
-			PostToolCallHook postToolHook = (call, result) -> {
+			PostToolCallHook postToolHook = (call, result, context) -> {
 				events.add("post_tool:" + result);
 				return CompletableFuture.completedFuture(null);
 			};
 
-			AgentConfig config = AgentConfig.builder().modelName("models/gemini-2.5-flash").persona(
-					"You are a helpful assistant. If the user asks you to echo, you must call the echo tool EXACTLY ONCE. After the tool returns, immediately reply to the user with the result and finish the turn.")
-					.addTool(new EchoTool()).addHook(startHook).addHook(endHook).addHook(preTurnHook)
+			AgentConfig config = AgentConfig.builder().modelName("models/gemini-2.5-flash").persona("""
+					You are a helpful assistant.
+					If the user asks you to echo, you must call the echo tool EXACTLY ONCE.
+					After the tool returns, immediately reply to the user with the result and finish the turn.
+					""").addTool(new EchoTool()).addHook(startHook).addHook(endHook).addHook(preTurnHook)
 					.addHook(postTurnHook).addHook(preToolHook).addHook(postToolHook).build();
 
-			try (AntigravityAgent agent = new AntigravityAgent(config)) {
-				AgentResponse response = agent.chat("Say hello").join();
+			try (Agent agent = new Agent(config)) {
+				AgentResponse response = agent.getConversation().chat("Say hello").join();
 				assertNotNull(response.getText());
 			}
 
