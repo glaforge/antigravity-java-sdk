@@ -84,11 +84,11 @@ AgentConfig config = AgentConfig.builder()
         @Override
         public String getName() { return "get_weather"; }
         
-        public Tool getDefinition() {
-            return Tool.newBuilder()
-                .setName("get_weather")
-                .setDescription("Get the weather for a location.")
-                .setParametersJsonSchema("{\"type\":\"object\",\"properties\":{\"location\":{\"type\":\"string\"}}}")
+        public ToolDefinition getDefinition() {
+            return ToolDefinition.builder()
+                .name("get_weather")
+                .description("Get the weather for a location.")
+                .parametersJsonSchema("{\"type\":\"object\",\"properties\":{\"location\":{\"type\":\"string\"}}}")
                 .build();
         }
         
@@ -115,12 +115,53 @@ AgentConfig config = AgentConfig.builder()
 
 ### 5. Security Policies
 
-Restrict which tools the agent is allowed to execute using Security Policies.
+Restrict which tools the agent is allowed to execute using Security Policies. Policies are evaluated strictly in the order they are added.
 
+#### Basic Policy (Deny All)
 ```java
 AgentConfig config = AgentConfig.builder()
     .instructions("You are restricted from running dangerous commands.")
-    .addPolicy(new DenyAllPolicy()) // Blocks all tool executions by default
+    .addPolicy(Policies.denyAll()) // Blocks all tool executions by default
+    .build();
+```
+
+#### Advanced "Deny by Default" Posture
+This example demonstrates how to build a robust security posture by explicitly denying dangerous operations, interactively prompting the user for sensitive operations, allowing safe tools, and blocking everything else as a fallback.
+
+```java
+import java.util.Scanner;
+
+AgentConfig config = AgentConfig.builder()
+    .instructions("You are a secure agent operating in a restricted environment.")
+    
+    // 1. Specific Denylist rules (e.g., block dangerous 'rm -rf' commands)
+    .addPolicy(Policies.denyIf((toolName, argsNode) -> {
+        if ("run_command".equals(toolName) && argsNode.has("command_line")) {
+            String cmd = argsNode.get("command_line").asText();
+            return cmd.contains("rm -rf"); // Return true to DENY
+        }
+        return false; // PASS
+    }))
+
+    // 2. Interactive confirmation rules using askUser for sensitive files
+    .addPolicy(Policies.askUser((toolName, argsNode) -> {
+        if ("view_file".equals(toolName) && argsNode.has("path")) {
+            String path = argsNode.get("path").asText();
+            if (path.contains("production.key")) {
+                System.out.println("⚠️ Agent wants to read production key! Allow? (y/n)");
+                Scanner scanner = new Scanner(System.in);
+                return scanner.nextLine().trim().equalsIgnoreCase("y");
+            }
+        }
+        return true; // Auto-allow other read_file attempts that reach this policy
+    }))
+
+    // 3. Specific Allowlist rules (explicitly allow safe tools)
+    .addPolicy(Policies.allowTools("list_dir", "get_weather"))
+
+    // 4. Deny by Default posture (block all other tools not explicitly handled above)
+    .addPolicy(Policies.denyAll())
+    
     .build();
 ```
 

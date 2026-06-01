@@ -15,7 +15,7 @@
  */
 package io.github.glaforge.antigravity;
 
-import io.github.glaforge.antigravity.localharness.*;
+
 import io.github.glaforge.antigravity.hooks.*;
 import org.junit.jupiter.api.Test;
 
@@ -32,17 +32,16 @@ public class InteractiveAskQuestionTest {
 	@Test
 	public void testAskQuestionInteraction() throws Exception {
 		TestUtils.retry(3, () -> {
-			AtomicReference<UserQuestionsRequest> capturedRequest = new AtomicReference<>();
+			AtomicReference<InteractionRequest> capturedRequest = new AtomicReference<>();
 
 			AgentHook mockAskHook = new OnInteractionHook() {
 				@Override
-				public CompletableFuture<List<UserQuestionAnswer>> onInteraction(UserQuestionsRequest request) {
+				public CompletableFuture<List<InteractionAnswer>> onInteraction(InteractionRequest request) {
 					capturedRequest.set(request);
 
-					MultipleChoiceAnswer choiceAns = MultipleChoiceAnswer.newBuilder().addSelectedChoiceIndices(1)
-							.setFreeformResponse("I pick blue").build();
-
-					UserQuestionAnswer answer = UserQuestionAnswer.newBuilder().setMultipleChoiceAnswer(choiceAns)
+					InteractionAnswer answer = InteractionAnswer.builder()
+							.addSelectedChoiceIndex(1)
+							.freeformResponse("I pick blue")
 							.build();
 
 					return CompletableFuture.completedFuture(List.of(answer));
@@ -63,11 +62,10 @@ public class InteractiveAskQuestionTest {
 
 				assertNotNull(capturedRequest.get(), "Agent should have requested interaction");
 
-				assertTrue(capturedRequest.get().getQuestionsCount() > 0, "Should have at least one question");
-				UserQuestion q = capturedRequest.get().getQuestions(0);
+				assertTrue(capturedRequest.get().getQuestions().size() > 0, "Should have at least one question");
+				InteractionRequest.Question q = capturedRequest.get().getQuestions().get(0);
 
-				assertTrue(q.hasMultipleChoice());
-				assertEquals(3, q.getMultipleChoice().getChoicesCount());
+				assertEquals(3, q.getChoices().size());
 
 				assertTrue(response.getText().toLowerCase().contains("blue"),
 						"Agent should acknowledge the choice 'blue' we sent back");

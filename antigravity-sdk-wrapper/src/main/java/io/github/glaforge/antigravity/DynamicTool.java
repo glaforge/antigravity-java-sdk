@@ -16,7 +16,7 @@
 package io.github.glaforge.antigravity;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.github.glaforge.antigravity.localharness.Tool;
+import io.github.glaforge.antigravity.tools.ToolDefinition;
 
 /**
  * Represents a tool that is registered dynamically at runtime, rather than
@@ -31,12 +31,7 @@ public interface DynamicTool {
 	 */
 	String getName();
 
-	/**
-	 * Returns the Protobuf definition of the tool schema used by the harness.
-	 * 
-	 * @return The Protobuf definition of the tool schema used by the harness.
-	 */
-	Tool getDefinition();
+	ToolDefinition getDefinition();
 
 	/**
 	 * Executes the tool with the given JSON arguments.

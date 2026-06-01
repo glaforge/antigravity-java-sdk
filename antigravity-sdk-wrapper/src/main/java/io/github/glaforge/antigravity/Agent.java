@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.github.glaforge.antigravity.localharness.*;
 import io.github.glaforge.antigravity.hooks.*;
 import io.github.glaforge.antigravity.tools.ToolRegistry;
+import io.github.glaforge.antigravity.tools.ToolDefinition;
 import com.google.protobuf.util.JsonFormat;
 import com.google.protobuf.ByteString;
 import java.nio.ByteBuffer;
@@ -451,8 +452,8 @@ public class Agent implements AutoCloseable, TriggerContext {
 							AppendedSystemInstructions.newBuilder().setCustomIdentity(config.getInstructions()).build())
 							.build());
 			for (Object obj : toolRegistry.getToolDefinitions()) {
-				Tool toolDef = (Tool) obj;
-				configBuilder.addTools(toolDef);
+				ToolDefinition toolDef = (ToolDefinition) obj;
+				configBuilder.addTools(toolDef.toProtobuf());
 			}
 			configBuilder.addAllSkillsPaths(config.getSkillsPaths());
 
@@ -836,10 +837,11 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 						for (AgentHook hook : config.getHooks()) {
 							if (hook instanceof OnInteractionHook) {
-								((OnInteractionHook) hook).onInteraction(req).thenAccept(resp -> {
+								((OnInteractionHook) hook).onInteraction(InteractionRequest.fromProtobuf(req)).thenAccept(resp -> {
 									try {
+										List<UserQuestionAnswer> answers = resp.stream().map(InteractionAnswer::toProtobuf).toList();
 										UserQuestionsResponse.QuestionsResponse questionsResp = UserQuestionsResponse.QuestionsResponse
-												.newBuilder().addAllAnswers(resp).build();
+												.newBuilder().addAllAnswers(answers).build();
 
 										UserQuestionsResponse fullResp = UserQuestionsResponse.newBuilder()
 												.setTrajectoryId(trajectoryId).setStepIndex(stepIndex)

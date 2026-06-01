@@ -16,8 +16,7 @@
 package io.github.glaforge.antigravity.hooks;
 
 import java.util.concurrent.CompletableFuture;
-import io.github.glaforge.antigravity.localharness.UserQuestionsRequest;
-import io.github.glaforge.antigravity.localharness.UserQuestionAnswer;
+
 
 import java.util.List;
 
@@ -33,5 +32,5 @@ public interface OnInteractionHook extends AgentHook {
 	 *            the request containing questions
 	 * @return a CompletableFuture with the list of answers
 	 */
-	CompletableFuture<List<UserQuestionAnswer>> onInteraction(UserQuestionsRequest request);
+	CompletableFuture<List<InteractionAnswer>> onInteraction(InteractionRequest request);
 }

@@ -24,7 +24,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.github.glaforge.antigravity.localharness.Tool;
+import io.github.glaforge.antigravity.tools.ToolDefinition;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
@@ -142,12 +142,12 @@ public class McpBridge {
 		}
 
 		@Override
-		public Tool getDefinition() {
+		public ToolDefinition getDefinition() {
 			try {
 				String schemaJson = mapper.writeValueAsString(mcpTool.inputSchema());
-				return Tool.newBuilder().setName(mcpTool.name())
-						.setDescription(mcpTool.description() != null ? mcpTool.description() : "")
-						.setParametersJsonSchema(schemaJson).build();
+				return ToolDefinition.builder().name(mcpTool.name())
+						.description(mcpTool.description() != null ? mcpTool.description() : "")
+						.parametersJsonSchema(schemaJson).build();
 			} catch (Exception e) {
 				throw new RuntimeException("Failed to serialize MCP tool schema", e);
 			}
