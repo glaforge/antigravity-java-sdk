@@ -75,7 +75,7 @@ public class HooksTest {
 
 			try (Agent agent = new Agent(config)) {
 				AgentResponse response = agent.chat("Say hello").join();
-				assertNotNull(response.getText());
+				assertNotNull(response.text());
 			}
 
 			System.out.println("Events: " + events);

@@ -47,9 +47,9 @@ public class MultimodalTest {
 				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 
-				System.out.println("Response: " + response.getText());
-				assertNotNull(response.getText());
-				assertTrue(response.getText().contains("XYZ987"),
+				System.out.println("Response: " + response.text());
+				assertNotNull(response.text());
+				assertTrue(response.text().contains("XYZ987"),
 						"Agent should have read the document and found the passcode.");
 			}
 		});

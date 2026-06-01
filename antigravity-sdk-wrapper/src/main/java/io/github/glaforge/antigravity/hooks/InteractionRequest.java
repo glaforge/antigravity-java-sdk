@@ -22,38 +22,23 @@ import io.github.glaforge.antigravity.localharness.UserQuestion;
 
 /**
  * Represents a request from the agent to ask the user a set of questions.
+ *
+ * @param questions
+ *            the list of questions asked by the agent.
  */
-public class InteractionRequest {
-    private final List<Question> questions;
-
-    private InteractionRequest(List<Question> questions) {
-        this.questions = questions;
-    }
-
-    /**
-     * @return the list of questions asked by the agent.
-     */
-    public List<Question> getQuestions() {
-        return questions;
-    }
+public record InteractionRequest(List<Question> questions) {
 
     /**
      * Represents a single question in an interaction request.
+     *
+     * @param questionText
+     *            the text of the question
+     * @param choices
+     *            the multiple-choice options
+     * @param multiSelect
+     *            whether multiple options can be selected
      */
-    public static class Question {
-        private final String questionText;
-        private final List<String> choices;
-        private final boolean multiSelect;
-
-        private Question(String questionText, List<String> choices, boolean multiSelect) {
-            this.questionText = questionText;
-            this.choices = choices;
-            this.multiSelect = multiSelect;
-        }
-
-        public String getQuestionText() { return questionText; }
-        public List<String> getChoices() { return choices; }
-        public boolean isMultiSelect() { return multiSelect; }
+    public record Question(String questionText, List<String> choices, boolean multiSelect) {
     }
 
     /**

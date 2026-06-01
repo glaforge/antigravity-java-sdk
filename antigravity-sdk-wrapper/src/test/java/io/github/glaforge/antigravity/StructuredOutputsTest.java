@@ -62,7 +62,7 @@ public class StructuredOutputsTest {
 				AgentResponse response = future.get();
 
 				System.out.println("\n--- Agent Response ---");
-				System.out.println(response.getText());
+				System.out.println(response.text());
 				System.out.println("----------------------\n");
 
 				Person person = response.getStructuredOutput(Person.class);

@@ -54,10 +54,10 @@ public class SecurityPoliciesTest {
 						.chat("What is the weather in Tokyo right now?");
 				await().atMost(120, TimeUnit.SECONDS).until(future1::isDone);
 				AgentResponse response1 = future1.get();
-				System.out.println(response1.getText());
-				assertNotNull(response1.getText());
-				assertTrue(response1.getText().toLowerCase().contains("cannot")
-						|| response1.getText().toLowerCase().contains("can't"));
+				System.out.println(response1.text());
+				assertNotNull(response1.text());
+				assertTrue(response1.text().toLowerCase().contains("cannot")
+						|| response1.text().toLowerCase().contains("can't"));
 
 				System.out.println("\nTesting with allowed policy...");
 				allowWeather.set(true);
@@ -65,8 +65,8 @@ public class SecurityPoliciesTest {
 						.chat("Try to fetch the weather for Tokyo again.");
 				await().atMost(120, TimeUnit.SECONDS).until(future2::isDone);
 				AgentResponse response2 = future2.get();
-				System.out.println(response2.getText());
-				assertNotNull(response2.getText());
+				System.out.println(response2.text());
+				assertNotNull(response2.text());
 				// Since there is no actual implementation in the agent to recall tools in this
 				// basic test setup unless the agent decides to, we just assert the agent
 				// responds.

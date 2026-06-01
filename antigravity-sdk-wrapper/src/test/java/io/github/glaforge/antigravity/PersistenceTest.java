@@ -42,8 +42,8 @@ public class PersistenceTest {
 				await().atMost(120, TimeUnit.SECONDS).until(future1::isDone);
 				AgentResponse response1 = future1.get();
 
-				System.out.println("Session 1 response: " + response1.getText());
-				assertNotNull(response1.getText());
+				System.out.println("Session 1 response: " + response1.text());
+				assertNotNull(response1.text());
 
 				conversationId = agent1.getConversationId();
 				System.out.println("Session 1 ended with Conversation ID: " + conversationId);
@@ -64,9 +64,9 @@ public class PersistenceTest {
 				await().atMost(120, TimeUnit.SECONDS).until(future2::isDone);
 				AgentResponse response2 = future2.get();
 
-				System.out.println("Session 2 response: " + response2.getText());
-				assertNotNull(response2.getText());
-				assertTrue(response2.getText().toLowerCase().contains("banana"));
+				System.out.println("Session 2 response: " + response2.text());
+				assertNotNull(response2.text());
+				assertTrue(response2.text().toLowerCase().contains("banana"));
 			}
 		});
 	}

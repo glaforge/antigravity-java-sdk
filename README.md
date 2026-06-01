@@ -29,7 +29,7 @@ AgentConfig config = AgentConfig.builder()
 
 try (Agent agent = new Agent(config)) {
     AgentResponse response = agent.chat("Hello, who are you?").join();
-    System.out.println(response.getText());
+    System.out.println(response.text());
 }
 ```
 
@@ -44,7 +44,7 @@ AgentConfig config = AgentConfig.builder()
 
 try (Agent agent = new Agent(config)) {
     agent.chatStream("Tell me a story about a brave knight.", chunk -> {
-        System.out.print(chunk.getText());
+        System.out.print(chunk.textDelta());
     }).join();
 }
 ```
@@ -177,6 +177,20 @@ AgentConfig config = AgentConfig.builder()
         public CompletableFuture<HookResult> onPreTurn(String prompt, SessionContext context) {
             System.out.println("Starting turn with prompt: " + prompt);
             return CompletableFuture.completedFuture(HookResult.proceed());
+        }
+    })
+    // Intercept interactions (like asking the user a question)
+    .addHook(new OnInteractionHook() {
+        @Override
+        public CompletableFuture<List<InteractionAnswer>> onInteraction(InteractionRequest request) {
+            System.out.println("Agent asked: " + request.questions().get(0).questionText());
+            
+            // Programmatically answer the agent's question
+            InteractionAnswer answer = InteractionAnswer.builder()
+                .freeformResponse("My answer to your question is...")
+                .build();
+                
+            return CompletableFuture.completedFuture(List.of(answer));
         }
     })
     .build();

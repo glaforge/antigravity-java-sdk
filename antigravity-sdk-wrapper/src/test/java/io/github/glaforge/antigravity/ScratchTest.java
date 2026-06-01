@@ -41,8 +41,8 @@ public class ScratchTest {
 				AgentResponse response1 = future1.get();
 
 				System.out.println("Chat 1:");
-				System.out.println(response1.getText());
-				assertNotNull(response1.getText());
+				System.out.println(response1.text());
+				assertNotNull(response1.text());
 
 				conversationId = agent1.getConversationId();
 				System.out.println("Conversation ID: " + conversationId);

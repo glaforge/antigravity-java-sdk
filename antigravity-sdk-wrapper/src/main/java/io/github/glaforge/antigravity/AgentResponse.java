@@ -19,51 +19,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Represents the final response from the agent.
+ *
+ * @param text
+ *            the text response
+ * @param thoughts
+ *            the thoughts of the agent
+ * @param usageMetadata
+ *            the usage metadata
  */
-public class AgentResponse {
-	private final String text;
-	private final String thoughts;
-	private final UsageMetadata usageMetadata;
+public record AgentResponse(String text, String thoughts, UsageMetadata usageMetadata) {
 
-	/**
-	 * Constructs an AgentResponse.
-	 *
-	 * @param text
-	 *            the text response
-	 * @param thoughts
-	 *            the thoughts of the agent
-	 * @param usageMetadata
-	 *            the usage metadata
-	 */
-	public AgentResponse(String text, String thoughts, UsageMetadata usageMetadata) {
-		this.text = text != null ? text : "";
-		this.thoughts = thoughts != null ? thoughts : "";
-		this.usageMetadata = usageMetadata;
-	}
-
-	/**
-	 * Returns the text response.
-	 *
-	 * @return the text response
-	 */
-	public String getText() {
-		return text;
-	}
-	/**
-	 * Returns the thoughts of the agent.
-	 *
-	 * @return the thoughts of the agent
-	 */
-	public String getThoughts() {
-		return thoughts;
-	}
-	/**
-	 * Returns the usage metadata.
-	 *
-	 * @return the usage metadata
-	 */
-	public UsageMetadata getUsageMetadata() {
-		return usageMetadata;
+	public AgentResponse {
+		text = text != null ? text : "";
+		thoughts = thoughts != null ? thoughts : "";
 	}
 
 	/**

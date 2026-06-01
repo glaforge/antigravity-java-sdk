@@ -43,8 +43,8 @@ public class BackgroundTriggersTest {
 						.chat("What is the weather in Tokyo right now?");
 				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
-				System.out.println(response.getText());
-				assertNotNull(response.getText());
+				System.out.println(response.text());
+				assertNotNull(response.text());
 			}
 		});
 	}

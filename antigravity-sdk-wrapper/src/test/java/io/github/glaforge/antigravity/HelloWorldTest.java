@@ -52,13 +52,13 @@ public class HelloWorldTest {
 				AgentResponse response = future.get();
 
 				System.out.println("\n--- Agent Response ---");
-				System.out.println(response.getText());
+				System.out.println(response.text());
 				System.out.println("----------------------\n");
 
 				assertNotNull(response);
-				assertNotNull(response.getText());
-				assertTrue(response.getText().contains("22.5"), "Response should contain the temperature");
-				assertTrue(response.getText().contains("Celsius") || response.getText().contains("Sunny"),
+				assertNotNull(response.text());
+				assertTrue(response.text().contains("22.5"), "Response should contain the temperature");
+				assertTrue(response.text().contains("Celsius") || response.text().contains("Sunny"),
 						"Response should contain weather conditions");
 			}
 		});

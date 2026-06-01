@@ -22,16 +22,19 @@ import io.github.glaforge.antigravity.localharness.MultipleChoiceAnswer;
 
 /**
  * Represents an answer to an interaction request question.
+ *
+ * @param unanswered
+ *            whether the question was left unanswered
+ * @param selectedChoiceIndices
+ *            the indices of the selected choices
+ * @param freeformResponse
+ *            the freeform text response
  */
-public class InteractionAnswer {
-    private final boolean unanswered;
-    private final List<Integer> selectedChoiceIndices;
-    private final String freeformResponse;
+public record InteractionAnswer(boolean unanswered, List<Integer> selectedChoiceIndices, String freeformResponse) {
 
-    private InteractionAnswer(Builder builder) {
-        this.unanswered = builder.unanswered;
-        this.selectedChoiceIndices = builder.selectedChoiceIndices != null ? builder.selectedChoiceIndices : new ArrayList<>();
-        this.freeformResponse = builder.freeformResponse != null ? builder.freeformResponse : "";
+    public InteractionAnswer {
+        selectedChoiceIndices = selectedChoiceIndices != null ? List.copyOf(selectedChoiceIndices) : List.of();
+        freeformResponse = freeformResponse != null ? freeformResponse : "";
     }
 
     /**
@@ -45,7 +48,7 @@ public class InteractionAnswer {
      * Creates an unanswered response.
      * @return a new unanswered InteractionAnswer
      */
-    public static InteractionAnswer unanswered() {
+    public static InteractionAnswer createUnanswered() {
         return builder().unanswered(true).build();
     }
 
@@ -99,7 +102,7 @@ public class InteractionAnswer {
         }
 
         public InteractionAnswer build() {
-            return new InteractionAnswer(this);
+            return new InteractionAnswer(unanswered, selectedChoiceIndices, freeformResponse);
         }
     }
 }

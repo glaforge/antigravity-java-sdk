@@ -36,7 +36,7 @@ public class StreamingTest {
 
 				CompletableFuture<AgentResponse> future = agent
 						.chatStream("Write a 3 sentence story about a brave knight.", chunk -> {
-							System.out.print(chunk.getTextDelta());
+							System.out.print(chunk.textDelta());
 							chunkCount.incrementAndGet();
 						});
 				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
@@ -48,9 +48,9 @@ public class StreamingTest {
 				assertTrue(chunkCount.get() > 0, "Should have received multiple streaming chunks");
 
 				// Verify response is fully assembled
-				assertNotNull(response.getText());
-				assertFalse(response.getText().isEmpty());
-				System.out.println("Final Text Length: " + response.getText().length());
+				assertNotNull(response.text());
+				assertFalse(response.text().isEmpty());
+				System.out.println("Final Text Length: " + response.text().length());
 			}
 		});
 	}

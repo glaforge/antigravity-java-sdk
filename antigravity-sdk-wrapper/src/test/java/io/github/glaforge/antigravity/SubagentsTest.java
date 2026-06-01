@@ -35,10 +35,10 @@ public class SubagentsTest {
 				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 
-				System.out.println(response.getText());
-				assertNotNull(response.getText());
-				assertTrue(response.getText().toLowerCase().contains("subagent")
-						|| response.getText().toLowerCase().contains("spawned"));
+				System.out.println(response.text());
+				assertNotNull(response.text());
+				assertTrue(response.text().toLowerCase().contains("subagent")
+						|| response.text().toLowerCase().contains("spawned"));
 			}
 		});
 	}

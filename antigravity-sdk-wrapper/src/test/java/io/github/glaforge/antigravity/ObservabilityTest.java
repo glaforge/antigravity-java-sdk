@@ -36,7 +36,7 @@ public class ObservabilityTest {
 				AgentResponse response = future.get();
 
 				// Verify usage metadata is populated if available
-				UsageMetadata usage = response.getUsageMetadata();
+				UsageMetadata usage = response.usageMetadata();
 				if (usage != null) {
 					System.out.println("Metadata: " + usage);
 					assertTrue(usage.promptTokenCount() >= 0, "Prompt tokens should be >= 0");

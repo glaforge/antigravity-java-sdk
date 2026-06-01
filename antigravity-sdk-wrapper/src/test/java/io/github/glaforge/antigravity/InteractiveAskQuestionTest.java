@@ -62,12 +62,12 @@ public class InteractiveAskQuestionTest {
 
 				assertNotNull(capturedRequest.get(), "Agent should have requested interaction");
 
-				assertTrue(capturedRequest.get().getQuestions().size() > 0, "Should have at least one question");
-				InteractionRequest.Question q = capturedRequest.get().getQuestions().get(0);
+				assertTrue(capturedRequest.get().questions().size() > 0, "Should have at least one question");
+				InteractionRequest.Question q = capturedRequest.get().questions().get(0);
 
-				assertEquals(3, q.getChoices().size());
+				assertEquals(3, q.choices().size());
 
-				assertTrue(response.getText().toLowerCase().contains("blue"),
+				assertTrue(response.text().toLowerCase().contains("blue"),
 						"Agent should acknowledge the choice 'blue' we sent back");
 			}
 		});

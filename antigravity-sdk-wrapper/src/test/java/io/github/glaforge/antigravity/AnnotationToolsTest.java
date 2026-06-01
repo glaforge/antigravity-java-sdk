@@ -52,11 +52,11 @@ public class AnnotationToolsTest {
 				AgentResponse response = agent
 						.chat("What is the weather in Paris, France, zip 75001?").join();
 				System.out.println("\n--- Agent Response ---");
-				System.out.println(response.getText());
+				System.out.println(response.text());
 				System.out.println("----------------------\n");
 
-				assertTrue(response.getText().contains("Sunny"));
-				assertTrue(response.getText().contains("25.5"));
+				assertTrue(response.text().contains("Sunny"));
+				assertTrue(response.text().contains("25.5"));
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}

@@ -640,7 +640,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 			}
 		});
 
-		return currentChatFuture.thenCompose(resp -> triggerPostTurn(resp.getText()).thenApply(v -> resp));
+		return currentChatFuture.thenCompose(resp -> triggerPostTurn(resp.text()).thenApply(v -> resp));
 	}
 
 	private CompletableFuture<Void> triggerSessionStart() {
