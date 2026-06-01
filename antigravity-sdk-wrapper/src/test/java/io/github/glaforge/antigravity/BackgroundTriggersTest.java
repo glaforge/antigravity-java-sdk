@@ -39,7 +39,7 @@ public class BackgroundTriggersTest {
 					agent.fireTrigger("The user has just sneezed. Say bless you.");
 				}, 500, TimeUnit.MILLISECONDS);
 
-				CompletableFuture<AgentResponse> future = agent.getConversation()
+				CompletableFuture<AgentResponse> future = agent
 						.chat("What is the weather in Tokyo right now?");
 				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();

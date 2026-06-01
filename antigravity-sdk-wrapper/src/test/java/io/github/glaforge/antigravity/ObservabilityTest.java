@@ -30,7 +30,7 @@ public class ObservabilityTest {
 					.modelName("gemini-2.5-flash").build();
 
 			try (Agent agent = new Agent(config)) {
-				CompletableFuture<AgentResponse> future = agent.getConversation()
+				CompletableFuture<AgentResponse> future = agent
 						.chat("Hi, say exactly one word: Hello.");
 				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();

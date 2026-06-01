@@ -45,7 +45,7 @@ public class HelloWorldTest {
 				System.out.println("Agent initialized successfully!");
 
 				System.out.println("Sending prompt...");
-				CompletableFuture<AgentResponse> future = agent.getConversation()
+				CompletableFuture<AgentResponse> future = agent
 						.chat("What is the weather in Tokyo right now?");
 
 				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);

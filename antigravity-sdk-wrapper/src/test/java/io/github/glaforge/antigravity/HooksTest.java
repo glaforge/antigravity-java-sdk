@@ -74,7 +74,7 @@ public class HooksTest {
 					.addHook(postTurnHook).addHook(preToolHook).addHook(postToolHook).build();
 
 			try (Agent agent = new Agent(config)) {
-				AgentResponse response = agent.getConversation().chat("Say hello").join();
+				AgentResponse response = agent.chat("Say hello").join();
 				assertNotNull(response.getText());
 			}
 

@@ -39,7 +39,7 @@ public class MultimodalTest {
 
 			try (Agent agent = new Agent(config)) {
 				System.out.println("Sending multimodal input...");
-				CompletableFuture<AgentResponse> future = agent.getConversation().chat(AgentInput.Text.of(
+				CompletableFuture<AgentResponse> future = agent.chat(AgentInput.Text.of(
 						"I attached a document. Please read the text inside it. What is the secret passcode? Just reply with the passcode."),
 						new AgentInput.Document("text/plain", Files.readAllBytes(tempDoc.toPath()),
 								"Attached Document: secret_file.txt"));

@@ -49,7 +49,7 @@ public class AnnotationToolsTest {
 				System.out.println("Agent initialized successfully!");
 
 				System.out.println("Sending prompt...");
-				AgentResponse response = agent.getConversation()
+				AgentResponse response = agent
 						.chat("What is the weather in Paris, France, zip 75001?").join();
 				System.out.println("\n--- Agent Response ---");
 				System.out.println(response.getText());

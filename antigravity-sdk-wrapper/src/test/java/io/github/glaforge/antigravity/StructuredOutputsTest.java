@@ -56,7 +56,7 @@ public class StructuredOutputsTest {
 
 			try (Agent agent = new Agent(config)) {
 				System.out.println("Sending prompt...");
-				CompletableFuture<AgentResponse> future = agent.getConversation()
+				CompletableFuture<AgentResponse> future = agent
 						.chat("Bob is 42 years old and likes to fish.");
 				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();

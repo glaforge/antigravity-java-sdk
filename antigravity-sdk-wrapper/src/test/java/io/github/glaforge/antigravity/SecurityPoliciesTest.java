@@ -50,7 +50,7 @@ public class SecurityPoliciesTest {
 
 			try (Agent agent = new Agent(config)) {
 				System.out.println("Testing with denied policy...");
-				CompletableFuture<AgentResponse> future1 = agent.getConversation()
+				CompletableFuture<AgentResponse> future1 = agent
 						.chat("What is the weather in Tokyo right now?");
 				await().atMost(120, TimeUnit.SECONDS).until(future1::isDone);
 				AgentResponse response1 = future1.get();
@@ -61,7 +61,7 @@ public class SecurityPoliciesTest {
 
 				System.out.println("\nTesting with allowed policy...");
 				allowWeather.set(true);
-				CompletableFuture<AgentResponse> future2 = agent.getConversation()
+				CompletableFuture<AgentResponse> future2 = agent
 						.chat("Try to fetch the weather for Tokyo again.");
 				await().atMost(120, TimeUnit.SECONDS).until(future2::isDone);
 				AgentResponse response2 = future2.get();

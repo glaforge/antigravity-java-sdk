@@ -56,7 +56,7 @@ public class InteractiveAskQuestionTest {
 			try (Agent agent = new Agent(config)) {
 				AgentInput prompt = new AgentInput.Text(
 						"Ask me a multiple choice question with 3 options: red, blue, green. Then tell me what I chose.");
-				CompletableFuture<AgentResponse> responseFuture = agent.getConversation().chat(List.of(prompt));
+				CompletableFuture<AgentResponse> responseFuture = agent.chat(List.of(prompt));
 
 				await().atMost(120, TimeUnit.SECONDS).until(responseFuture::isDone);
 				AgentResponse response = responseFuture.get();

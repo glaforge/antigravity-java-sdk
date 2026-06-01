@@ -70,14 +70,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 	private final ConcurrentMap<String, Object> toolState = new ConcurrentHashMap<>();
 	private final SessionContext sessionContext = new SessionContext();
 
-	/**
-	 * Returns the conversation context for this agent.
-	 *
-	 * @return the conversation
-	 */
-	public Conversation getConversation() {
-		return new Conversation(this);
-	}
+
 
 	/**
 	 * Returns the usage metadata from the most recent turn.
@@ -549,7 +542,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 	 *            the text prompt to send
 	 * @return a CompletableFuture containing the response
 	 */
-	CompletableFuture<AgentResponse> chat(String prompt) {
+	public CompletableFuture<AgentResponse> chat(String prompt) {
 		return chatStream(List.of(AgentInput.Text.of(prompt)), null);
 	}
 
@@ -560,7 +553,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 	 *            the inputs to send
 	 * @return a CompletableFuture containing the AgentResponse
 	 */
-	CompletableFuture<AgentResponse> chat(AgentInput... inputs) {
+	public CompletableFuture<AgentResponse> chat(AgentInput... inputs) {
 		return chatStream(List.of(inputs), null);
 	}
 
@@ -572,7 +565,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 	 *            the list of inputs to send
 	 * @return a CompletableFuture containing the response
 	 */
-	CompletableFuture<AgentResponse> chat(List<AgentInput> prompt) {
+	public CompletableFuture<AgentResponse> chat(List<AgentInput> prompt) {
 		return chatStream(prompt, null);
 	}
 
@@ -585,7 +578,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 	 *            a consumer to handle the incoming chunks
 	 * @return a CompletableFuture containing the final AgentResponse
 	 */
-	CompletableFuture<AgentResponse> chatStream(String text, Consumer<AgentResponseChunk> onChunk) {
+	public CompletableFuture<AgentResponse> chatStream(String text, Consumer<AgentResponseChunk> onChunk) {
 		return chatStream(List.of(AgentInput.Text.of(text)), onChunk);
 	}
 
@@ -598,7 +591,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 	 *            a consumer to handle the incoming chunks
 	 * @return a CompletableFuture containing the final AgentResponse
 	 */
-	CompletableFuture<AgentResponse> chatStream(List<AgentInput> inputs, Consumer<AgentResponseChunk> onChunk) {
+	public CompletableFuture<AgentResponse> chatStream(List<AgentInput> inputs, Consumer<AgentResponseChunk> onChunk) {
 		if (this.currentChatFuture != null && !this.currentChatFuture.isDone()) {
 			return CompletableFuture.failedFuture(new IllegalStateException("A chat request is already in progress."));
 		}

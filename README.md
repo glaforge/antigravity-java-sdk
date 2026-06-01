@@ -28,7 +28,7 @@ AgentConfig config = AgentConfig.builder()
     .build();
 
 try (Agent agent = new Agent(config)) {
-    AgentResponse response = agent.getConversation().chat("Hello, who are you?").join();
+    AgentResponse response = agent.chat("Hello, who are you?").join();
     System.out.println(response.getText());
 }
 ```
@@ -43,7 +43,7 @@ AgentConfig config = AgentConfig.builder()
     .build();
 
 try (Agent agent = new Agent(config)) {
-    agent.getConversation().chatStream("Tell me a story about a brave knight.", chunk -> {
+    agent.chatStream("Tell me a story about a brave knight.", chunk -> {
         System.out.print(chunk.getText());
     }).join();
 }
@@ -162,7 +162,7 @@ AgentConfig config = AgentConfig.builder()
 Pass images, audio, and video directly to the agent.
 
 ```java
-AgentResponse response = agent.getConversation().chat(
+AgentResponse response = agent.chat(
     AgentInput.Text.of("What is in this image?"),
     AgentInput.Image.fromFile(Path.of("image.png"))
 ).join();

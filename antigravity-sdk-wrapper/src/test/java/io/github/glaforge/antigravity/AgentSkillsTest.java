@@ -44,7 +44,7 @@ public class AgentSkillsTest {
 
 			try (Agent agent = new Agent(config)) {
 				System.out.println("Activating skill...");
-				CompletableFuture<AgentResponse> future = agent.getConversation().chat("activate test skill");
+				CompletableFuture<AgentResponse> future = agent.chat("activate test skill");
 				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 
