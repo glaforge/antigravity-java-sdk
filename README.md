@@ -27,8 +27,8 @@ AgentConfig config = AgentConfig.builder()
     .instructions("You are a helpful assistant.")
     .build();
 
-try (AntigravityAgent agent = new AntigravityAgent(config)) {
-    AgentResponse response = agent.chat("Hello, who are you?").join();
+try (Agent agent = new Agent(config)) {
+    AgentResponse response = agent.getConversation().chat("Hello, who are you?").join();
     System.out.println(response.getText());
 }
 ```
@@ -42,8 +42,8 @@ AgentConfig config = AgentConfig.builder()
     .instructions("Write a long story.")
     .build();
 
-try (AntigravityAgent agent = new AntigravityAgent(config)) {
-    agent.chatStream("Tell me a story about a brave knight.", chunk -> {
+try (Agent agent = new Agent(config)) {
+    agent.getConversation().chatStream("Tell me a story about a brave knight.", chunk -> {
         System.out.print(chunk.getText());
     }).join();
 }
@@ -133,9 +133,9 @@ AgentConfig config = AgentConfig.builder()
     .instructions("You are an observed agent.")
     .addHook(new PreTurnHook() {
         @Override
-        public HookResult onPreTurn(TriggerContext context, AgentInput input) {
-            System.out.println("Starting turn");
-            return HookResult.proceed();
+        public CompletableFuture<HookResult> onPreTurn(String prompt, SessionContext context) {
+            System.out.println("Starting turn with prompt: " + prompt);
+            return CompletableFuture.completedFuture(HookResult.proceed());
         }
     })
     .build();
@@ -162,7 +162,7 @@ AgentConfig config = AgentConfig.builder()
 Pass images, audio, and video directly to the agent.
 
 ```java
-AgentResponse response = agent.chat(
+AgentResponse response = agent.getConversation().chat(
     AgentInput.Text.of("What is in this image?"),
     AgentInput.Image.fromFile(Path.of("image.png"))
 ).join();
@@ -184,7 +184,7 @@ Agents can spawn and delegate tasks to subagents.
 
 ```java
 AgentConfig config = AgentConfig.builder()
-    .enableSubagents(true)
+    .capabilities(CapabilitiesConfig.builder().enableSubagents(true).build())
     .build();
 ```
 
