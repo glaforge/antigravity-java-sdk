@@ -25,7 +25,7 @@ import io.github.glaforge.antigravity.hooks.AgentHook;
  * Configuration for the Agent.
  */
 public class AgentConfig {
-	private final String persona;
+	private final String instructions;
 	private final String modelName;
 	private final List<Object> toolInstances;
 	private final List<String> skillsPaths;
@@ -41,7 +41,7 @@ public class AgentConfig {
 	private final List<McpServerConfig> mcpServers;
 
 	private AgentConfig(Builder builder) {
-		this.persona = builder.persona;
+		this.instructions = builder.instructions;
 		this.modelName = builder.modelName;
 		this.toolInstances = new ArrayList<>(builder.toolInstances);
 		this.skillsPaths = new ArrayList<>(builder.skillsPaths);
@@ -58,12 +58,12 @@ public class AgentConfig {
 	}
 
 	/**
-	 * Returns the persona.
+	 * Returns the instructions.
 	 *
-	 * @return the persona
+	 * @return the instructions
 	 */
-	public String getPersona() {
-		return persona;
+	public String getInstructions() {
+		return instructions;
 	}
 	/**
 	 * Returns the model name.
@@ -186,7 +186,7 @@ public class AgentConfig {
 		/** Default constructor. */
 		public Builder() {
 		}
-		private String persona = "";
+		private String instructions = "";
 		private String modelName = "gemini-2.5-flash";
 		private List<Object> toolInstances = new ArrayList<>();
 		private List<String> skillsPaths = new ArrayList<>();
@@ -202,14 +202,14 @@ public class AgentConfig {
 		private List<McpServerConfig> mcpServers = new ArrayList<>();
 
 		/**
-		 * Sets the persona.
+		 * Sets the instructions.
 		 *
-		 * @param persona
-		 *            the persona
+		 * @param instructions
+		 *            the instructions
 		 * @return this builder
 		 */
-		public Builder persona(String persona) {
-			this.persona = persona;
+		public Builder instructions(String instructions) {
+			this.instructions = instructions;
 			return this;
 		}
 

@@ -31,7 +31,7 @@ public class ScratchTest {
 			File tempDir = Files.createTempDirectory("antigravity-scratch").toFile();
 			System.out.println("Using temp dir: " + tempDir.getAbsolutePath());
 
-			AgentConfig config1 = AgentConfig.builder().persona("You are a helpful assistant.")
+			AgentConfig config1 = AgentConfig.builder().instructions("You are a helpful assistant.")
 					.saveDir(tempDir.getAbsolutePath()).build();
 
 			String conversationId;

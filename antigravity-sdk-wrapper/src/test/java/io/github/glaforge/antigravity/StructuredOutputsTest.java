@@ -51,7 +51,7 @@ public class StructuredOutputsTest {
 					}
 					""";
 
-			AgentConfig config = AgentConfig.builder().persona("Extract the person information from the text.")
+			AgentConfig config = AgentConfig.builder().instructions("Extract the person information from the text.")
 					.modelName("gemini-2.5-flash").finishToolSchemaJson(schema).build();
 
 			try (Agent agent = new Agent(config)) {

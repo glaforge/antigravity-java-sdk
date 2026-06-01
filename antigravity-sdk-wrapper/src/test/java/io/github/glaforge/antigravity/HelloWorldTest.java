@@ -37,7 +37,7 @@ public class HelloWorldTest {
 	public void testWeatherAgent() throws Exception {
 		TestUtils.retry(3, () -> {
 			WeatherTools tools = new WeatherTools();
-			try (Agent agent = Agent.builder().persona("""
+			try (Agent agent = Agent.builder().instructions("""
 					You are a helpful weather assistant.
 					You MUST use the get_weather tool to fetch weather and NEVER use bash commands.
 					""").modelName("gemini-2.5-flash").addTool(tools)

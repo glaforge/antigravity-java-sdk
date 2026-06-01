@@ -149,14 +149,14 @@ public class Agent implements AutoCloseable, TriggerContext {
 		private final AgentConfig.Builder configBuilder = AgentConfig.builder();
 
 		/**
-		 * Sets the persona of the agent.
+		 * Sets the instructions of the agent.
 		 *
-		 * @param persona
-		 *            the persona instructions
+		 * @param instructions
+		 *            the system instructions
 		 * @return this builder
 		 */
-		public Builder persona(String persona) {
-			configBuilder.persona(persona);
+		public Builder instructions(String instructions) {
+			configBuilder.instructions(instructions);
 			return this;
 		}
 
@@ -455,7 +455,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 					.setGeminiConfig(
 							GeminiConfig.newBuilder().setModelName(config.getModelName()).setApiKey(apiKey).build())
 					.setSystemInstructions(SystemInstructions.newBuilder().setAppended(
-							AppendedSystemInstructions.newBuilder().setCustomIdentity(config.getPersona()).build())
+							AppendedSystemInstructions.newBuilder().setCustomIdentity(config.getInstructions()).build())
 							.build());
 			for (Object obj : toolRegistry.getToolDefinitions()) {
 				Tool toolDef = (Tool) obj;

@@ -32,7 +32,7 @@ public class MultimodalTest {
 			tempDoc.deleteOnExit();
 			Files.writeString(tempDoc.toPath(), "The secret passcode is XYZ987.");
 
-			AgentConfig config = AgentConfig.builder().persona("""
+			AgentConfig config = AgentConfig.builder().instructions("""
 					You are a helpful assistant that answers questions based on provided documents.
 					I am attaching a text document. You MUST read it and extract the passcode.
 					""").build();

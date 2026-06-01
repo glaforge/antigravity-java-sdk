@@ -40,7 +40,7 @@ public class AnnotationToolsTest {
 	@Test
 	public void testPojoToolInvocation() throws Exception {
 		TestUtils.retry(3, () -> {
-			AgentConfig config = AgentConfig.builder().persona("""
+			AgentConfig config = AgentConfig.builder().instructions("""
 					You are a weather bot.
 					Always invoke the weather_forecast tool to get the weather, and tell the user the result.
 					""").addTool(new MyToolbox()).modelName("gemini-2.5-flash").build();

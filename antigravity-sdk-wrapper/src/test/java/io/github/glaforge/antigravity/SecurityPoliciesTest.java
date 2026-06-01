@@ -43,7 +43,7 @@ public class SecurityPoliciesTest {
 				return Policy.Decision.DENY;
 			};
 
-			AgentConfig config = AgentConfig.builder().persona("""
+			AgentConfig config = AgentConfig.builder().instructions("""
 					You are a weather assistant. Fetch the weather for Tokyo.
 					If denied, just say you can't.
 					""").addTool(tools).addPolicy(customPolicy).build();

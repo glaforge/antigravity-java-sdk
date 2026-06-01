@@ -26,7 +26,7 @@ public class SubagentsTest {
 	@Test
 	public void testSubagents() throws Exception {
 		TestUtils.retry(5, () -> {
-			AgentConfig config = AgentConfig.builder().persona("You are a coordinator agent.")
+			AgentConfig config = AgentConfig.builder().instructions("You are a coordinator agent.")
 					.capabilities(CapabilitiesConfig.builder().enableSubagents(true).build()).build();
 
 			try (Agent agent = new Agent(config)) {

@@ -37,7 +37,7 @@ public class AgentSkillsTest {
 
 			Files.writeString(skillFile.toPath(), skillContent);
 
-			AgentConfig config = AgentConfig.builder().persona("""
+			AgentConfig config = AgentConfig.builder().instructions("""
 					You are a helpful assistant.
 					Do NOT call any tools. Just output the text.
 					""").addSkillPath(tempSkillDir.getAbsolutePath()).build();

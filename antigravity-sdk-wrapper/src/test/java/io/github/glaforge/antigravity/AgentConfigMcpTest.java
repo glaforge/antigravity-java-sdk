@@ -24,7 +24,7 @@ class AgentConfigMcpTest {
 
 	@Test
 	void testMcpServerConfig() {
-		AgentConfig config = AgentConfig.builder().persona("Test Persona")
+		AgentConfig config = AgentConfig.builder().instructions("Test Persona")
 				.addMcpServer(
 						McpServerConfig.stdio("npx", List.of("-y", "@modelcontextprotocol/server-everything", "stdio")))
 				.addMcpServer(McpServerConfig.sse("http://localhost:8080/sse")).build();

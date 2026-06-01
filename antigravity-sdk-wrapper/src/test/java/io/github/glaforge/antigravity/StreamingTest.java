@@ -27,7 +27,7 @@ public class StreamingTest {
 	@Test
 	public void testStreaming() throws Exception {
 		TestUtils.retry(3, () -> {
-			AgentConfig config = AgentConfig.builder().persona("You are a helpful assistant.")
+			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
 					.modelName("gemini-2.5-flash").build();
 
 			try (Agent agent = new Agent(config)) {

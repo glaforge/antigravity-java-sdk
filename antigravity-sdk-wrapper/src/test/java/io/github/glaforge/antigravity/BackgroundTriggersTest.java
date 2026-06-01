@@ -27,7 +27,7 @@ public class BackgroundTriggersTest {
 	@Test
 	public void testBackgroundTriggers() throws Exception {
 		TestUtils.retry(3, () -> {
-			AgentConfig config = AgentConfig.builder().persona("""
+			AgentConfig config = AgentConfig.builder().instructions("""
 					You are an assistant. Wait for me to give you a command.
 					If I sneeze, immediately say 'Bless you'.
 					""").build();
