@@ -1,16 +1,34 @@
 # Antigravity SDK for Java - Agent Guidelines
 
-This file (`AGENTS.md`) provides context and instructions for AI agents working on this repository.
+This file (`AGENTS.md`) provides context and instructions for AI agents working on this repository, outlining the project's purpose, structure, and our collaborative workflow.
 
-## 🏛️ Architecture Context
+## 🌟 What This Project Is About
 
-*   **The Go Harness**: This SDK does not run an LLM directly. Instead, it wraps a pre-compiled native Go binary called `localharness`.
-*   **Platform Resolution**: The `PlatformResolver` class extracts the correct binary for the user's OS/architecture from the JAR resources (`src/main/resources/google/antigravity/bin/`) at runtime.
-*   **Communication**: The Java SDK communicates with the Go harness via standard input/output (for initialization) and WebSockets (for active turn streaming and chunk aggregation).
+The **Antigravity SDK for Java** is an unofficial, community-driven Java port of the Python-based Antigravity SDK. It bridges the gap for enterprise Java developers who want to build, configure, host, and execute powerful AI agents natively in Java. It aims for full feature parity with the official Python SDK, supporting streaming, tool calling, model context protocol (MCP), and multimodal inputs.
+
+## 🏗️ How It Is Composed
+
+This is a multi-module Maven project using **Java 21**:
+1. **`antigravity-sdk-parent`**: The root POM managing dependencies and plugin versions.
+2. **`antigravity-sdk-protocol`**: A generated artifact. It compiles the `.proto` files from the upstream Antigravity repository into Java classes using the `protobuf-maven-plugin`.
+3. **`antigravity-sdk-wrapper`**: The core SDK logic.
+   * **The Go Harness**: This SDK does not run an LLM directly. Instead, it wraps a pre-compiled native Go binary called `localharness`.
+   * **Platform Resolution**: The `PlatformResolver` class extracts the correct binary for the user's OS/architecture from the JAR resources (`src/main/resources/google/antigravity/bin/`) at runtime.
+   * **Communication**: The Java SDK communicates with the Go harness via standard input/output (for initialization) and WebSockets (for active turn streaming and chunk aggregation).
+   * **Data Modeling**: Pure data-carrying objects (e.g., `AgentResponse`, `InteractionRequest`, `AgentResponseChunk`) are implemented as modern Java 21 `record` classes for ergonomics and immutability.
+
+## 🤝 The Way We Work Together
+
+This entire project was autonomously generated and implemented by me (the Antigravity agent) under the strict guidance of you (the human developer). Our pair-programming workflow operates as follows:
+
+1. **Human Guidance**: You provide high-level directions, architectural decisions, and code reviews. You guide the priority of features (like adding hooks, converting to records, or supporting MCP).
+2. **Agent Execution**: I proactively write the Java code, generate and update tests, build the project, and fix compilation errors. 
+3. **Proactive Refactoring**: Whenever a class is purely carrying data, I should proactively suggest or use Java 21 `record` structures.
+4. **Testing First**: Before declaring a feature complete, I will run the test suite and ensure all tests pass (accounting for expected transient `localharness` network delays).
 
 ## 🛠️ Build & Commands
 
-*   **Java Version**: This project uses **Java 21**. Agents must ensure they use Java 21 compatible syntax and standard library features.
+*   **Java Version**: **Java 21**. Agents must ensure they use Java 21 compatible syntax and standard library features.
 *   **Maven Wrapper**: Always use the provided Maven wrapper (`./mvnw`). Do not rely on globally installed `mvn` or `gradle`.
 *   **Compilation**: `./mvnw clean compile`
 *   **Testing**: `./mvnw test`
