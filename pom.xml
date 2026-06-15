@@ -4,7 +4,7 @@
 
     <groupId>io.github.glaforge.antigravity</groupId>
     <artifactId>antigravity-sdk-parent</artifactId>
-    <version>0.1.1-SNAPSHOT</version>
+    <version>0.1.1</version>
     <packaging>pom</packaging>
 
     <name>Antigravity Java SDK</name>
@@ -143,7 +143,7 @@
         <connection>scm:git:git://github.com/glaforge/antigravity-java-sdk.git</connection>
         <developerConnection>scm:git:git@github.com:glaforge/antigravity-java-sdk.git</developerConnection>
         <url>https://github.com/glaforge/antigravity-java-sdk</url>
-        <tag>HEAD</tag>
+        <tag>v0.1.1</tag>
     </scm>
 
     <profiles>
