@@ -42,6 +42,9 @@ import java.net.http.WebSocket;
 import java.net.URI;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.SubmissionPublisher;
+
 import java.util.function.Consumer;
 import java.util.List;
 import java.nio.file.Path;
@@ -579,6 +582,48 @@ public class Agent implements AutoCloseable, TriggerContext {
 	 *            a consumer to handle the incoming chunks
 	 * @return a CompletableFuture containing the final AgentResponse
 	 */
+	
+	/**
+	 * Sends a text message to the agent and returns a Publisher of response chunks.
+	 *
+	 * @param prompt
+	 *            the text prompt to send
+	 * @return a Flow.Publisher emitting AgentResponseChunk items
+	 */
+	public Publisher<AgentResponseChunk> chatPublisher(String prompt) {
+		return chatPublisher(List.of(AgentInput.Text.of(prompt)));
+	}
+
+	/**
+	 * Sends multiple inputs to the agent and returns a Publisher of response chunks.
+	 *
+	 * @param inputs
+	 *            the inputs to send
+	 * @return a Flow.Publisher emitting AgentResponseChunk items
+	 */
+	public Publisher<AgentResponseChunk> chatPublisher(AgentInput... inputs) {
+		return chatPublisher(List.of(inputs));
+	}
+
+	/**
+	 * Sends a list of inputs to the agent and returns a Publisher of response chunks.
+	 *
+	 * @param inputs
+	 *            the list of inputs
+	 * @return a Flow.Publisher emitting AgentResponseChunk items
+	 */
+	public Publisher<AgentResponseChunk> chatPublisher(List<AgentInput> inputs) {
+		SubmissionPublisher<AgentResponseChunk> publisher = new SubmissionPublisher<>();
+		chatStream(inputs, publisher::submit).whenComplete((response, error) -> {
+			if (error != null) {
+				publisher.closeExceptionally(error);
+			} else {
+				publisher.close();
+			}
+		});
+		return publisher;
+	}
+
 	public CompletableFuture<AgentResponse> chatStream(String text, Consumer<AgentResponseChunk> onChunk) {
 		return chatStream(List.of(AgentInput.Text.of(text)), onChunk);
 	}
