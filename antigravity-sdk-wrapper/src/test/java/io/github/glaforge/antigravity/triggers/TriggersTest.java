@@ -57,8 +57,7 @@ public class TriggersTest {
 
 			// Wait briefly to ensure trigger is stopped
 			int countAfterClose = triggerCount.get();
-			Thread.sleep(300);
-			assertTrue(triggerCount.get() == countAfterClose, "Trigger should be stopped after agent is closed");
+			await().pollDelay(300, TimeUnit.MILLISECONDS).atMost(500, TimeUnit.MILLISECONDS).until(() -> triggerCount.get() == countAfterClose);
 		});
 	}
 }
