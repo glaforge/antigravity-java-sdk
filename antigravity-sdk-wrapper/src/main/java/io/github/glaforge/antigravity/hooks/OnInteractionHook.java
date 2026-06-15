@@ -24,7 +24,7 @@ import java.util.List;
  * A hook executed when the agent needs to interact with the user to ask
  * questions.
  */
-public interface OnInteractionHook extends AgentHook {
+public interface OnInteractionHook extends TransformHook {
 	/**
 	 * Called when the agent requires answers to questions.
 	 *

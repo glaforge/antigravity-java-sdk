@@ -22,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
  * A hook executed before a tool call is decided upon.
  */
 @FunctionalInterface
-public interface PreToolCallDecideHook extends AgentHook {
+public interface PreToolCallDecideHook extends DecideHook {
 	/**
 	 * Called before a tool is executed to decide if it should proceed.
 	 *

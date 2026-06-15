@@ -22,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
  * A hook executed after a tool call completes.
  */
 @FunctionalInterface
-public interface PostToolCallHook extends AgentHook {
+public interface PostToolCallHook extends InspectHook {
 	/**
 	 * Called after a tool call is executed.
 	 *

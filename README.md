@@ -210,6 +210,10 @@ AgentConfig config = AgentConfig.builder()
 ### 6. Lifecycle Hooks
 
 Hook into the agent's execution lifecycle to monitor, intercept, or modify interactions.
+The SDK natively enforces the three core hook categories:
+* **Inspect Hooks** (`PostTurnHook`, etc.): Read-Only, Non-Blocking. Used for logging, audit trails, and metrics.
+* **Decide Hooks** (`PreTurnHook`, etc.): Read-Only, Blocking. Used for custom approval/denial logic and policies.
+* **Transform Hooks** (`OnToolErrorHook`, etc.): Modifying, Blocking. Used for sanitizing data in transit or recovering from tool errors.
 
 ```java
 AgentConfig config = AgentConfig.builder()

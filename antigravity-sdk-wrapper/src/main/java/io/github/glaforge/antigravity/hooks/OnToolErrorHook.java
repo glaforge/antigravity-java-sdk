@@ -22,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
  * A hook executed when a tool execution encounters an error.
  */
 @FunctionalInterface
-public interface OnToolErrorHook extends AgentHook {
+public interface OnToolErrorHook extends TransformHook {
 	/**
 	 * Called when a tool error occurs.
 	 *

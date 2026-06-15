@@ -24,7 +24,7 @@ import io.github.glaforge.antigravity.SessionContext;
  * summarized.
  */
 @FunctionalInterface
-public interface OnCompactionHook extends AgentHook {
+public interface OnCompactionHook extends InspectHook {
 	/**
 	 * Called when a compaction event occurs.
 	 *

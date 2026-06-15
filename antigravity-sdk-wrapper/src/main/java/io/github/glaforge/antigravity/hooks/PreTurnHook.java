@@ -22,7 +22,7 @@ import io.github.glaforge.antigravity.SessionContext;
  * A hook executed before an agent begins its turn.
  */
 @FunctionalInterface
-public interface PreTurnHook extends AgentHook {
+public interface PreTurnHook extends DecideHook {
 	/**
 	 * Called before the agent's turn.
 	 *

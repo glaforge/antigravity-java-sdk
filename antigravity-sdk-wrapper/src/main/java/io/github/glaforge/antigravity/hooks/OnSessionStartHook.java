@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
  * A hook executed at the start of a session.
  */
 @FunctionalInterface
-public interface OnSessionStartHook extends AgentHook {
+public interface OnSessionStartHook extends DecideHook {
 	/**
 	 * Called when the session starts.
 	 *

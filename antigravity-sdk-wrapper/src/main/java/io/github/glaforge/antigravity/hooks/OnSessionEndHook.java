@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
  * A hook executed at the end of a session.
  */
 @FunctionalInterface
-public interface OnSessionEndHook extends AgentHook {
+public interface OnSessionEndHook extends InspectHook {
 	/**
 	 * Called when the session ends.
 	 *

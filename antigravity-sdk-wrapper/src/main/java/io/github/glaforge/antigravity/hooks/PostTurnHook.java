@@ -22,7 +22,7 @@ import io.github.glaforge.antigravity.SessionContext;
  * A hook executed after a turn is completed by the agent.
  */
 @FunctionalInterface
-public interface PostTurnHook extends AgentHook {
+public interface PostTurnHook extends InspectHook {
 	/**
 	 * Called after the agent finishes a turn.
 	 *
