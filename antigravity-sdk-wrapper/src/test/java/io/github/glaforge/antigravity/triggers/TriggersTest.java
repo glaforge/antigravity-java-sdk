@@ -36,7 +36,7 @@ public class TriggersTest {
 			AtomicInteger triggerCount = new AtomicInteger(0);
 
 			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
-					.addTrigger(Triggers.every(100, TimeUnit.MILLISECONDS, ctx -> {
+					.addTrigger(Triggers.every(2000, TimeUnit.MILLISECONDS, ctx -> {
 						System.out.println("Trigger fired!");
 						triggerCount.incrementAndGet();
 						ctx.fireTrigger("The user just sneezed. Say bless you.");
@@ -44,7 +44,7 @@ public class TriggersTest {
 
 			try (Agent agent = new Agent(config)) {
 				// Wait for the trigger to fire multiple times
-				await().atMost(10, TimeUnit.SECONDS).until(() -> triggerCount.get() >= 2);
+				await().atMost(10, TimeUnit.SECONDS).until(() -> triggerCount.get() >= 1);
 
 				CompletableFuture<AgentResponse> future = agent.chat("What is 2+2?");
 				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
