@@ -249,6 +249,28 @@ AgentConfig config = AgentConfig.builder()
 
 Seamlessly connect to Model Context Protocol (MCP) servers to expand your agent's capabilities dynamically.
 
+```
+
+### 8. Background Triggers
+
+You can configure background tasks to run periodically and inject new information into the agent's context asynchronously.
+
+```java
+import io.github.glaforge.antigravity.triggers.Triggers;
+import java.util.concurrent.TimeUnit;
+
+AgentConfig config = AgentConfig.builder()
+    .instructions("If you are given a deployment status, notify the user.")
+    .addTrigger(Triggers.every(60, TimeUnit.SECONDS, ctx -> {
+        // This will run in the background every 60 seconds
+        ctx.fireTrigger("Check the deployment status.");
+    }))
+    .build();
+
+try (Agent agent = new Agent(config)) {
+    // The trigger will run in the background while the session is active.
+    agent.chat("Start watching the deployment.").join();
+} // Trigger is automatically stopped when the agent closes
 ```java
 McpServerConfig mcpConfig = new McpServerConfig(
     "sqlite", 

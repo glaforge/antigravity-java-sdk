@@ -15,6 +15,8 @@
  */
 package io.github.glaforge.antigravity;
 
+import io.github.glaforge.antigravity.triggers.AgentTrigger;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.github.glaforge.antigravity.localharness.*;
@@ -695,6 +697,12 @@ public class Agent implements AutoCloseable, TriggerContext {
 				future = future.thenCompose(v -> ssh.onSessionStart());
 			}
 		}
+
+		future = future.thenRun(() -> {
+			for (AgentTrigger trigger : config.getTriggers()) {
+				trigger.start(this);
+			}
+		});
 		return future;
 	}
 
@@ -1026,6 +1034,10 @@ public class Agent implements AutoCloseable, TriggerContext {
 	@Override
 	public void close() throws Exception {
 		triggerSessionEnd().join();
+
+		for (AgentTrigger trigger : config.getTriggers()) {
+			trigger.stop();
+		}
 
 		if (mcpBridge != null) {
 			mcpBridge.close();

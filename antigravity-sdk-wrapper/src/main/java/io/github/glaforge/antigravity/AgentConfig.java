@@ -24,6 +24,7 @@ import java.util.Collections;
 import io.github.glaforge.antigravity.tools.SchemaGenerator;
 
 import io.github.glaforge.antigravity.hooks.AgentHook;
+import io.github.glaforge.antigravity.triggers.AgentTrigger;
 
 /**
  * Configuration for the Agent.
@@ -37,6 +38,7 @@ public class AgentConfig {
 	private final GenerationConfig generation;
 	private final Path workspaceDir;
 	private final List<AgentHook> hooks;
+	private final List<AgentTrigger> triggers;
 	private final String saveDir;
 	private final String appDataDir;
 	private final String conversationId;
@@ -53,6 +55,7 @@ public class AgentConfig {
 		this.generation = builder.generation;
 		this.workspaceDir = builder.workspaceDir;
 		this.hooks = new ArrayList<>(builder.hooks);
+		this.triggers = new ArrayList<>(builder.triggers);
 		this.saveDir = builder.saveDir;
 		this.appDataDir = builder.appDataDir;
 		this.conversationId = builder.conversationId;
@@ -122,6 +125,16 @@ public class AgentConfig {
 	 *
 	 * @return the registered hooks
 	 */
+
+	/**
+	 * Returns the triggers.
+	 *
+	 * @return the triggers
+	 */
+	public List<AgentTrigger> getTriggers() {
+		return Collections.unmodifiableList(triggers);
+	}
+
 	public List<AgentHook> getHooks() {
 		return Collections.unmodifiableList(hooks);
 	}
@@ -198,6 +211,7 @@ public class AgentConfig {
 		private GenerationConfig generation = null;
 		private Path workspaceDir = Path.of(System.getProperty("user.dir"));
 		private List<AgentHook> hooks = new ArrayList<>();
+		private List<AgentTrigger> triggers = new ArrayList<>();
 		private String saveDir = System.getProperty("java.io.tmpdir") + "/antigravity-java";
 		private String appDataDir = null;
 		private String conversationId = "";
@@ -284,6 +298,19 @@ public class AgentConfig {
 		 *            the hook
 		 * @return this builder
 		 */
+
+		/**
+		 * Adds a trigger.
+		 *
+		 * @param trigger
+		 *            the trigger
+		 * @return this builder
+		 */
+		public Builder addTrigger(AgentTrigger trigger) {
+			this.triggers.add(trigger);
+			return this;
+		}
+
 		public Builder addHook(AgentHook hook) {
 			this.hooks.add(hook);
 			return this;
