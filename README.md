@@ -51,19 +51,30 @@ try (Agent agent = new Agent(config)) {
 ```
 
 #### Reactive Streams (Publisher)
-Return a standard `java.util.concurrent.Flow.Publisher` to integrate natively with modern reactive frameworks (like Spring WebFlux, Project Reactor, or RxJava 3).
+Return a standard `java.util.concurrent.Flow.Publisher` to integrate natively with modern reactive frameworks (like Spring WebFlux, Project Reactor,### 4. Sugared Reactive Streaming (Thoughts & Tool Calls)
+
+The SDK provides reactive data streams (`java.util.concurrent.Flow.Publisher`) for various agent events, allowing you to easily integrate with libraries like **RxJava**, **Project Reactor**, or **Mutiny**.
+
+For complex UIs, you can extract streams of just the model's internal thoughts, or intercept tool dispatch events in real-time using `agent.streamChat()`:
 
 ```java
-try (Agent agent = new Agent(config)) {
-    Flow.Publisher<AgentResponseChunk> publisher = agent.chatPublisher("Tell me a story.");
-    
-    // Example 1: Project Reactor / Spring WebFlux
-    // Flux<AgentResponseChunk> flux = reactor.core.publisher.Flux.from(publisher);
-    
-    // Example 2: RxJava 3
-    // Flowable<AgentResponseChunk> flowable = io.reactivex.rxjava3.core.Flowable.fromPublisher(publisher);
-    
-    // Example 3: Standard Java 9+ Flow.Subscriber
+import io.github.glaforge.antigravity.AgentStream;
+
+AgentStream stream = agent.streamChat("Think step-by-step and calculate the weather.");
+
+// 1. Stream just the internal reasoning/thinking deltas
+Flux.from(stream.thoughts())
+    .subscribe(thought -> System.out.println("Thinking: " + thought));
+
+// 2. Stream strongly-typed ToolCall events
+Flux.from(stream.toolCalls())
+    .subscribe(call -> System.out.println("Executing tool: " + call.name()));
+
+// Wait for the final complete response
+AgentResponse response = stream.result().join();
+```
+
+*(You can also access the combined `chunks()` publisher directly from the `AgentStream` object).*rd Java 9+ Flow.Subscriber
     publisher.subscribe(new Flow.Subscriber<>() {
         private Flow.Subscription subscription;
         

@@ -66,6 +66,8 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 	private CompletableFuture<AgentResponse> currentChatFuture;
 	private Consumer<AgentResponseChunk> currentChunkConsumer;
+	private java.util.concurrent.SubmissionPublisher<String> currentThoughtsPublisher;
+	private java.util.concurrent.SubmissionPublisher<io.github.glaforge.antigravity.hooks.ToolCall> currentToolCallsPublisher;
 	private StringBuilder currentText;
 	private StringBuilder currentThoughts;
 	private UsageMetadata currentUsage;
@@ -590,6 +592,36 @@ public class Agent implements AutoCloseable, TriggerContext {
 	 *            the text prompt to send
 	 * @return a Flow.Publisher emitting AgentResponseChunk items
 	 */
+
+	/**
+	 * Sends multiple inputs to the agent and returns an AgentStream containing
+	 * distinct publishers for chunks, thoughts, and tool calls.
+	 *
+	 * @param inputs
+	 *            the list of inputs
+	 * @return an AgentStream
+	 */
+	public AgentStream streamChat(List<AgentInput> inputs) {
+		java.util.concurrent.SubmissionPublisher<AgentResponseChunk> chunksPublisher = new java.util.concurrent.SubmissionPublisher<>();
+		this.currentThoughtsPublisher = new java.util.concurrent.SubmissionPublisher<>();
+		this.currentToolCallsPublisher = new java.util.concurrent.SubmissionPublisher<>();
+
+		CompletableFuture<AgentResponse> result = chatStream(inputs, chunksPublisher::submit)
+				.whenComplete((response, error) -> {
+					if (error != null) {
+						chunksPublisher.closeExceptionally(error);
+					} else {
+						chunksPublisher.close();
+					}
+				});
+
+		return new AgentStream(chunksPublisher, currentThoughtsPublisher, currentToolCallsPublisher, result);
+	}
+
+	public AgentStream streamChat(String text) {
+		return streamChat(List.of(AgentInput.Text.of(text)));
+	}
+
 	public Publisher<AgentResponseChunk> chatPublisher(String prompt) {
 		return chatPublisher(List.of(AgentInput.Text.of(prompt)));
 	}
@@ -838,6 +870,14 @@ public class Agent implements AutoCloseable, TriggerContext {
 								new RuntimeException("Agent execution terminated: " + errorMessage));
 						currentChatFuture = null;
 						currentChunkConsumer = null;
+						if (currentThoughtsPublisher != null) {
+							currentThoughtsPublisher.close();
+							currentThoughtsPublisher = null;
+						}
+						if (currentToolCallsPublisher != null) {
+							currentToolCallsPublisher.close();
+							currentToolCallsPublisher = null;
+						}
 					}
 				}
 
@@ -929,6 +969,14 @@ public class Agent implements AutoCloseable, TriggerContext {
 								currentThoughts != null ? currentThoughts.toString() : "", currentUsage));
 						currentChatFuture = null;
 						currentChunkConsumer = null;
+						if (currentThoughtsPublisher != null) {
+							currentThoughtsPublisher.close();
+							currentThoughtsPublisher = null;
+						}
+						if (currentToolCallsPublisher != null) {
+							currentToolCallsPublisher.close();
+							currentToolCallsPublisher = null;
+						}
 					}
 				}
 			}
@@ -940,6 +988,9 @@ public class Agent implements AutoCloseable, TriggerContext {
 				String argsJsonString = toolCallNode.path("argumentsJson").asText();
 				JsonNode args = jsonMapper.readTree(argsJsonString);
 
+				if (currentToolCallsPublisher != null) {
+					currentToolCallsPublisher.submit(new io.github.glaforge.antigravity.hooks.ToolCall(name, args));
+				}
 				if ("finish".equals(name)) {
 					if (currentText != null) {
 						currentText.setLength(0);

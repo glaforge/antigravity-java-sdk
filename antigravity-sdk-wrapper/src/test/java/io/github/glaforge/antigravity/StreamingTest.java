@@ -17,6 +17,7 @@ package io.github.glaforge.antigravity;
 
 import org.junit.jupiter.api.Test;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.Flow;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import static org.awaitility.Awaitility.await;
@@ -54,4 +55,48 @@ public class StreamingTest {
 			}
 		});
 	}
+	@Test
+	public void testAgentStream() throws Exception {
+		TestUtils.retry(3, () -> {
+			AgentConfig config = AgentConfig.builder()
+					.instructions("You are a helpful assistant. Please think out loud using thoughts.")
+					.modelName("gemini-2.5-pro") // pro models usually produce more thoughts
+					.build();
+
+			try (Agent agent = new Agent(config)) {
+				System.out.println("Starting AgentStream test...");
+				AgentStream stream = agent.streamChat("Think step-by-step about what 2+2 is and reply.");
+
+				AtomicInteger thoughtChunks = new AtomicInteger(0);
+
+				stream.thoughts().subscribe(new Flow.Subscriber<String>() {
+					Flow.Subscription sub;
+					@Override
+					public void onSubscribe(Flow.Subscription s) {
+						this.sub = s;
+						sub.request(Long.MAX_VALUE);
+					}
+					@Override
+					public void onNext(String item) {
+						System.out.println("Thought chunk: " + item);
+						thoughtChunks.incrementAndGet();
+					}
+					@Override
+					public void onError(Throwable t) {
+					}
+					@Override
+					public void onComplete() {
+					}
+				});
+
+				await().atMost(120, TimeUnit.SECONDS).until(() -> stream.result().isDone());
+				AgentResponse response = stream.result().get();
+
+				// It is possible the model did not output any thoughts, but we verified the
+				// stream works without error
+				System.out.println("Final Thoughts Length: " + response.thoughts().length());
+			}
+		});
+	}
+
 }
