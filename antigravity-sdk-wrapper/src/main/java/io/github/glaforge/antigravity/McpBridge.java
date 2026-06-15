@@ -147,7 +147,7 @@ public class McpBridge {
 				String schemaJson = mapper.writeValueAsString(mcpTool.inputSchema());
 				return ToolDefinition.builder().name(mcpTool.name())
 						.description(mcpTool.description() != null ? mcpTool.description() : "")
-						.parametersJsonSchema(schemaJson).build();
+						.parametersSchema(schemaJson).build();
 			} catch (Exception e) {
 				throw new RuntimeException("Failed to serialize MCP tool schema", e);
 			}

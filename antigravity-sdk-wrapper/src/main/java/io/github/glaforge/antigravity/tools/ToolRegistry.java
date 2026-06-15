@@ -131,8 +131,9 @@ public class ToolRegistry {
 			}
 
 			var builder = io.github.glaforge.antigravity.tools.ToolDefinition.builder();
-			builder.name(entry.getKey()).description(annotation.description())
-					.parametersJsonSchema(parametersJsonSchema);
+			builder.name(entry.getKey())
+					.description(annotation.description())
+					.parametersSchema(parametersJsonSchema);
 			definitions.add(builder.build());
 		}
 		for (DynamicTool dt : dynamicRegistry.values()) {

@@ -128,7 +128,7 @@ public class ToolDefinition {
             return this;
         }
 
-        public Builder parametersJsonSchema(String schema) { 
+        public Builder parametersSchema(String schema) { 
             this.parametersJsonSchema = schema; 
             return this; 
         }
