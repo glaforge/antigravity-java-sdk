@@ -36,7 +36,7 @@ public class TriggersTest {
 			AtomicInteger triggerCount = new AtomicInteger(0);
 
 			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
-				.addTrigger(Triggers.every(2000, TimeUnit.MILLISECONDS, ctx -> {
+				.addTrigger(Triggers.every(300, TimeUnit.MILLISECONDS, ctx -> {
 					if (triggerCount.getAndIncrement() == 0) {
 						System.out.println("Trigger fired!");
 						ctx.fireTrigger("The user just sneezed. Say bless you.");
@@ -44,20 +44,18 @@ public class TriggersTest {
 				})).build();
 
 			try (Agent agent = new Agent(config)) {
-				// Wait for the trigger to fire multiple times
-				await().atMost(10, TimeUnit.SECONDS).until(() -> triggerCount.get() >= 1);
-
 				CompletableFuture<AgentResponse> future = agent.chat("What is 2+2?");
 				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
 
 				AgentResponse response = future.get();
 				System.out.println(response.text());
 				assertTrue(response.text().toLowerCase().contains("bless you"), "Agent should have said bless you");
+				assertTrue(triggerCount.get() >= 2, "Trigger should have ticked multiple times");
 			}
 
 			// Wait briefly to ensure trigger is stopped
 			int countAfterClose = triggerCount.get();
-			await().pollDelay(300, TimeUnit.MILLISECONDS).atMost(500, TimeUnit.MILLISECONDS).until(() -> triggerCount.get() == countAfterClose);
+			await().pollDelay(600, TimeUnit.MILLISECONDS).atMost(1000, TimeUnit.MILLISECONDS).until(() -> triggerCount.get() == countAfterClose);
 		});
 	}
 }
