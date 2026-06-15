@@ -126,11 +126,14 @@ AgentConfig config = AgentConfig.builder()
         @Override
         public String getName() { return "get_weather"; }
         
+        // A simple record to define our parameters schema
+        public record WeatherParams(String location) {}
+        
         public ToolDefinition getDefinition() {
             return ToolDefinition.builder()
                 .name("get_weather")
                 .description("Get the weather for a location.")
-                .parametersJsonSchema("{\"type\":\"object\",\"properties\":{\"location\":{\"type\":\"string\"}}}")
+                .parametersSchema(WeatherParams.class) // Auto-generates the schema!
                 .build();
         }
         

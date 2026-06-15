@@ -112,6 +112,22 @@ public class ToolDefinition {
          * @param schema the schema
          * @return this builder
          */
+        
+        /**
+         * Sets the tool parameters schema by auto-generating it from the given class.
+         * @param targetClass the Java class to generate a JSON Schema from
+         * @return this builder
+         */
+        public Builder parametersSchema(Class<?> targetClass) {
+            try {
+                com.fasterxml.jackson.databind.node.ObjectNode schemaNode = SchemaGenerator.generateSchema(targetClass);
+                this.parametersJsonSchema = SchemaGenerator.getMapper().writeValueAsString(schemaNode);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to generate JSON schema for tool parameters: " + targetClass.getName(), e);
+            }
+            return this;
+        }
+
         public Builder parametersJsonSchema(String schema) { 
             this.parametersJsonSchema = schema; 
             return this; 
