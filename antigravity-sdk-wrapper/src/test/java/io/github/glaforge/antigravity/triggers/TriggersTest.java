@@ -36,11 +36,12 @@ public class TriggersTest {
 			AtomicInteger triggerCount = new AtomicInteger(0);
 
 			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
-					.addTrigger(Triggers.every(2000, TimeUnit.MILLISECONDS, ctx -> {
+				.addTrigger(Triggers.every(2000, TimeUnit.MILLISECONDS, ctx -> {
+					if (triggerCount.getAndIncrement() == 0) {
 						System.out.println("Trigger fired!");
-						triggerCount.incrementAndGet();
 						ctx.fireTrigger("The user just sneezed. Say bless you.");
-					})).build();
+					}
+				})).build();
 
 			try (Agent agent = new Agent(config)) {
 				// Wait for the trigger to fire multiple times
