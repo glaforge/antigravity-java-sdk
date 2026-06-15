@@ -57,7 +57,13 @@ Return a standard `java.util.concurrent.Flow.Publisher` to integrate natively wi
 try (Agent agent = new Agent(config)) {
     Flow.Publisher<AgentResponseChunk> publisher = agent.chatPublisher("Tell me a story.");
     
-    // Example using standard Java subscriber (or pass to your reactive framework)
+    // Example 1: Project Reactor / Spring WebFlux
+    // Flux<AgentResponseChunk> flux = reactor.core.publisher.Flux.from(publisher);
+    
+    // Example 2: RxJava 3
+    // Flowable<AgentResponseChunk> flowable = io.reactivex.rxjava3.core.Flowable.fromPublisher(publisher);
+    
+    // Example 3: Standard Java 9+ Flow.Subscriber
     publisher.subscribe(new Flow.Subscriber<>() {
         private Flow.Subscription subscription;
         
@@ -79,7 +85,7 @@ try (Agent agent = new Agent(config)) {
         
         @Override
         public void onComplete() {
-            System.out.println("Done!");
+            System.out.println("\nDone!");
         }
     });
 }
