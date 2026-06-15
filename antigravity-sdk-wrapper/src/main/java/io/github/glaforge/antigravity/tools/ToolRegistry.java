@@ -30,7 +30,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import io.github.glaforge.antigravity.DynamicTool;
-import io.github.glaforge.antigravity.ToolBuilderFactory;
 import io.github.glaforge.antigravity.ToolContext;
 
 /**
@@ -111,7 +110,7 @@ public class ToolRegistry {
 					description = paramAnno.description();
 				}
 
-				ObjectNode paramSchema = generateSchema(p.getParameterizedType());
+				ObjectNode paramSchema = SchemaGenerator.generateSchema(p.getParameterizedType());
 				if (!description.isEmpty()) {
 					paramSchema.put("description", description);
 				}
@@ -143,57 +142,7 @@ public class ToolRegistry {
 		return definitions;
 	}
 
-	private ObjectNode generateSchema(Type genericType) {
-		ObjectNode schema = mapper.createObjectNode();
-		Class<?> type;
-		Type[] typeArgs = null;
-
-		if (genericType instanceof ParameterizedType pType) {
-			type = (Class<?>) pType.getRawType();
-			typeArgs = pType.getActualTypeArguments();
-		} else if (genericType instanceof Class) {
-			type = (Class<?>) genericType;
-		} else {
-			type = Object.class;
-		}
-
-		if (type == String.class || type == CharSequence.class) {
-			schema.put("type", "string");
-		} else if (type == int.class || type == Integer.class || type == long.class || type == Long.class) {
-			schema.put("type", "integer");
-		} else if (type == double.class || type == Double.class || type == float.class || type == Float.class) {
-			schema.put("type", "number");
-		} else if (type == boolean.class || type == Boolean.class) {
-			schema.put("type", "boolean");
-		} else if (type.isEnum()) {
-			schema.put("type", "string");
-			ArrayNode enumNodes = schema.putArray("enum");
-			for (Object e : type.getEnumConstants()) {
-				enumNodes.add(e.toString());
-			}
-		} else if (List.class.isAssignableFrom(type) || type.isArray()) {
-			schema.put("type", "array");
-			if (type.isArray()) {
-				schema.set("items", generateSchema(type.getComponentType()));
-			} else if (typeArgs != null && typeArgs.length > 0) {
-				schema.set("items", generateSchema(typeArgs[0]));
-			} else {
-				schema.set("items", mapper.createObjectNode());
-			}
-		} else {
-			schema.put("type", "object");
-			ObjectNode properties = schema.putObject("properties");
-			for (Field f : type.getDeclaredFields()) {
-				if (Modifier.isStatic(f.getModifiers()) || Modifier.isTransient(f.getModifiers())) {
-					continue;
-				}
-				properties.set(f.getName(), generateSchema(f.getGenericType()));
-			}
-		}
-
-		return schema;
-	}
-
+	
 	/**
 	 * Executes a registered tool by name with the given JSON arguments.
 	 *

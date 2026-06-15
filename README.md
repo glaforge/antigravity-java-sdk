@@ -228,9 +228,19 @@ AgentResponse response = agent.chat(
 Force the agent to respond in a specific JSON schema format.
 
 ```java
+public record Person(String name) {}
+
 AgentConfig config = AgentConfig.builder()
-    .finishToolSchemaJson("{\"type\": \"object\", \"properties\": {\"name\": {\"type\": \"string\"}}}")
+    .finishToolSchema(Person.class)
     .build();
+
+try (Agent agent = new Agent(config)) {
+    AgentResponse response = agent.chat("Extract: Alice").join();
+    
+    // The response now safely parses into your strongly typed Record!
+    Person parsedPerson = response.getStructuredOutput(Person.class);
+    System.out.println(parsedPerson.name());
+}
 ```
 
 ### 10. Subagents
