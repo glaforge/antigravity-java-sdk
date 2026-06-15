@@ -32,77 +32,79 @@ import io.github.glaforge.antigravity.localharness.MultipleChoiceAnswer;
  */
 public record InteractionAnswer(boolean unanswered, List<Integer> selectedChoiceIndices, String freeformResponse) {
 
-    public InteractionAnswer {
-        selectedChoiceIndices = selectedChoiceIndices != null ? List.copyOf(selectedChoiceIndices) : List.of();
-        freeformResponse = freeformResponse != null ? freeformResponse : "";
-    }
+	public InteractionAnswer {
+		selectedChoiceIndices = selectedChoiceIndices != null ? List.copyOf(selectedChoiceIndices) : List.of();
+		freeformResponse = freeformResponse != null ? freeformResponse : "";
+	}
 
-    /**
-     * @return a new Builder for an InteractionAnswer
-     */
-    public static Builder builder() {
-        return new Builder();
-    }
-    
-    /**
-     * Creates an unanswered response.
-     * @return a new unanswered InteractionAnswer
-     */
-    public static InteractionAnswer createUnanswered() {
-        return builder().unanswered(true).build();
-    }
+	/**
+	 * @return a new Builder for an InteractionAnswer
+	 */
+	public static Builder builder() {
+		return new Builder();
+	}
 
-    /**
-     * Internal method to convert to the protobuf representation.
-     * @return the protobuf answer
-     */
-    public UserQuestionAnswer toProtobuf() {
-        UserQuestionAnswer.Builder builder = UserQuestionAnswer.newBuilder();
-        if (unanswered) {
-            builder.setUnanswered(true);
-        } else {
-            MultipleChoiceAnswer.Builder mcBuilder = MultipleChoiceAnswer.newBuilder();
-            if (selectedChoiceIndices != null) {
-                mcBuilder.addAllSelectedChoiceIndices(selectedChoiceIndices);
-            }
-            if (freeformResponse != null) {
-                mcBuilder.setFreeformResponse(freeformResponse);
-            }
-            builder.setMultipleChoiceAnswer(mcBuilder.build());
-        }
-        return builder.build();
-    }
+	/**
+	 * Creates an unanswered response.
+	 * 
+	 * @return a new unanswered InteractionAnswer
+	 */
+	public static InteractionAnswer createUnanswered() {
+		return builder().unanswered(true).build();
+	}
 
-    /**
-     * Builder for InteractionAnswer.
-     */
-    public static class Builder {
-        private boolean unanswered = false;
-        private List<Integer> selectedChoiceIndices = new ArrayList<>();
-        private String freeformResponse = "";
+	/**
+	 * Internal method to convert to the protobuf representation.
+	 * 
+	 * @return the protobuf answer
+	 */
+	public UserQuestionAnswer toProtobuf() {
+		UserQuestionAnswer.Builder builder = UserQuestionAnswer.newBuilder();
+		if (unanswered) {
+			builder.setUnanswered(true);
+		} else {
+			MultipleChoiceAnswer.Builder mcBuilder = MultipleChoiceAnswer.newBuilder();
+			if (selectedChoiceIndices != null) {
+				mcBuilder.addAllSelectedChoiceIndices(selectedChoiceIndices);
+			}
+			if (freeformResponse != null) {
+				mcBuilder.setFreeformResponse(freeformResponse);
+			}
+			builder.setMultipleChoiceAnswer(mcBuilder.build());
+		}
+		return builder.build();
+	}
 
-        public Builder unanswered(boolean unanswered) {
-            this.unanswered = unanswered;
-            return this;
-        }
+	/**
+	 * Builder for InteractionAnswer.
+	 */
+	public static class Builder {
+		private boolean unanswered = false;
+		private List<Integer> selectedChoiceIndices = new ArrayList<>();
+		private String freeformResponse = "";
 
-        public Builder addSelectedChoiceIndex(int index) {
-            this.selectedChoiceIndices.add(index);
-            return this;
-        }
-        
-        public Builder selectedChoiceIndices(List<Integer> indices) {
-            this.selectedChoiceIndices = new ArrayList<>(indices);
-            return this;
-        }
+		public Builder unanswered(boolean unanswered) {
+			this.unanswered = unanswered;
+			return this;
+		}
 
-        public Builder freeformResponse(String response) {
-            this.freeformResponse = response;
-            return this;
-        }
+		public Builder addSelectedChoiceIndex(int index) {
+			this.selectedChoiceIndices.add(index);
+			return this;
+		}
 
-        public InteractionAnswer build() {
-            return new InteractionAnswer(unanswered, selectedChoiceIndices, freeformResponse);
-        }
-    }
+		public Builder selectedChoiceIndices(List<Integer> indices) {
+			this.selectedChoiceIndices = new ArrayList<>(indices);
+			return this;
+		}
+
+		public Builder freeformResponse(String response) {
+			this.freeformResponse = response;
+			return this;
+		}
+
+		public InteractionAnswer build() {
+			return new InteractionAnswer(unanswered, selectedChoiceIndices, freeformResponse);
+		}
+	}
 }

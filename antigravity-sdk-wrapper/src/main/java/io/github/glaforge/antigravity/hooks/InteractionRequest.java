@@ -28,35 +28,34 @@ import io.github.glaforge.antigravity.localharness.UserQuestion;
  */
 public record InteractionRequest(List<Question> questions) {
 
-    /**
-     * Represents a single question in an interaction request.
-     *
-     * @param questionText
-     *            the text of the question
-     * @param choices
-     *            the multiple-choice options
-     * @param multiSelect
-     *            whether multiple options can be selected
-     */
-    public record Question(String questionText, List<String> choices, boolean multiSelect) {
-    }
+	/**
+	 * Represents a single question in an interaction request.
+	 *
+	 * @param questionText
+	 *            the text of the question
+	 * @param choices
+	 *            the multiple-choice options
+	 * @param multiSelect
+	 *            whether multiple options can be selected
+	 */
+	public record Question(String questionText, List<String> choices, boolean multiSelect) {
+	}
 
-    /**
-     * Internal method to convert from the protobuf representation.
-     * @param proto the protobuf request
-     * @return the parsed request
-     */
-    public static InteractionRequest fromProtobuf(UserQuestionsRequest proto) {
-        List<Question> mappedQuestions = new ArrayList<>();
-        for (UserQuestion q : proto.getQuestionsList()) {
-            if (q.hasMultipleChoice()) {
-                mappedQuestions.add(new Question(
-                    q.getMultipleChoice().getQuestion(),
-                    q.getMultipleChoice().getChoicesList(),
-                    q.getMultipleChoice().getIsMultiSelect()
-                ));
-            }
-        }
-        return new InteractionRequest(mappedQuestions);
-    }
+	/**
+	 * Internal method to convert from the protobuf representation.
+	 * 
+	 * @param proto
+	 *            the protobuf request
+	 * @return the parsed request
+	 */
+	public static InteractionRequest fromProtobuf(UserQuestionsRequest proto) {
+		List<Question> mappedQuestions = new ArrayList<>();
+		for (UserQuestion q : proto.getQuestionsList()) {
+			if (q.hasMultipleChoice()) {
+				mappedQuestions.add(new Question(q.getMultipleChoice().getQuestion(),
+						q.getMultipleChoice().getChoicesList(), q.getMultipleChoice().getIsMultiSelect()));
+			}
+		}
+		return new InteractionRequest(mappedQuestions);
+	}
 }

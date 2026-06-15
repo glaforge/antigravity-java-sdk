@@ -15,7 +15,6 @@
  */
 package io.github.glaforge.antigravity;
 
-
 import io.github.glaforge.antigravity.hooks.*;
 import org.junit.jupiter.api.Test;
 
@@ -39,10 +38,8 @@ public class InteractiveAskQuestionTest {
 				public CompletableFuture<List<InteractionAnswer>> onInteraction(InteractionRequest request) {
 					capturedRequest.set(request);
 
-					InteractionAnswer answer = InteractionAnswer.builder()
-							.addSelectedChoiceIndex(1)
-							.freeformResponse("I pick blue")
-							.build();
+					InteractionAnswer answer = InteractionAnswer.builder().addSelectedChoiceIndex(1)
+							.freeformResponse("I pick blue").build();
 
 					return CompletableFuture.completedFuture(List.of(answer));
 				}

@@ -130,10 +130,8 @@ public class ToolRegistry {
 				throw new RuntimeException("Failed to generate schema", e);
 			}
 
-			var builder = io.github.glaforge.antigravity.tools.ToolDefinition.builder();
-			builder.name(entry.getKey())
-					.description(annotation.description())
-					.parametersSchema(parametersJsonSchema);
+			var builder = ToolDefinition.builder();
+			builder.name(entry.getKey()).description(annotation.description()).parametersSchema(parametersJsonSchema);
 			definitions.add(builder.build());
 		}
 		for (DynamicTool dt : dynamicRegistry.values()) {
@@ -143,7 +141,6 @@ public class ToolRegistry {
 		return definitions;
 	}
 
-	
 	/**
 	 * Executes a registered tool by name with the given JSON arguments.
 	 *

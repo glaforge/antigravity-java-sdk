@@ -15,6 +15,8 @@
  */
 package io.github.glaforge.antigravity;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
 import java.util.ArrayList;
 import java.nio.file.Path;
 import java.util.List;
@@ -342,7 +344,7 @@ public class AgentConfig {
 		 *            the JSON schema
 		 * @return this builder
 		 */
-		
+
 		/**
 		 * Sets the finish tool schema JSON by auto-generating it from the given class.
 		 *
@@ -352,7 +354,7 @@ public class AgentConfig {
 		 */
 		public Builder finishToolSchema(Class<?> targetClass) {
 			try {
-				com.fasterxml.jackson.databind.node.ObjectNode schemaNode = SchemaGenerator.generateSchema(targetClass);
+				ObjectNode schemaNode = SchemaGenerator.generateSchema(targetClass);
 				this.finishToolSchemaJson = SchemaGenerator.getMapper().writeValueAsString(schemaNode);
 			} catch (Exception e) {
 				throw new RuntimeException("Failed to generate JSON schema for class: " + targetClass.getName(), e);

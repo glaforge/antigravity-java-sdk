@@ -39,7 +39,8 @@ public class SchemaGenerator {
 	/**
 	 * Generates a JSON schema representation of the given Java type.
 	 *
-	 * @param genericType the Java type to generate a schema for
+	 * @param genericType
+	 *            the Java type to generate a schema for
 	 * @return an ObjectNode representing the JSON schema
 	 */
 	public static ObjectNode generateSchema(Type genericType) {

@@ -17,7 +17,6 @@ package io.github.glaforge.antigravity.hooks;
 
 import java.util.concurrent.CompletableFuture;
 
-
 import java.util.List;
 
 /**

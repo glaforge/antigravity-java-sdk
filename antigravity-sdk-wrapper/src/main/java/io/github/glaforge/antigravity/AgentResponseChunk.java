@@ -24,7 +24,7 @@ package io.github.glaforge.antigravity;
  *            the thoughts delta
  */
 public record AgentResponseChunk(String textDelta, String thoughtsDelta) {
-	
+
 	public AgentResponseChunk {
 		textDelta = textDelta != null ? textDelta : "";
 		thoughtsDelta = thoughtsDelta != null ? thoughtsDelta : "";

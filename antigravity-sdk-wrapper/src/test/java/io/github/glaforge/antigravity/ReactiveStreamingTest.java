@@ -38,7 +38,7 @@ public class ReactiveStreamingTest {
 
 				Flow.Publisher<AgentResponseChunk> publisher = agent
 						.chatPublisher("Write a 3 sentence story about a brave knight.");
-				
+
 				publisher.subscribe(new Flow.Subscriber<>() {
 					private Flow.Subscription subscription;
 

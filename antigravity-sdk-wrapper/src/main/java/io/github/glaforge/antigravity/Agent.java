@@ -74,8 +74,6 @@ public class Agent implements AutoCloseable, TriggerContext {
 	private final ConcurrentMap<String, Object> toolState = new ConcurrentHashMap<>();
 	private final SessionContext sessionContext = new SessionContext();
 
-
-
 	/**
 	 * Returns the usage metadata from the most recent turn.
 	 *
@@ -582,7 +580,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 	 *            a consumer to handle the incoming chunks
 	 * @return a CompletableFuture containing the final AgentResponse
 	 */
-	
+
 	/**
 	 * Sends a text message to the agent and returns a Publisher of response chunks.
 	 *
@@ -595,7 +593,8 @@ public class Agent implements AutoCloseable, TriggerContext {
 	}
 
 	/**
-	 * Sends multiple inputs to the agent and returns a Publisher of response chunks.
+	 * Sends multiple inputs to the agent and returns a Publisher of response
+	 * chunks.
 	 *
 	 * @param inputs
 	 *            the inputs to send
@@ -606,7 +605,8 @@ public class Agent implements AutoCloseable, TriggerContext {
 	}
 
 	/**
-	 * Sends a list of inputs to the agent and returns a Publisher of response chunks.
+	 * Sends a list of inputs to the agent and returns a Publisher of response
+	 * chunks.
 	 *
 	 * @param inputs
 	 *            the list of inputs
@@ -882,26 +882,28 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 						for (AgentHook hook : config.getHooks()) {
 							if (hook instanceof OnInteractionHook) {
-								((OnInteractionHook) hook).onInteraction(InteractionRequest.fromProtobuf(req)).thenAccept(resp -> {
-									try {
-										List<UserQuestionAnswer> answers = resp.stream().map(InteractionAnswer::toProtobuf).toList();
-										UserQuestionsResponse.QuestionsResponse questionsResp = UserQuestionsResponse.QuestionsResponse
-												.newBuilder().addAllAnswers(answers).build();
+								((OnInteractionHook) hook).onInteraction(InteractionRequest.fromProtobuf(req))
+										.thenAccept(resp -> {
+											try {
+												List<UserQuestionAnswer> answers = resp.stream()
+														.map(InteractionAnswer::toProtobuf).toList();
+												UserQuestionsResponse.QuestionsResponse questionsResp = UserQuestionsResponse.QuestionsResponse
+														.newBuilder().addAllAnswers(answers).build();
 
-										UserQuestionsResponse fullResp = UserQuestionsResponse.newBuilder()
-												.setTrajectoryId(trajectoryId).setStepIndex(stepIndex)
-												.setResponse(questionsResp).build();
+												UserQuestionsResponse fullResp = UserQuestionsResponse.newBuilder()
+														.setTrajectoryId(trajectoryId).setStepIndex(stepIndex)
+														.setResponse(questionsResp).build();
 
-										InputEvent inputEvent = InputEvent.newBuilder().setQuestionResponse(fullResp)
-												.build();
+												InputEvent inputEvent = InputEvent.newBuilder()
+														.setQuestionResponse(fullResp).build();
 
-										String payloadJson = JsonFormat.printer().omittingInsignificantWhitespace()
-												.print(inputEvent);
-										webSocket.sendText(payloadJson, true);
-									} catch (Exception e) {
-										e.printStackTrace();
-									}
-								});
+												String payloadJson = JsonFormat.printer()
+														.omittingInsignificantWhitespace().print(inputEvent);
+												webSocket.sendText(payloadJson, true);
+											} catch (Exception e) {
+												e.printStackTrace();
+											}
+										});
 								break;
 							}
 						}

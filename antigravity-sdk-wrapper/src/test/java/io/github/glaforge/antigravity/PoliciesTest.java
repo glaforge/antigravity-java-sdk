@@ -132,14 +132,13 @@ public class PoliciesTest {
 
 	@Test
 	public void testPolicyChainOrder() throws Exception {
-		AgentConfig config = AgentConfig.builder()
-				.addPolicy(Policies.allowTools("list_dir"))
-				.addPolicy(Policies.denyAll())
-				.build();
+		AgentConfig config = AgentConfig.builder().addPolicy(Policies.allowTools("list_dir"))
+				.addPolicy(Policies.denyAll()).build();
 
-		java.lang.reflect.Method evalMethod = Agent.class.getDeclaredMethod("evaluatePolicies", String.class, com.fasterxml.jackson.databind.JsonNode.class);
+		java.lang.reflect.Method evalMethod = Agent.class.getDeclaredMethod("evaluatePolicies", String.class,
+				com.fasterxml.jackson.databind.JsonNode.class);
 		evalMethod.setAccessible(true);
-		
+
 		try (Agent agent = new Agent(config)) {
 			// list_dir is allowed before the denyAll
 			Policy.Decision allowed = (Policy.Decision) evalMethod.invoke(agent, "list_dir", null);
