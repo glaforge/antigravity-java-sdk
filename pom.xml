@@ -33,7 +33,7 @@
     </modules>
 
     <properties>
-        <revision>0.2.0-SNAPSHOT</revision>
+        <revision>0.2.0</revision>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -168,7 +168,7 @@
         <connection>scm:git:git://github.com/glaforge/antigravity-java-sdk.git</connection>
         <developerConnection>scm:git:git@github.com:glaforge/antigravity-java-sdk.git</developerConnection>
         <url>https://github.com/glaforge/antigravity-java-sdk</url>
-        <tag>HEAD</tag>
+        <tag>v0.2.0</tag>
     </scm>
 
     <profiles>
