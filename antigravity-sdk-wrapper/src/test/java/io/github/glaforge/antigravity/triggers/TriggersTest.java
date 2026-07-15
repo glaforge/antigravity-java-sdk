@@ -36,12 +36,12 @@ public class TriggersTest {
 			AtomicInteger triggerCount = new AtomicInteger(0);
 
 			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
-				.addTrigger(Triggers.every(300, TimeUnit.MILLISECONDS, ctx -> {
-					if (triggerCount.getAndIncrement() == 0) {
-						System.out.println("Trigger fired!");
-						ctx.fireTrigger("The user just sneezed. Say bless you.");
-					}
-				})).build();
+					.addTrigger(Triggers.every(300, TimeUnit.MILLISECONDS, ctx -> {
+						if (triggerCount.getAndIncrement() == 0) {
+							System.out.println("Trigger fired!");
+							ctx.fireTrigger("The user just sneezed. Say bless you.");
+						}
+					})).build();
 
 			try (Agent agent = new Agent(config)) {
 				CompletableFuture<AgentResponse> future = agent.chat("What is 2+2?");
@@ -55,7 +55,8 @@ public class TriggersTest {
 
 			// Wait briefly to ensure trigger is stopped
 			int countAfterClose = triggerCount.get();
-			await().pollDelay(600, TimeUnit.MILLISECONDS).atMost(1000, TimeUnit.MILLISECONDS).until(() -> triggerCount.get() == countAfterClose);
+			await().pollDelay(600, TimeUnit.MILLISECONDS).atMost(1000, TimeUnit.MILLISECONDS)
+					.until(() -> triggerCount.get() == countAfterClose);
 		});
 	}
 }

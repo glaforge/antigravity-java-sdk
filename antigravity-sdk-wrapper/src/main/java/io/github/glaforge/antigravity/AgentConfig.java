@@ -316,6 +316,51 @@ public class AgentConfig {
 			return this;
 		}
 
+		public Builder addPreTurnHook(io.github.glaforge.antigravity.hooks.PreTurnHook hook) {
+			this.hooks.add(hook);
+			return this;
+		}
+
+		public Builder addPostTurnHook(io.github.glaforge.antigravity.hooks.PostTurnHook hook) {
+			this.hooks.add(hook);
+			return this;
+		}
+
+		public Builder addPreToolCallDecideHook(io.github.glaforge.antigravity.hooks.PreToolCallDecideHook hook) {
+			this.hooks.add(hook);
+			return this;
+		}
+
+		public Builder addPostToolCallHook(io.github.glaforge.antigravity.hooks.PostToolCallHook hook) {
+			this.hooks.add(hook);
+			return this;
+		}
+
+		public Builder addOnToolErrorHook(io.github.glaforge.antigravity.hooks.OnToolErrorHook hook) {
+			this.hooks.add(hook);
+			return this;
+		}
+
+		public Builder addOnInteractionHook(io.github.glaforge.antigravity.hooks.OnInteractionHook hook) {
+			this.hooks.add(hook);
+			return this;
+		}
+
+		public Builder addOnSessionStartHook(io.github.glaforge.antigravity.hooks.OnSessionStartHook hook) {
+			this.hooks.add(hook);
+			return this;
+		}
+
+		public Builder addOnSessionEndHook(io.github.glaforge.antigravity.hooks.OnSessionEndHook hook) {
+			this.hooks.add(hook);
+			return this;
+		}
+
+		public Builder addOnCompactionHook(io.github.glaforge.antigravity.hooks.OnCompactionHook hook) {
+			this.hooks.add(hook);
+			return this;
+		}
+
 		/**
 		 * Sets the save directory.
 		 *

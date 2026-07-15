@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.github.glaforge.antigravity.localharness.*;
 import io.github.glaforge.antigravity.hooks.*;
+import io.github.glaforge.antigravity.hooks.ToolCall;
 import io.github.glaforge.antigravity.tools.ToolRegistry;
 import io.github.glaforge.antigravity.tools.ToolDefinition;
 import com.google.protobuf.util.JsonFormat;
@@ -66,14 +67,14 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 	private CompletableFuture<AgentResponse> currentChatFuture;
 	private Consumer<AgentResponseChunk> currentChunkConsumer;
-	private java.util.concurrent.SubmissionPublisher<String> currentThoughtsPublisher;
-	private java.util.concurrent.SubmissionPublisher<io.github.glaforge.antigravity.hooks.ToolCall> currentToolCallsPublisher;
+	private volatile SubmissionPublisher<String> currentThoughtsPublisher;
+	private volatile SubmissionPublisher<ToolCall> currentToolCallsPublisher;
+	private volatile boolean clientCancelled = false;
 	private StringBuilder currentText;
 	private StringBuilder currentThoughts;
 	private UsageMetadata currentUsage;
 	private final List<Policy> policies;
 	private boolean hasStructuredOutput;
-	private final McpBridge mcpBridge;
 	private StringBuilder wsBuffer = new StringBuilder();
 	private final ConcurrentMap<String, Object> toolState = new ConcurrentHashMap<>();
 	private final SessionContext sessionContext = new SessionContext();
@@ -107,6 +108,20 @@ public class Agent implements AutoCloseable, TriggerContext {
 	public void fireTrigger(String triggerText) {
 		try {
 			InputEvent event = InputEvent.newBuilder().setAutomatedTrigger(triggerText).build();
+			String payload = JsonFormat.printer().omittingInsignificantWhitespace().print(event);
+			webSocket.sendText(payload, true);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	/**
+	 * Cancels the current agent execution.
+	 */
+	public void cancel() {
+		try {
+			this.clientCancelled = true;
+			InputEvent event = InputEvent.newBuilder().setHaltRequest(true).build();
 			String payload = JsonFormat.printer().omittingInsignificantWhitespace().print(event);
 			webSocket.sendText(payload, true);
 		} catch (Exception e) {
@@ -330,18 +345,14 @@ public class Agent implements AutoCloseable, TriggerContext {
 			this.registerTools(tool);
 		}
 
-		this.mcpBridge = new McpBridge();
-		this.mcpBridge.connect(config.getMcpServers());
-		for (DynamicTool dynamicTool : this.mcpBridge.getDiscoveredTools()) {
-			this.toolRegistry.registerDynamicTool(dynamicTool);
-		}
-
 		// 1. Detect environment variables
 		String platformSlice = PlatformResolver.getPlatformSlice();
-		String resourcePath = "/google/antigravity/bin/" + platformSlice + "/localharness";
+		boolean isWindows = platformSlice.startsWith("windows");
+		String ext = isWindows ? ".exe" : "";
+		String resourcePath = "/google/antigravity/bin/" + platformSlice + "/localharness" + ext;
 
 		// 2. Extract binary to temp dir
-		File tempExecutable = File.createTempFile("localharness-" + platformSlice + "-", ".tmp");
+		File tempExecutable = File.createTempFile("localharness-" + platformSlice + "-", isWindows ? ".exe" : ".tmp");
 		tempExecutable.deleteOnExit();
 
 		try (InputStream binaryStream = Agent.class.getResourceAsStream(resourcePath)) {
@@ -450,12 +461,66 @@ public class Agent implements AutoCloseable, TriggerContext {
 			stderrConsumer.start();
 
 			HarnessConfig.Builder configBuilder = HarnessConfig.newBuilder().setCascadeId(config.getConversationId())
-					.setAppDataDir(config.getAppDataDir() != null ? config.getAppDataDir() : "")
-					.setGeminiConfig(
-							GeminiConfig.newBuilder().setModelName(config.getModelName()).setApiKey(apiKey).build())
-					.setSystemInstructions(SystemInstructions.newBuilder().setAppended(
+					.setAppDataDir(config.getAppDataDir() != null ? config.getAppDataDir() : "");
+
+			io.github.glaforge.antigravity.localharness.ModelConfig modelConfig = io.github.glaforge.antigravity.localharness.ModelConfig
+					.newBuilder().setName(config.getModelName())
+					.addTypes(io.github.glaforge.antigravity.localharness.ModelType.MODEL_TYPE_TEXT)
+					.setGeminiApiEndpoint(io.github.glaforge.antigravity.localharness.GeminiAPIEndpoint.newBuilder()
+							.setApiKey(apiKey).build())
+					.build();
+			configBuilder.addModels(modelConfig);
+
+			configBuilder.setSystemInstructions(SystemInstructions.newBuilder()
+					.setAppended(
 							AppendedSystemInstructions.newBuilder().setCustomIdentity(config.getInstructions()).build())
-							.build());
+					.build());
+
+			int mcpIndex = 1;
+			for (McpServerConfig mcp : config.getMcpServers()) {
+				io.github.glaforge.antigravity.localharness.McpServerConfig.Builder mcpBuilder = io.github.glaforge.antigravity.localharness.McpServerConfig
+						.newBuilder().setName("server-" + (mcpIndex++));
+
+				if (mcp instanceof McpServerConfig.StdioMcpServerConfig stdio) {
+					mcpBuilder.setStdio(io.github.glaforge.antigravity.localharness.McpStdioTransport.newBuilder()
+							.setCommand(stdio.command()).addAllArgs(stdio.args()).build());
+				} else if (mcp instanceof McpServerConfig.SseMcpServerConfig sse) {
+					io.github.glaforge.antigravity.localharness.McpHttpTransport.Builder http = io.github.glaforge.antigravity.localharness.McpHttpTransport
+							.newBuilder().setUrl(sse.url());
+					if (sse.headers() != null) {
+						http.putAllHeaders(sse.headers());
+					}
+					mcpBuilder.setHttp(http.build());
+				}
+				configBuilder.addMcpServers(mcpBuilder.build());
+			}
+
+			// Add Hooks tracking
+			for (AgentHook hook : config.getHooks()) {
+				if (hook instanceof PreTurnHook)
+					configBuilder.addEnabledHooks(
+							io.github.glaforge.antigravity.localharness.LifecycleHook.LIFECYCLE_HOOK_PRE_TURN);
+				if (hook instanceof PostTurnHook)
+					configBuilder.addEnabledHooks(
+							io.github.glaforge.antigravity.localharness.LifecycleHook.LIFECYCLE_HOOK_POST_TURN);
+				if (hook instanceof PreToolCallDecideHook)
+					configBuilder.addEnabledHooks(
+							io.github.glaforge.antigravity.localharness.LifecycleHook.LIFECYCLE_HOOK_PRE_TOOL);
+				if (hook instanceof PostToolCallHook)
+					configBuilder.addEnabledHooks(
+							io.github.glaforge.antigravity.localharness.LifecycleHook.LIFECYCLE_HOOK_POST_TOOL);
+				if (hook instanceof OnToolErrorHook)
+					configBuilder.addEnabledHooks(
+							io.github.glaforge.antigravity.localharness.LifecycleHook.LIFECYCLE_HOOK_ON_TOOL_ERROR);
+				if (hook instanceof OnInteractionHook)
+					configBuilder.addEnabledHooks(
+							io.github.glaforge.antigravity.localharness.LifecycleHook.LIFECYCLE_HOOK_UNSPECIFIED); // Will
+																													// use
+																													// manually
+																													// for
+																													// now
+			}
+
 			for (Object obj : toolRegistry.getToolDefinitions()) {
 				ToolDefinition toolDef = (ToolDefinition) obj;
 				configBuilder.addTools(toolDef.toProtobuf());
@@ -466,13 +531,41 @@ public class Agent implements AutoCloseable, TriggerContext {
 				configBuilder.setFinishToolSchemaJson(config.getFinishToolSchemaJson());
 			}
 
-			if (config.getCapabilities().enableSubagents() || config.getCapabilities().allowUserQuestions()) {
+			if (config.getCapabilities().enableSubagents() || config.getCapabilities().allowUserQuestions()
+					|| config.getCapabilities().enableWebSearch() || config.getCapabilities().enableUrlReading()
+					|| config.getCapabilities().enableShell() || config.getCapabilities().enableViewFile()
+					|| config.getCapabilities().enableWriteFile() || config.getCapabilities().enableFileEdit()
+					|| config.getCapabilities().enableListDir() || config.getCapabilities().enableGrepSearch()) {
 				HarnessSideTools.Builder capBuilder = HarnessSideTools.newBuilder();
 				if (config.getCapabilities().enableSubagents()) {
 					capBuilder.setSubagents(SubagentsConfig.newBuilder().setEnabled(true).build());
 				}
 				if (config.getCapabilities().allowUserQuestions()) {
 					capBuilder.setUserQuestions(UserQuestionsConfig.newBuilder().setEnabled(true).build());
+				}
+				if (config.getCapabilities().enableWebSearch()) {
+					capBuilder.setSearchWeb(SearchWebToolConfig.newBuilder().setEnabled(true).build());
+				}
+				if (config.getCapabilities().enableUrlReading()) {
+					capBuilder.setReadUrlContent(ReadUrlContentToolConfig.newBuilder().setEnabled(true).build());
+				}
+				if (config.getCapabilities().enableShell()) {
+					capBuilder.setRunCommand(RunCommandToolConfig.newBuilder().setEnabled(true).build());
+				}
+				if (config.getCapabilities().enableViewFile()) {
+					capBuilder.setViewFile(ViewFileToolConfig.newBuilder().setEnabled(true).build());
+				}
+				if (config.getCapabilities().enableWriteFile()) {
+					capBuilder.setWriteToFile(WriteToFileToolConfig.newBuilder().setEnabled(true).build());
+				}
+				if (config.getCapabilities().enableFileEdit()) {
+					capBuilder.setFileEdit(FileEditToolConfig.newBuilder().setEnabled(true).build());
+				}
+				if (config.getCapabilities().enableListDir()) {
+					capBuilder.setListDir(ListDirToolConfig.newBuilder().setEnabled(true).build());
+				}
+				if (config.getCapabilities().enableGrepSearch()) {
+					capBuilder.setGrepSearch(GrepSearchToolConfig.newBuilder().setEnabled(true).build());
 				}
 				configBuilder.setHarnessSideTools(capBuilder.build());
 			}
@@ -673,9 +766,10 @@ public class Agent implements AutoCloseable, TriggerContext {
 	 */
 	public CompletableFuture<AgentResponse> chatStream(List<AgentInput> inputs, Consumer<AgentResponseChunk> onChunk) {
 		if (this.currentChatFuture != null && !this.currentChatFuture.isDone()) {
-			return CompletableFuture.failedFuture(new IllegalStateException("A chat request is already in progress."));
+			throw new IllegalStateException("An interaction is already in progress.");
 		}
 
+		this.clientCancelled = false;
 		this.currentChatFuture = new CompletableFuture<>();
 		this.currentChunkConsumer = onChunk;
 		this.currentText = new StringBuilder();
@@ -691,35 +785,31 @@ public class Agent implements AutoCloseable, TriggerContext {
 		}
 		String combinedPrompt = combinedText.toString().trim();
 
-		triggerPreTurn(combinedPrompt).thenAccept(res -> {
-			if (!res.allow()) {
-				this.currentChatFuture.completeExceptionally(new IllegalStateException("Execution denied by hook"));
-				return;
-			}
-			try {
-				UserInput.Builder userInputBuilder = UserInput.newBuilder();
-				for (AgentInput input : inputs) {
-					if (input instanceof AgentInput.Text t) {
-						userInputBuilder.addParts(UserInput.Part.newBuilder().setText(t.text()).build());
-					} else if (input instanceof AgentInput.Media m) {
-						UserInput.Media.Builder mediaBuilder = UserInput.Media.newBuilder().setMimeType(m.mimeType())
-								.setData(ByteString.copyFrom(m.data()));
-						if (m.description() != null) {
-							mediaBuilder.setDescription(m.description());
-						}
-						userInputBuilder.addParts(UserInput.Part.newBuilder().setMedia(mediaBuilder.build()).build());
+		try {
+			UserInput.Builder userInputBuilder = UserInput.newBuilder();
+			for (AgentInput input : inputs) {
+				if (input instanceof AgentInput.Text t) {
+					userInputBuilder.addParts(UserInput.Part.newBuilder().setText(t.text()).build());
+				} else if (input instanceof AgentInput.Media m) {
+					UserInput.Media.Builder mediaBuilder = UserInput.Media.newBuilder().setMimeType(m.mimeType())
+							.setData(ByteString.copyFrom(m.data()));
+					if (m.description() != null) {
+						mediaBuilder.setDescription(m.description());
 					}
+					userInputBuilder.addParts(UserInput.Part.newBuilder().setMedia(mediaBuilder.build()).build());
+				} else if (input instanceof AgentInput.SlashCommand s) {
+					userInputBuilder.addParts(UserInput.Part.newBuilder()
+							.setSlashCommand(UserInput.SlashCommand.newBuilder().setName(s.name()).build()).build());
 				}
-
-				InputEvent event = InputEvent.newBuilder().setComplexUserInput(userInputBuilder.build()).build();
-				String payload = JsonFormat.printer().omittingInsignificantWhitespace().print(event);
-				this.webSocket.sendText(payload, true);
-			} catch (Exception e) {
-				this.currentChatFuture.completeExceptionally(e);
 			}
-		});
 
-		return currentChatFuture.thenCompose(resp -> triggerPostTurn(resp.text()).thenApply(v -> resp));
+			InputEvent event = InputEvent.newBuilder().setComplexUserInput(userInputBuilder.build()).build();
+			String payload = JsonFormat.printer().omittingInsignificantWhitespace().print(event);
+			this.webSocket.sendText(payload, true);
+		} catch (Exception e) {
+			this.currentChatFuture.completeExceptionally(e);
+		}
+		return currentChatFuture;
 	}
 
 	private CompletableFuture<Void> triggerSessionStart() {
@@ -914,7 +1004,6 @@ public class Agent implements AutoCloseable, TriggerContext {
 								trajectoryId, stepIndex, accepted);
 						webSocket.sendText(responsePayload, true);
 					} catch (Exception e) {
-						e.printStackTrace();
 					}
 				}
 
@@ -961,20 +1050,173 @@ public class Agent implements AutoCloseable, TriggerContext {
 				}
 			}
 
+			if (payload.has("callHookRequest")) {
+				JsonNode req = payload.get("callHookRequest");
+				String requestId = req.path("requestId").asText();
+				String typeStr = req.path("type").asText("");
+
+				CompletableFuture<HookResult> hookFuture = CompletableFuture.completedFuture(HookResult.allowed());
+
+				if ("LIFECYCLE_HOOK_PRE_TURN".equals(typeStr) && req.has("preTurnArgs")) {
+					System.out.println("HOOK REQUEST PRE TURN: " + req.toString());
+					StringBuilder promptBuilder = new StringBuilder();
+					JsonNode parts = req.get("preTurnArgs").path("userInput").path("parts");
+					if (parts.isArray()) {
+						for (JsonNode part : parts) {
+							if (part.has("text"))
+								promptBuilder.append(part.path("text").asText());
+						}
+					}
+					hookFuture = triggerPreTurn(promptBuilder.toString());
+				} else if ("LIFECYCLE_HOOK_POST_TURN".equals(typeStr) && req.has("postTurnArgs")) {
+					String response = req.get("postTurnArgs").path("responseText").asText("");
+					hookFuture = triggerPostTurn(response).thenApply(v -> HookResult.allowed());
+				} else if ("LIFECYCLE_HOOK_PRE_TOOL".equals(typeStr) && req.has("preToolArgs")) {
+					JsonNode args = req.get("preToolArgs");
+					try {
+						String toolName = args.has("toolName")
+								? args.path("toolName").asText()
+								: args.path("call").path("name").asText("");
+						String argumentsJson = args.has("argumentsJson")
+								? args.path("argumentsJson").asText("{}")
+								: (args.path("call").has("arguments")
+										? args.path("call").path("arguments").toString()
+										: "{}");
+						ToolCall call = new ToolCall(toolName, jsonMapper.readTree(argumentsJson));
+						hookFuture = triggerPreToolCallDecide(call);
+					} catch (Exception e) {
+					}
+				} else if ("LIFECYCLE_HOOK_POST_TOOL".equals(typeStr) && req.has("postToolArgs")) {
+					JsonNode args = req.get("postToolArgs");
+					try {
+						String toolName = args.has("toolName")
+								? args.path("toolName").asText()
+								: args.path("call").path("name").asText("");
+						String argumentsJson = args.has("argumentsJson")
+								? args.path("argumentsJson").asText("{}")
+								: (args.path("call").has("arguments")
+										? args.path("call").path("arguments").toString()
+										: "{}");
+						ToolCall call = new ToolCall(toolName, jsonMapper.readTree(argumentsJson));
+						String result = args.has("result")
+								? args.path("result").asText("")
+								: args.path("toolResult").asText("");
+						hookFuture = triggerPostToolCall(call, result).thenApply(v -> HookResult.allowed());
+					} catch (Exception e) {
+					}
+				} else if ("LIFECYCLE_HOOK_ON_TOOL_ERROR".equals(typeStr) && req.has("onToolErrorArgs")) {
+					JsonNode args = req.get("onToolErrorArgs");
+					try {
+						String toolName = args.has("toolName")
+								? args.path("toolName").asText()
+								: args.path("call").path("name").asText("");
+						String argumentsJson = args.has("argumentsJson")
+								? args.path("argumentsJson").asText("{}")
+								: (args.path("call").has("arguments")
+										? args.path("call").path("arguments").toString()
+										: "{}");
+						ToolCall call = new ToolCall(toolName, jsonMapper.readTree(argumentsJson));
+						hookFuture = triggerOnToolError(call,
+								new RuntimeException(args.path("errorMessage").asText(""))).thenApply(recovery -> {
+									if (recovery != null)
+										return HookResult.denied();
+									return HookResult.allowed();
+								});
+					} catch (Exception e) {
+					}
+				}
+
+				hookFuture.whenComplete((res, err) -> {
+					try {
+						io.github.glaforge.antigravity.localharness.CallHookResponse.Builder respBuilder = io.github.glaforge.antigravity.localharness.CallHookResponse
+								.newBuilder().setRequestId(requestId);
+
+						if (err != null) {
+							respBuilder.setErrorMessage(err.getMessage());
+						} else if ("LIFECYCLE_HOOK_PRE_TURN".equals(typeStr)) {
+							io.github.glaforge.antigravity.localharness.PreTurnResult.Builder ptr = io.github.glaforge.antigravity.localharness.PreTurnResult
+									.newBuilder();
+							if (!res.allow()) {
+								ptr.setDecision(io.github.glaforge.antigravity.localharness.PreTurnResult.Decision.DENY)
+										.setReason("Hook execution denied");
+							} else {
+								ptr.setDecision(
+										io.github.glaforge.antigravity.localharness.PreTurnResult.Decision.ALLOW);
+							}
+							respBuilder.setPreTurnResult(ptr.build());
+						} else if ("LIFECYCLE_HOOK_PRE_TOOL".equals(typeStr)) {
+							io.github.glaforge.antigravity.localharness.PreToolResult.Builder ptr = io.github.glaforge.antigravity.localharness.PreToolResult
+									.newBuilder();
+							if (!res.allow()) {
+								ptr.setDecision(io.github.glaforge.antigravity.localharness.PreToolResult.Decision.DENY)
+										.setReason("Hook execution denied");
+							} else {
+								ptr.setDecision(
+										io.github.glaforge.antigravity.localharness.PreToolResult.Decision.ALLOW);
+							}
+							respBuilder.setPreToolResult(ptr.build());
+						} else if ("LIFECYCLE_HOOK_ON_TOOL_ERROR".equals(typeStr)) {
+							if (!res.allow()) {
+								respBuilder.setOnToolErrorResult(
+										io.github.glaforge.antigravity.localharness.OnToolErrorResult.newBuilder()
+												.setCustomErrorMessage("Hook execution denied").build());
+							} else {
+								respBuilder.setEmptyResult(
+										io.github.glaforge.antigravity.localharness.EmptyResult.getDefaultInstance());
+							}
+						} else {
+							respBuilder.setEmptyResult(
+									io.github.glaforge.antigravity.localharness.EmptyResult.getDefaultInstance());
+						}
+
+						InputEvent inputEvent = InputEvent.newBuilder().setCallHookResponse(respBuilder.build())
+								.build();
+						String payloadJson = JsonFormat.printer().omittingInsignificantWhitespace().print(inputEvent);
+						webSocket.sendText(payloadJson, true);
+					} catch (Exception e) {
+					}
+				});
+			}
+
 			if (payload.has("trajectoryStateUpdate")) {
 				String state = payload.get("trajectoryStateUpdate").path("state").asText();
 				if ("STATE_IDLE".equals(state)) {
 					if (currentChatFuture != null && !currentChatFuture.isDone()) {
-						currentChatFuture.complete(new AgentResponse(currentText != null ? currentText.toString() : "",
-								currentThoughts != null ? currentThoughts.toString() : "", currentUsage));
+						if (clientCancelled) {
+							currentChatFuture.completeExceptionally(new AgentCancelledException());
+							if (currentThoughtsPublisher != null) {
+								currentThoughtsPublisher.closeExceptionally(new AgentCancelledException());
+							}
+							if (currentToolCallsPublisher != null) {
+								currentToolCallsPublisher.closeExceptionally(new AgentCancelledException());
+							}
+						} else {
+							currentChatFuture
+									.complete(new AgentResponse(currentText != null ? currentText.toString() : "",
+											currentThoughts != null ? currentThoughts.toString() : "", currentUsage));
+							if (currentThoughtsPublisher != null) {
+								currentThoughtsPublisher.close();
+							}
+							if (currentToolCallsPublisher != null) {
+								currentToolCallsPublisher.close();
+							}
+						}
+						currentChatFuture = null;
+						currentChunkConsumer = null;
+						currentThoughtsPublisher = null;
+						currentToolCallsPublisher = null;
+					}
+				} else if ("STATE_CANCELLED".equals(state)) {
+					if (currentChatFuture != null && !currentChatFuture.isDone()) {
+						currentChatFuture.completeExceptionally(new AgentCancelledException());
 						currentChatFuture = null;
 						currentChunkConsumer = null;
 						if (currentThoughtsPublisher != null) {
-							currentThoughtsPublisher.close();
+							currentThoughtsPublisher.closeExceptionally(new AgentCancelledException());
 							currentThoughtsPublisher = null;
 						}
 						if (currentToolCallsPublisher != null) {
-							currentToolCallsPublisher.close();
+							currentToolCallsPublisher.closeExceptionally(new AgentCancelledException());
 							currentToolCallsPublisher = null;
 						}
 					}
@@ -1010,59 +1252,46 @@ public class Agent implements AutoCloseable, TriggerContext {
 				}
 
 				ToolCall parsedCall = new ToolCall(name, args);
-				triggerPreToolCallDecide(parsedCall).thenAccept(res -> {
-					if (!res.allow()) {
-						sendToolResponse(callId, "{\"error\": \"Execution denied by hook\"}");
-						return;
-					}
 
-					Policy.Decision decision = evaluatePolicies(name, args);
-					if (decision == Policy.Decision.DENY) {
-						sendToolResponse(callId, "{\"error\": \"Execution denied by policy\"}");
-						return;
-					}
+				Policy.Decision decision = evaluatePolicies(name, args);
+				if (decision == Policy.Decision.DENY) {
+					sendToolResponse(callId, "{\"error\": \"Execution denied by policy\"}");
+					return;
+				}
 
-					toolExecutor.submit(() -> {
-						try {
-							String resultJson = toolRegistry.execute(name, args, new ToolContext() {
-								@Override
-								public String getConversationId() {
-									return Agent.this.getConversationId();
-								}
-								@Override
-								public boolean isIdle() {
-									return currentChatFuture == null;
-								}
-								@Override
-								public void send(String message) {
-									Agent.this.fireTrigger(message);
-								}
-								@Override
-								public Object getState(String key, Object defaultValue) {
-									return toolState.getOrDefault(key, defaultValue);
-								}
-								@Override
-								public void setState(String key, Object value) {
-									toolState.put(key, value);
-								}
-								@Override
-								public ConcurrentMap<String, Object> getStateMap() {
-									return toolState;
-								}
-							});
-							triggerPostToolCall(parsedCall, resultJson).join();
-							sendToolResponse(callId, resultJson);
-						} catch (Exception e) {
-							triggerOnToolError(parsedCall, e).thenAccept(recovery -> {
-								if (recovery != null) {
-									sendToolResponse(callId, recovery.toString());
-								} else {
-									e.printStackTrace();
-									sendToolResponse(callId, "{\"error\": \"Tool error: " + e.getMessage() + "\"}");
-								}
-							});
-						}
-					});
+				toolExecutor.submit(() -> {
+					try {
+						String resultJson = toolRegistry.execute(name, args, new ToolContext() {
+							@Override
+							public String getConversationId() {
+								return Agent.this.getConversationId();
+							}
+							@Override
+							public boolean isIdle() {
+								return currentChatFuture == null;
+							}
+							@Override
+							public void send(String message) {
+								Agent.this.fireTrigger(message);
+							}
+							@Override
+							public Object getState(String key, Object defaultValue) {
+								return toolState.getOrDefault(key, defaultValue);
+							}
+							@Override
+							public void setState(String key, Object value) {
+								toolState.put(key, value);
+							}
+							@Override
+							public ConcurrentMap<String, Object> getStateMap() {
+								return toolState;
+							}
+						});
+						sendToolResponse(callId, resultJson);
+					} catch (Exception e) {
+						e.printStackTrace();
+						sendToolResponse(callId, "{\"error\": \"Tool error: " + e.getMessage() + "\"}");
+					}
 				});
 			}
 		} catch (Exception e) {
@@ -1088,10 +1317,6 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 		for (AgentTrigger trigger : config.getTriggers()) {
 			trigger.stop();
-		}
-
-		if (mcpBridge != null) {
-			mcpBridge.close();
 		}
 
 		if (webSocket != null) {

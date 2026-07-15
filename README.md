@@ -28,7 +28,7 @@ AgentConfig config = AgentConfig.builder()
     .build();
 
 try (Agent agent = new Agent(config)) {
-    AgentResponse response = agent.chat("Hello, who are you?").join();
+    AgentResponse response = agent.chat("Hello, who are you?").get(120, TimeUnit.SECONDS);
     System.out.println(response.text());
 }
 ```
@@ -44,9 +44,10 @@ AgentConfig config = AgentConfig.builder()
     .build();
 
 try (Agent agent = new Agent(config)) {
-    agent.chatStream("Tell me a story about a brave knight.", chunk -> {
+    CompletableFuture<AgentResponse> future = agent.chatStream("Tell me a story about a brave knight.", chunk -> {
         System.out.print(chunk.textDelta());
-    }).join();
+    });
+    future.get(120, TimeUnit.SECONDS);
 }
 ```
 
@@ -109,7 +110,7 @@ Flux.from(stream.toolCalls())
     .subscribe(call -> System.out.println("Executing tool: " + call.name()));
 
 // Wait for the final complete response
-AgentResponse response = stream.result().join();
+AgentResponse response = stream.result().get(120, TimeUnit.SECONDS);
 ```
 
 *(You can also access the combined `chunks()` publisher directly from the `AgentStream` object).*
@@ -150,7 +151,7 @@ AgentConfig config = AgentConfig.builder()
         public String getName() { return "get_weather"; }
         
         // A simple record to define our parameters schema
-        public record WeatherParams(String location) {}
+        record WeatherParams(String location) {}
         
         public ToolDefinition getDefinition() {
             return ToolDefinition.builder()
@@ -244,26 +245,20 @@ The SDK natively enforces the three core hook categories:
 ```java
 AgentConfig config = AgentConfig.builder()
     .instructions("You are an observed agent.")
-    .addHook(new PreTurnHook() {
-        @Override
-        public CompletableFuture<HookResult> onPreTurn(String prompt, SessionContext context) {
-            System.out.println("Starting turn with prompt: " + prompt);
-            return CompletableFuture.completedFuture(HookResult.proceed());
-        }
+    .addPreTurnHook((prompt, context) -> {
+        System.out.println("Starting turn with prompt: " + prompt);
+        return CompletableFuture.completedFuture(HookResult.allowed());
     })
     // Intercept interactions (like asking the user a question)
-    .addHook(new OnInteractionHook() {
-        @Override
-        public CompletableFuture<List<InteractionAnswer>> onInteraction(InteractionRequest request) {
-            System.out.println("Agent asked: " + request.questions().get(0).questionText());
+    .addOnInteractionHook(request -> {
+        System.out.println("Agent asked: " + request.questions().get(0).questionText());
+        
+        // Programmatically answer the agent's question
+        InteractionAnswer answer = InteractionAnswer.builder()
+            .freeformResponse("My answer to your question is...")
+            .build();
             
-            // Programmatically answer the agent's question
-            InteractionAnswer answer = InteractionAnswer.builder()
-                .freeformResponse("My answer to your question is...")
-                .build();
-                
-            return CompletableFuture.completedFuture(List.of(answer));
-        }
+        return CompletableFuture.completedFuture(List.of(answer));
     })
     .build();
 ```
@@ -272,6 +267,15 @@ AgentConfig config = AgentConfig.builder()
 
 Seamlessly connect to Model Context Protocol (MCP) servers to expand your agent's capabilities dynamically.
 
+```java
+McpServerConfig mcpConfig = McpServerConfig.stdio(
+    "npx", 
+    List.of("-y", "@modelcontextprotocol/server-sqlite", "test.db")
+);
+
+AgentConfig config = AgentConfig.builder()
+    .addMcpServer(mcpConfig)
+    .build();
 ```
 
 ### 8. Background Triggers
@@ -292,21 +296,11 @@ AgentConfig config = AgentConfig.builder()
 
 try (Agent agent = new Agent(config)) {
     // The trigger will run in the background while the session is active.
-    agent.chat("Start watching the deployment.").join();
+    agent.chat("Start watching the deployment.").get(120, TimeUnit.SECONDS);
 } // Trigger is automatically stopped when the agent closes
-```java
-McpServerConfig mcpConfig = new McpServerConfig(
-    "sqlite", 
-    "npx", 
-    List.of("-y", "@modelcontextprotocol/server-sqlite", "test.db")
-);
-
-AgentConfig config = AgentConfig.builder()
-    .addMcpServer(mcpConfig)
-    .build();
 ```
 
-### 8. Multimodal Inputs
+### 9. Multimodal Inputs
 
 Pass images, audio, and video directly to the agent.
 
@@ -314,10 +308,10 @@ Pass images, audio, and video directly to the agent.
 AgentResponse response = agent.chat(
     AgentInput.Text.of("What is in this image?"),
     AgentInput.Image.fromFile(Path.of("image.png"))
-).join();
+).get(120, TimeUnit.SECONDS);
 ```
 
-### 9. Structured Outputs
+### 10. Structured Outputs
 
 Force the agent to respond in a specific JSON schema format.
 
@@ -325,11 +319,12 @@ Force the agent to respond in a specific JSON schema format.
 public record Person(String name) {}
 
 AgentConfig config = AgentConfig.builder()
+    .instructions("Extract the person's name and return it in the provided schema. Do not output anything else.")
     .finishToolSchema(Person.class)
     .build();
 
 try (Agent agent = new Agent(config)) {
-    AgentResponse response = agent.chat("Extract: Alice").join();
+    AgentResponse response = agent.chat("Extract: Alice").get(120, TimeUnit.SECONDS);
     
     // The response now safely parses into your strongly typed Record!
     Person parsedPerson = response.getStructuredOutput(Person.class);
@@ -337,7 +332,7 @@ try (Agent agent = new Agent(config)) {
 }
 ```
 
-### 10. Subagents
+### 11. Subagents
 
 Agents can spawn and delegate tasks to subagents.
 
@@ -345,6 +340,102 @@ Agents can spawn and delegate tasks to subagents.
 AgentConfig config = AgentConfig.builder()
     .capabilities(CapabilitiesConfig.builder().enableSubagents(true).build())
     .build();
+```
+
+### 12. Persistence (Sessions)
+
+Agents support resuming past sessions using the `conversationId`.
+
+```java
+AgentConfig config1 = AgentConfig.builder().build();
+String conversationId;
+try (Agent agent = new Agent(config1)) {
+    agent.chat("My name is Guillaume.").get(120, TimeUnit.SECONDS);
+    conversationId = agent.getConversationId();
+}
+
+AgentConfig config2 = AgentConfig.builder()
+    .conversationId(conversationId)
+    .build();
+try (Agent agent = new Agent(config2)) {
+    AgentResponse response = agent.chat("What is my name?").get(120, TimeUnit.SECONDS);
+    System.out.println(response.text()); // Outputs "Guillaume"
+}
+```
+
+### 13. Observability & Token Usage
+
+You can extract token usage metrics for the latest turn or for the entire session.
+
+```java
+AgentResponse response = agent.chat("Calculate the distance to the moon.").get(120, TimeUnit.SECONDS);
+UsageMetadata usage = response.usageMetadata();
+
+System.out.println("Input tokens: " + usage.promptTokenCount());
+System.out.println("Output tokens: " + usage.candidatesTokenCount());
+System.out.println("Total tokens: " + usage.totalTokenCount());
+```
+
+### 14. Cancellation
+
+Agents can be cancelled during execution. The SDK will cleanly interrupt the underlying Go harness and throw an `AgentCancelledException`.
+
+```java
+AgentConfig config = AgentConfig.builder().build();
+
+try (Agent agent = new Agent(config)) {
+    // Start a long-running request
+    CompletableFuture<AgentResponse> future = agent.chat("Write a very long story.");
+    
+    // Cancel the agent immediately from another thread
+    agent.cancel();
+    
+    try {
+        future.get(120, TimeUnit.SECONDS);
+    } catch (ExecutionException e) {
+        if (e.getCause() instanceof AgentCancelledException) {
+            System.out.println("Agent was cancelled successfully!");
+        }
+    }
+}
+```
+
+### 15. Slash Commands
+
+The Antigravity SDK natively supports CLI-style slash commands directly in the chat interface. Commands like `/help` or `/clear` are executed seamlessly by the underlying harness.
+
+```java
+AgentConfig config = AgentConfig.builder().build();
+
+try (Agent agent = new Agent(config)) {
+    // You can send slash commands directly!
+    AgentResponse response = agent.chat("/help").get(120, TimeUnit.SECONDS);
+    System.out.println(response.text());
+}
+```
+
+### 16. Built-in Tools (Capabilities)
+
+You can instantly enable powerful built-in tools (like web search, shell execution, or file editing) without writing them yourself using the `CapabilitiesConfig`.
+
+```java
+CapabilitiesConfig capabilities = CapabilitiesConfig.builder()
+    .enableWebSearch(true)
+    .enableShell(true)
+    .enableWriteFile(true)
+    .enableFileEdit(true)
+    .enableListDir(true)
+    .enableGrepSearch(true)
+    .build();
+
+AgentConfig config = AgentConfig.builder()
+    .instructions("Search the web for the latest news and save it to a file.")
+    .capabilities(capabilities)
+    .build();
+
+try (Agent agent = new Agent(config)) {
+    // The agent now has access to web search and file operations natively!
+}
 ```
 
 ## License

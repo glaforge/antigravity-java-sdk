@@ -33,7 +33,8 @@ public class PersistenceTest {
 			String conversationId;
 
 			// Session 1: Establish context
-			AgentConfig config1 = AgentConfig.builder().instructions("You are a helpful assistant.")
+			AgentConfig config1 = AgentConfig.builder()
+					.instructions("You are a helpful assistant. Do NOT use any tools. Just reply directly.")
 					.saveDir(tempDir.getAbsolutePath()).build();
 
 			try (Agent agent1 = new Agent(config1)) {
@@ -56,7 +57,8 @@ public class PersistenceTest {
 			Thread.sleep(1000);
 
 			// Session 2: Retrieve context
-			AgentConfig config2 = AgentConfig.builder().instructions("You are a helpful assistant.")
+			AgentConfig config2 = AgentConfig.builder()
+					.instructions("You are a helpful assistant. Do NOT use any tools. Just reply directly.")
 					.saveDir(tempDir.getAbsolutePath()).conversationId(conversationId).build();
 
 			try (Agent agent2 = new Agent(config2)) {

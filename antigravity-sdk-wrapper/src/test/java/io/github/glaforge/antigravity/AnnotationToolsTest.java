@@ -20,7 +20,10 @@ import io.github.glaforge.antigravity.tools.Param;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.awaitility.Awaitility.await;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 public class AnnotationToolsTest {
 
 	public record Location(String city, String country, int zipCode) {
@@ -49,7 +52,10 @@ public class AnnotationToolsTest {
 				System.out.println("Agent initialized successfully!");
 
 				System.out.println("Sending prompt...");
-				AgentResponse response = agent.chat("What is the weather in Paris, France, zip 75001?").join();
+				CompletableFuture<AgentResponse> future = agent
+						.chat("What is the weather in Paris, France, zip 75001?");
+				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+				AgentResponse response = future.get();
 				System.out.println("\n--- Agent Response ---");
 				System.out.println(response.text());
 				System.out.println("----------------------\n");

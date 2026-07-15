@@ -22,7 +22,26 @@ import java.nio.file.Path;
 /**
  * Represents input to the agent.
  */
-public sealed interface AgentInput permits AgentInput.Text, AgentInput.Media {
+public sealed interface AgentInput permits AgentInput.Text, AgentInput.Media, AgentInput.SlashCommand {
+
+	/**
+	 * Represents a slash command input.
+	 *
+	 * @param name
+	 *            the name of the slash command
+	 */
+	record SlashCommand(String name) implements AgentInput {
+		/**
+		 * Creates a new slash command input.
+		 *
+		 * @param name
+		 *            the name of the slash command
+		 * @return a SlashCommand instance
+		 */
+		public static SlashCommand of(String name) {
+			return new SlashCommand(name);
+		}
+	}
 
 	/**
 	 * Represents a text input.

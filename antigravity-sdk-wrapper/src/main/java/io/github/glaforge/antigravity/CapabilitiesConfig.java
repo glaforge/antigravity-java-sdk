@@ -23,7 +23,10 @@ package io.github.glaforge.antigravity;
  * @param allowUserQuestions
  *            true if user questions are allowed
  */
-public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuestions) {
+public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuestions, boolean enableWebSearch,
+		boolean enableUrlReading, boolean enableShell, boolean enableViewFile, boolean enableWriteFile,
+		boolean enableFileEdit, boolean enableListDir, boolean enableGrepSearch) {
+
 	/**
 	 * Creates a new builder for CapabilitiesConfig.
 	 *
@@ -44,6 +47,14 @@ public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuest
 		}
 		private boolean enableSubagents = false;
 		private boolean allowUserQuestions = false;
+		private boolean enableWebSearch = false;
+		private boolean enableUrlReading = false;
+		private boolean enableShell = false;
+		private boolean enableViewFile = false;
+		private boolean enableWriteFile = false;
+		private boolean enableFileEdit = false;
+		private boolean enableListDir = false;
+		private boolean enableGrepSearch = false;
 
 		/**
 		 * Enables or disables subagents.
@@ -70,12 +81,81 @@ public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuest
 		}
 
 		/**
+		 * Enables or disables web search.
+		 *
+		 * @param enableWebSearch
+		 *            true to enable
+		 * @return this builder
+		 */
+		public Builder enableWebSearch(boolean enableWebSearch) {
+			this.enableWebSearch = enableWebSearch;
+			return this;
+		}
+
+		/**
+		 * Enables or disables URL reading.
+		 *
+		 * @param enableUrlReading
+		 *            true to enable
+		 * @return this builder
+		 */
+		public Builder enableUrlReading(boolean enableUrlReading) {
+			this.enableUrlReading = enableUrlReading;
+			return this;
+		}
+
+		/**
+		 * Enables or disables shell execution.
+		 *
+		 * @param enableShell
+		 *            true to enable
+		 * @return this builder
+		 */
+		public Builder enableShell(boolean enableShell) {
+			this.enableShell = enableShell;
+			return this;
+		}
+
+		/**
+		 * Enables or disables file viewing.
+		 *
+		 * @param enableViewFile
+		 *            true to enable
+		 * @return this builder
+		 */
+		public Builder enableViewFile(boolean enableViewFile) {
+			this.enableViewFile = enableViewFile;
+			return this;
+		}
+
+		public Builder enableWriteFile(boolean enableWriteFile) {
+			this.enableWriteFile = enableWriteFile;
+			return this;
+		}
+
+		public Builder enableFileEdit(boolean enableFileEdit) {
+			this.enableFileEdit = enableFileEdit;
+			return this;
+		}
+
+		public Builder enableListDir(boolean enableListDir) {
+			this.enableListDir = enableListDir;
+			return this;
+		}
+
+		public Builder enableGrepSearch(boolean enableGrepSearch) {
+			this.enableGrepSearch = enableGrepSearch;
+			return this;
+		}
+
+		/**
 		 * Builds the CapabilitiesConfig.
 		 *
 		 * @return the config
 		 */
 		public CapabilitiesConfig build() {
-			return new CapabilitiesConfig(enableSubagents, allowUserQuestions);
+			return new CapabilitiesConfig(enableSubagents, allowUserQuestions, enableWebSearch, enableUrlReading,
+					enableShell, enableViewFile, enableWriteFile, enableFileEdit, enableListDir, enableGrepSearch);
 		}
 	}
 }

@@ -33,13 +33,13 @@ class AgentConfigMcpTest {
 
 		McpServerConfig.StdioMcpServerConfig stdioConfig = (McpServerConfig.StdioMcpServerConfig) config.getMcpServers()
 				.get(0);
-		assertEquals(McpServerConfig.TransportType.STDIO, stdioConfig.getType());
-		assertEquals("npx", stdioConfig.getCommand());
-		assertEquals(3, stdioConfig.getArgs().size());
+		assertEquals(McpServerConfig.TransportType.STDIO, stdioConfig.type());
+		assertEquals("npx", stdioConfig.command());
+		assertEquals(3, stdioConfig.args().size());
 
 		McpServerConfig.SseMcpServerConfig sseConfig = (McpServerConfig.SseMcpServerConfig) config.getMcpServers()
 				.get(1);
-		assertEquals(McpServerConfig.TransportType.SSE, sseConfig.getType());
-		assertEquals("http://localhost:8080/sse", sseConfig.getUrl());
+		assertEquals(McpServerConfig.TransportType.SSE, sseConfig.type());
+		assertEquals("http://localhost:8080/sse", sseConfig.url());
 	}
 }

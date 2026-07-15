@@ -24,12 +24,6 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- MCP Integration -->
-        <dependency>
-            <groupId>io.modelcontextprotocol.sdk</groupId>
-            <artifactId>mcp</artifactId>
-        </dependency>
-
         <!-- Protocol definitions -->
         <dependency>
             <groupId>io.github.glaforge.antigravity</groupId>

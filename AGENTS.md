@@ -45,6 +45,10 @@ This entire project was autonomously generated and implemented by me (the Antigr
 *   **Framework**: We use JUnit 6.
 *   **Asynchronous Assertions**: Because agent interactions happen asynchronously over WebSockets and `CompletableFuture`s, **never use `Thread.sleep()`** for waiting on agent responses in tests. Instead, always use `Awaitility` (e.g., `await().atMost(...)`).
 
-## 🔄 Maintenance Scripts
+## 🔄 Upstream Synchronization
 
-*   **`sync-harness.sh`**: If the underlying `localharness` binary needs to be updated to match upstream changes, execute `./sync-harness.sh`. This script will scrape the Python Package Index (PyPI), download the upstream wheels, extract the native Go binaries for all supported platforms, and place them in the correct `src/main/resources/...` directories.
+Keeping this SDK at feature parity with the upstream Antigravity project requires a three-step sync process whenever new features are released:
+
+1.  **Update the Go Harness Binaries**: Execute `./sync-harness.sh`. This script scrapes the Python Package Index (PyPI), downloads the latest upstream wheels, extracts the native Go binaries for all supported platforms, and places them in `src/main/resources/...`.
+2.  **Update Protocol Definitions**: Replace the contents of `antigravity-sdk-protocol/src/main/proto/localharness.proto` with the latest protobuf definitions from the upstream repository.
+3.  **Regenerate and Refactor**: Recompile the project (`./mvnw clean compile`). If the protocol changes broke the Java SDK wrapper API, fix the compilation errors in `antigravity-sdk-wrapper` to align with the new generated protocol classes.
