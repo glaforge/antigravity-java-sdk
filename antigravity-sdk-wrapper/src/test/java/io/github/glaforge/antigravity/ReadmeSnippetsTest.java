@@ -37,11 +37,11 @@ public class ReadmeSnippetsTest {
 	@Test
 	public void snippet1Basic() throws Exception {
 		AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
-				.modelName("gemini-2.5-flash").build();
+				.modelName("gemini-flash-latest").build();
 
 		try (Agent agent = new Agent(config)) {
 			CompletableFuture<AgentResponse> future = agent.chat("Hello, who are you?");
-			await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+			await().atMost(240, TimeUnit.SECONDS).until(future::isDone);
 			AgentResponse response = future.get();
 			System.out.println(response.text());
 		}
@@ -49,7 +49,7 @@ public class ReadmeSnippetsTest {
 
 	@Test
 	public void snippet2Streaming() throws Exception {
-		AgentConfig config = AgentConfig.builder().instructions("Write a short story.").modelName("gemini-2.5-flash")
+		AgentConfig config = AgentConfig.builder().instructions("Write a short story.").modelName("gemini-flash-latest")
 				.build();
 
 		try (Agent agent = new Agent(config)) {
@@ -57,14 +57,14 @@ public class ReadmeSnippetsTest {
 					chunk -> {
 						System.out.print(chunk.textDelta());
 					});
-			await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+			await().atMost(240, TimeUnit.SECONDS).until(future::isDone);
 			future.get();
 		}
 	}
 
 	@Test
 	public void snippet3Publisher() throws Exception {
-		AgentConfig config = AgentConfig.builder().modelName("gemini-2.5-flash").build();
+		AgentConfig config = AgentConfig.builder().modelName("gemini-flash-latest").build();
 		try (Agent agent = new Agent(config)) {
 			Flow.Publisher<AgentResponseChunk> publisher = agent.chatPublisher("Tell me a story.");
 
@@ -91,13 +91,13 @@ public class ReadmeSnippetsTest {
 					done.complete(null);
 				}
 			});
-			await().atMost(120, TimeUnit.SECONDS).until(done::isDone);
+			await().atMost(240, TimeUnit.SECONDS).until(done::isDone);
 		}
 	}
 
 	@Test
 	public void snippet4SugaredStream() throws Exception {
-		AgentConfig config = AgentConfig.builder().modelName("gemini-2.5-flash").build();
+		AgentConfig config = AgentConfig.builder().modelName("gemini-flash-latest").build();
 		try (Agent agent = new Agent(config)) {
 			AgentStream stream = agent.streamChat("Think step-by-step and say hi.");
 
@@ -120,7 +120,7 @@ public class ReadmeSnippetsTest {
 			});
 
 			CompletableFuture<AgentResponse> future = stream.result();
-			await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+			await().atMost(240, TimeUnit.SECONDS).until(future::isDone);
 			AgentResponse response = future.get();
 			System.out.println(response.text());
 		}
@@ -137,10 +137,10 @@ public class ReadmeSnippetsTest {
 	public void snippet5AnnotatedTools() throws Exception {
 		TestUtils.retry(3, () -> {
 			AgentConfig config = AgentConfig.builder().instructions("You can fetch the weather.")
-					.modelName("gemini-2.5-flash").addTool(new MyToolbox()).build();
+					.modelName("gemini-flash-latest").addTool(new MyToolbox()).build();
 			try (Agent agent = new Agent(config)) {
 				CompletableFuture<AgentResponse> f = agent.chat("What's the weather in Seattle?");
-				await().atMost(120, TimeUnit.SECONDS).until(f::isDone);
+				await().atMost(240, TimeUnit.SECONDS).until(f::isDone);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}
@@ -150,7 +150,7 @@ public class ReadmeSnippetsTest {
 	@Test
 	public void snippet6DynamicTools() throws Exception {
 		AgentConfig config = AgentConfig.builder().instructions("You can fetch the weather.")
-				.modelName("gemini-2.5-flash").addTool(new DynamicTool() {
+				.modelName("gemini-flash-latest").addTool(new DynamicTool() {
 					@Override
 					public String getName() {
 						return "get_weather";
@@ -174,7 +174,7 @@ public class ReadmeSnippetsTest {
 				}).build();
 		try (Agent agent = new Agent(config)) {
 			CompletableFuture<AgentResponse> f = agent.chat("What's the weather in Seattle?");
-			await().atMost(120, TimeUnit.SECONDS).until(f::isDone);
+			await().atMost(240, TimeUnit.SECONDS).until(f::isDone);
 		}
 	}
 
@@ -210,16 +210,20 @@ public class ReadmeSnippetsTest {
 
 	@Test
 	public void snippet10BackgroundTriggers() throws Exception {
-		AgentConfig config = AgentConfig.builder()
-				.instructions("If you are given a deployment status, notify the user.").modelName("gemini-2.5-flash")
-				.addTrigger(Triggers.every(1, TimeUnit.SECONDS, ctx -> {
-					ctx.fireTrigger("Check the deployment status.");
-				})).build();
+		TestUtils.retry(3, () -> {
+			AgentConfig config = AgentConfig.builder()
+					.instructions("If you are given a deployment status, notify the user.")
+					.modelName("gemini-flash-latest").addTrigger(Triggers.every(10, TimeUnit.SECONDS, ctx -> {
+						ctx.fireTrigger("Check the deployment status.");
+					})).build();
 
-		try (Agent agent = new Agent(config)) {
-			CompletableFuture<AgentResponse> f = agent.chat("Start watching the deployment.");
-			await().atMost(120, TimeUnit.SECONDS).until(f::isDone);
-		}
+			try (Agent agent = new Agent(config)) {
+				CompletableFuture<AgentResponse> f = agent.chat("Start watching the deployment.");
+				await().atMost(240, TimeUnit.SECONDS).until(f::isDone);
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		});
 	}
 
 	@Test
@@ -238,11 +242,11 @@ public class ReadmeSnippetsTest {
 		AgentConfig config = AgentConfig.builder()
 				.instructions(
 						"Extract the person's name and return it in the provided schema. Do not output anything else.")
-				.modelName("gemini-2.5-flash").finishToolSchema(Person.class).build();
+				.modelName("gemini-flash-latest").finishToolSchema(Person.class).build();
 
 		try (Agent agent = new Agent(config)) {
 			CompletableFuture<AgentResponse> f = agent.chat("Extract: Alice");
-			await().atMost(120, TimeUnit.SECONDS).until(f::isDone);
+			await().atMost(240, TimeUnit.SECONDS).until(f::isDone);
 			AgentResponse response = f.get();
 
 			Person parsedPerson = response.getStructuredOutput(Person.class);
@@ -252,7 +256,7 @@ public class ReadmeSnippetsTest {
 
 	@Test
 	public void snippet14Cancellation() throws Exception {
-		AgentConfig config = AgentConfig.builder().modelName("gemini-2.5-flash").build();
+		AgentConfig config = AgentConfig.builder().modelName("gemini-flash-latest").build();
 
 		try (Agent agent = new Agent(config)) {
 			// Start a long-running request
@@ -262,7 +266,9 @@ public class ReadmeSnippetsTest {
 			agent.cancel();
 
 			try {
-				future.get(120, TimeUnit.SECONDS);
+				future.get(240, TimeUnit.SECONDS);
+			} catch (java.util.concurrent.CancellationException e) {
+				System.out.println("Agent was cancelled successfully!");
 			} catch (java.util.concurrent.ExecutionException e) {
 				if (e.getCause() instanceof AgentCancelledException) {
 					System.out.println("Agent was cancelled successfully!");
@@ -273,12 +279,12 @@ public class ReadmeSnippetsTest {
 
 	@Test
 	public void snippet15SlashCommands() throws Exception {
-		AgentConfig config = AgentConfig.builder().modelName("gemini-2.5-flash").build();
+		AgentConfig config = AgentConfig.builder().modelName("gemini-flash-latest").build();
 
 		try (Agent agent = new Agent(config)) {
 			// You can send slash commands directly!
 			CompletableFuture<AgentResponse> f = agent.chat("/help");
-			await().atMost(120, TimeUnit.SECONDS).until(f::isDone);
+			await().atMost(240, TimeUnit.SECONDS).until(f::isDone);
 			AgentResponse response = f.get();
 			System.out.println(response.text());
 		}
@@ -290,8 +296,8 @@ public class ReadmeSnippetsTest {
 				.enableWriteFile(true).enableFileEdit(true).enableListDir(true).enableGrepSearch(true).build();
 
 		AgentConfig config = AgentConfig.builder()
-				.instructions("Search the web for the latest news and save it to a file.").modelName("gemini-2.5-flash")
-				.capabilities(capabilities).build();
+				.instructions("Search the web for the latest news and save it to a file.")
+				.modelName("gemini-flash-latest").capabilities(capabilities).build();
 
 		try (Agent agent = new Agent(config)) {
 			// The agent now has access to web search and file operations natively!

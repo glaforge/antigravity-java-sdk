@@ -37,7 +37,7 @@ public class StructuredOutputsTest {
 	public void testStructuredOutput() throws Exception {
 		TestUtils.retry(3, () -> {
 			AgentConfig config = AgentConfig.builder().instructions("Extract the person information from the text.")
-					.modelName("gemini-2.5-flash").finishToolSchema(Person.class).build();
+					.modelName("gemini-flash-latest").finishToolSchema(Person.class).build();
 
 			try (Agent agent = new Agent(config)) {
 				System.out.println("Sending prompt...");

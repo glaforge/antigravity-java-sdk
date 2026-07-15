@@ -157,10 +157,7 @@ public class ToolRegistry {
 	public String execute(String toolName, JsonNode arguments, ToolContext toolContext) throws Exception {
 		if (dynamicRegistry.containsKey(toolName)) {
 			Object result = dynamicRegistry.get(toolName).execute(arguments);
-			if (result instanceof String) {
-				return (String) result;
-			}
-			return mapper.writeValueAsString(result);
+			return formatToolResult(result);
 		}
 
 		ToolMethodHandler handler = registry.get(toolName);
@@ -171,8 +168,28 @@ public class ToolRegistry {
 		Object[] parsedArgs = resolveArguments(handler.method(), arguments, toolContext);
 		Object result = handler.method().invoke(handler.instance(), parsedArgs);
 
-		if (result instanceof String) {
-			return (String) result;
+		return formatToolResult(result);
+	}
+
+	private String formatToolResult(Object result) throws Exception {
+		if (result instanceof String str) {
+			String trimmed = str.trim();
+			if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+				return str; // Assume it's already JSON
+			} else {
+				ObjectNode node = mapper.createObjectNode();
+				node.put("result", str);
+				return mapper.writeValueAsString(node);
+			}
+		}
+		if (result == null) {
+			return "{}";
+		}
+		// If it's a primitive or box type that isn't a string, wrap it too
+		if (result instanceof Number || result instanceof Boolean) {
+			ObjectNode node = mapper.createObjectNode();
+			node.put("result", result.toString());
+			return mapper.writeValueAsString(node);
 		}
 		return mapper.writeValueAsString(result);
 	}

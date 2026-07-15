@@ -67,7 +67,7 @@ public class HooksTest {
 				return CompletableFuture.completedFuture(null);
 			};
 
-			AgentConfig config = AgentConfig.builder().modelName("models/gemini-2.5-flash").instructions("""
+			AgentConfig config = AgentConfig.builder().modelName("models/gemini-flash-latest").instructions("""
 					You are a helpful assistant.
 					If the user asks you to echo, you must call the echo tool EXACTLY ONCE.
 					After the tool returns, immediately reply to the user with the result and finish the turn.

@@ -204,7 +204,7 @@ public class AgentConfig {
 		public Builder() {
 		}
 		private String instructions = "";
-		private String modelName = "gemini-2.5-flash";
+		private String modelName = "gemini-flash-latest";
 		private List<Object> toolInstances = new ArrayList<>();
 		private List<String> skillsPaths = new ArrayList<>();
 		private CapabilitiesConfig capabilities = CapabilitiesConfig.builder().build();

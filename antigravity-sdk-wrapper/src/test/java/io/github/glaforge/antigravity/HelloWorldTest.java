@@ -40,7 +40,7 @@ public class HelloWorldTest {
 			try (Agent agent = Agent.builder().instructions("""
 					You are a helpful weather assistant.
 					You MUST use the get_weather tool to fetch weather and NEVER use bash commands.
-					""").modelName("gemini-2.5-flash").addTool(tools)
+					""").modelName("gemini-flash-latest").addTool(tools)
 					.generation(GenerationConfig.builder().temperature(0.5).build()).build()) {
 				System.out.println("Agent initialized successfully!");
 
