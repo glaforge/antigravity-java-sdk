@@ -25,6 +25,7 @@ This entire project was autonomously generated and implemented by me (the Antigr
 2. **Agent Execution**: I proactively write the Java code, generate and update tests, build the project, and fix compilation errors. 
 3. **Proactive Refactoring**: Whenever a class is purely carrying data, I should proactively suggest or use Java 21 `record` structures.
 4. **Testing First**: Before declaring a feature complete, I will run the test suite and ensure all tests pass (accounting for expected transient `localharness` network delays).
+5. **Documentation & Skill Synchronization**: Whenever the Antigravity Java SDK evolves (new features, API changes, hooks, policies, capabilities, etc.), agents MUST proactively update `README.md` and the official Agent Skill under `skills/antigravity-sdk-java/` (`SKILL.md` and `skills/antigravity-sdk-java/references/`) to keep developer documentation and AI agent skill guidance synchronized with the codebase.
 
 ## 🛠️ Build & Commands
 
@@ -47,8 +48,9 @@ This entire project was autonomously generated and implemented by me (the Antigr
 
 ## 🔄 Upstream Synchronization
 
-Keeping this SDK at feature parity with the upstream Antigravity project requires a three-step sync process whenever new features are released:
+Keeping this SDK at feature parity with the upstream Antigravity project requires a four-step sync process whenever new features are released:
 
 1.  **Update the Go Harness Binaries**: Execute `./sync-harness.sh`. This script scrapes the Python Package Index (PyPI), downloads the latest upstream wheels, extracts the native Go binaries for all supported platforms, and places them in `src/main/resources/...`.
 2.  **Update Protocol Definitions**: Replace the contents of `antigravity-sdk-protocol/src/main/proto/localharness.proto` with the latest protobuf definitions from the upstream repository.
 3.  **Regenerate and Refactor**: Recompile the project (`./mvnw clean compile`). If the protocol changes broke the Java SDK wrapper API, fix the compilation errors in `antigravity-sdk-wrapper` to align with the new generated protocol classes.
+4.  **Update Skill & Documentation**: Update `README.md` and the official Agent Skill (`skills/antigravity-sdk-java/`) to reflect any new or modified SDK features, capabilities, or API changes.

@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.glaforge.antigravity</groupId>
   <artifactId>antigravity-sdk-parent</artifactId>
-  <version>0.2.0-SNAPSHOT</version>
+  <version>0.2.1</version>
   <packaging>pom</packaging>
   <name>Antigravity Java SDK</name>
   <description>A Java SDK for building agents using the Antigravity localharness.</description>
@@ -38,7 +38,7 @@
     <protobuf.version>3.25.3</protobuf.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jackson.version>2.17.1</jackson.version>
-    <revision>0.2.0-SNAPSHOT</revision>
+    <revision>0.2.1</revision>
   </properties>
   <dependencyManagement>
     <dependencies>

@@ -172,7 +172,7 @@ AgentConfig config = AgentConfig.builder()
 
 ### 4. Agent Skills
 
-Extend your agent with complex capabilities by loading file-based skills containing instructions, resources, and examples.
+Extend your agent with complex capabilities by loading file-based skills conforming to the open [Agent Skills specification](https://agentskills.io/specification).
 
 ```java
 AgentConfig config = AgentConfig.builder()
@@ -181,6 +181,10 @@ AgentConfig config = AgentConfig.builder()
     .addSkillPath("/path/to/another-skill")
     .build();
 ```
+
+> [!TIP]
+> **Bundled SDK Agent Skill**: This repository includes an official, open-specification [Agent Skill](skills/antigravity-sdk-java/SKILL.md) for the **Antigravity SDK for Java** under [`skills/antigravity-sdk-java/`](skills/antigravity-sdk-java/SKILL.md).
+> You can load this skill into your agents (`.addSkillPath("skills/antigravity-sdk-java")`) or register it with AI coding tools (such as the Antigravity CLI, Cursor, Windsurf, or Claude Code) to provide your AI assistants with native expertise on configuring, hosting, and executing agents with this SDK!
 
 ### 5. Security Policies
 
