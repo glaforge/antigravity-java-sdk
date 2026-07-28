@@ -30,6 +30,7 @@ message InputConfig {
   uint32 port = 2;
   string bind_address = 3;
   ClientInfo client_info = 4;
+  map<string, string> env = 5;
 }
 
 message InitializeConversationEvent {
@@ -40,9 +41,18 @@ message ClientInfo {
   string language = 1;
   string version = 2;
   string language_version = 3;
+  string os = 4;
+  string os_version = 5;
 }
 
 message HarnessConfig {
+  enum SessionContinuationMode {
+    SESSION_CONTINUATION_MODE_UNSPECIFIED = 0;
+    RESUME = 1;
+    CREATE_OR_RESUME = 2;
+    CREATE_ONLY = 3;
+  }
+
   string cascade_id = 1;
   SystemInstructions system_instructions = 4;
   repeated Tool tools = 5;
@@ -58,6 +68,24 @@ message HarnessConfig {
   repeated LifecycleHook enabled_hooks = 16;
   repeated CustomAgent custom_subagents = 17;
   ToolOutputTruncation tool_output_truncation = 18;
+  SessionContinuationMode session_continuation_mode = 19;
+  RetryConfig retry_config = 20;
+}
+
+message ModelAPIRetryConfig {
+  uint32 max_retries = 1;
+  uint32 initial_sleep_duration_ms = 2;
+  double exponential_multiplier = 3;
+  double jitter_range = 4;
+}
+
+message ModelOutputRetryConfig {
+  uint32 max_retries = 1;
+}
+
+message RetryConfig {
+  ModelAPIRetryConfig api_retry = 1;
+  ModelOutputRetryConfig model_output_retry = 2;
 }
 
 message Workspace {
@@ -120,7 +148,18 @@ message CustomSystemInstructions {
   message Part {
     oneof part {
       string text = 1;
+      SystemInstructionTemplate template = 2;
     }
+  }
+
+  message SystemInstructionTemplate {
+    message Arg {
+      string name = 1;
+      string value = 2;
+    }
+
+    string template_name = 1;
+    repeated Arg args = 2;
   }
 
   repeated Part part = 1;
@@ -290,9 +329,15 @@ message StepUpdate {
   ActionMcpTool mcp_tool = 33;
   ActionSearchWeb search_web = 34;
   ActionReadUrlContent read_url_content = 35;
+  ActionCustomTool custom_tool = 36;
   string request_text = 50;
   ToolConfirmationRequest tool_confirmation_request = 51;
   UserQuestionsRequest questions_request = 52;
+}
+
+message ActionCustomTool {
+  ToolCall tool_call = 1;
+  ToolResponse tool_response = 2;
 }
 
 message ActionGenerateImage {
@@ -463,6 +508,7 @@ message TrajectoryStateUpdate {
     STATE_RUNNING = 1;
     STATE_IDLE = 2;
     STATE_CANCELLED = 3;
+    STATE_WAITING_FOR_TASKS = 4;
   }
 
   string trajectory_id = 2;
@@ -650,6 +696,7 @@ message PreToolResult {
 
   Decision decision = 1;
   string reason = 2;
+  string modified_arguments_json = 3;
 }
 
 message PreTurnResult {

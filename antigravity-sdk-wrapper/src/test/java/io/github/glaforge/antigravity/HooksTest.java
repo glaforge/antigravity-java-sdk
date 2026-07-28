@@ -91,4 +91,28 @@ public class HooksTest {
 			assertTrue(events.contains("end"));
 		});
 	}
+
+	@Test
+	public void testHookResultFactoryMethods() {
+		HookResult allowed = HookResult.allowed();
+		assertTrue(allowed.allow());
+		assertEquals(null, allowed.reason());
+		assertEquals(null, allowed.modifiedArgumentsJson());
+
+		HookResult modified = HookResult.allowedWithModifiedArguments("{\"arg\": \"val\"}");
+		assertTrue(modified.allow());
+		assertEquals(null, modified.reason());
+		assertEquals("{\"arg\": \"val\"}", modified.modifiedArgumentsJson());
+
+		HookResult denied = HookResult.denied("Not authorized");
+		assertTrue(!denied.allow());
+		assertEquals("Not authorized", denied.reason());
+		assertEquals(null, denied.modifiedArgumentsJson());
+
+		HookResult built = HookResult.builder().allow(false).reason("Blocked")
+				.modifiedArgumentsJson("{\"override\":true}").build();
+		assertTrue(!built.allow());
+		assertEquals("Blocked", built.reason());
+		assertEquals("{\"override\":true}", built.modifiedArgumentsJson());
+	}
 }

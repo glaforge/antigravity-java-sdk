@@ -1138,10 +1138,13 @@ public class Agent implements AutoCloseable, TriggerContext {
 									.newBuilder();
 							if (!res.allow()) {
 								ptr.setDecision(io.github.glaforge.antigravity.localharness.PreTurnResult.Decision.DENY)
-										.setReason("Hook execution denied");
+										.setReason(res.reason() != null ? res.reason() : "Hook execution denied");
 							} else {
 								ptr.setDecision(
 										io.github.glaforge.antigravity.localharness.PreTurnResult.Decision.ALLOW);
+								if (res.reason() != null) {
+									ptr.setReason(res.reason());
+								}
 							}
 							respBuilder.setPreTurnResult(ptr.build());
 						} else if ("LIFECYCLE_HOOK_PRE_TOOL".equals(typeStr)) {
@@ -1149,10 +1152,16 @@ public class Agent implements AutoCloseable, TriggerContext {
 									.newBuilder();
 							if (!res.allow()) {
 								ptr.setDecision(io.github.glaforge.antigravity.localharness.PreToolResult.Decision.DENY)
-										.setReason("Hook execution denied");
+										.setReason(res.reason() != null ? res.reason() : "Hook execution denied");
 							} else {
 								ptr.setDecision(
 										io.github.glaforge.antigravity.localharness.PreToolResult.Decision.ALLOW);
+								if (res.reason() != null) {
+									ptr.setReason(res.reason());
+								}
+								if (res.modifiedArgumentsJson() != null) {
+									ptr.setModifiedArgumentsJson(res.modifiedArgumentsJson());
+								}
 							}
 							respBuilder.setPreToolResult(ptr.build());
 						} else if ("LIFECYCLE_HOOK_ON_TOOL_ERROR".equals(typeStr)) {
