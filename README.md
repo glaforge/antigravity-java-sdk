@@ -5,7 +5,7 @@ Welcome to the **Antigravity SDK for Java**, an unofficial Java port of the Pyth
 This library allows you to build, configure, host, and execute powerful AI agents in Java, bridging the gap for enterprise Java developers who want to harness the power of Antigravity.
 
 > [!NOTE]
-> This entire project was autonomously generated and implemented using the **Antigravity CLI**
+> This entire project was autonomously generated and implemented using **Antigravity**
 > under the guidance of a human developer (me!).
 
 ## How it works
