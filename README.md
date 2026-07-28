@@ -249,6 +249,17 @@ AgentConfig config = AgentConfig.builder()
         System.out.println("Starting turn with prompt: " + prompt);
         return CompletableFuture.completedFuture(HookResult.allowed());
     })
+    // Intercept and sanitize tool arguments before execution
+    .addPreToolCallDecideHook((toolCall, context) -> {
+        if ("get_weather".equals(toolCall.name())) {
+            HookResult result = HookResult.builder()
+                .allow(true)
+                .modifiedArgumentsJson("{\"location\": \"Paris, France\"}")
+                .build();
+            return CompletableFuture.completedFuture(result);
+        }
+        return CompletableFuture.completedFuture(HookResult.allowed());
+    })
     // Intercept interactions (like asking the user a question)
     .addOnInteractionHook(request -> {
         System.out.println("Agent asked: " + request.questions().get(0).questionText());

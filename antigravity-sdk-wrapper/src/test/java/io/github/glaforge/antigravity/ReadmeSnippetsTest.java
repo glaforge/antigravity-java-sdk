@@ -201,6 +201,13 @@ public class ReadmeSnippetsTest {
 				.addPreTurnHook((prompt, context) -> {
 					System.out.println("Starting turn with prompt: " + prompt);
 					return CompletableFuture.completedFuture(HookResult.allowed());
+				}).addPreToolCallDecideHook((toolCall, context) -> {
+					if ("get_weather".equals(toolCall.name())) {
+						HookResult result = HookResult.builder().allow(true)
+								.modifiedArgumentsJson("{\"location\": \"Paris, France\"}").build();
+						return CompletableFuture.completedFuture(result);
+					}
+					return CompletableFuture.completedFuture(HookResult.allowed());
 				}).addOnInteractionHook(request -> {
 					InteractionAnswer answer = InteractionAnswer.builder()
 							.freeformResponse("My answer to your question is...").build();
