@@ -431,7 +431,7 @@ try (Agent agent = new Agent(config)) {
 
 ### 16. Built-in Tools (Capabilities)
 
-You can instantly enable powerful built-in tools (like web search, shell execution, or file editing) without writing them yourself using the `CapabilitiesConfig`.
+You can instantly enable powerful built-in tools (like web search, shell execution, image generation, or file editing) without writing them yourself using the `CapabilitiesConfig`.
 
 ```java
 CapabilitiesConfig capabilities = CapabilitiesConfig.builder()
@@ -441,16 +441,45 @@ CapabilitiesConfig capabilities = CapabilitiesConfig.builder()
     .enableFileEdit(true)
     .enableListDir(true)
     .enableGrepSearch(true)
+    .enableGenerateImage(true)
     .build();
 
 AgentConfig config = AgentConfig.builder()
-    .instructions("Search the web for the latest news and save it to a file.")
+    .instructions("Search the web for the latest news and generate a diagram.")
     .capabilities(capabilities)
     .build();
 
 try (Agent agent = new Agent(config)) {
-    // The agent now has access to web search and file operations natively!
+    // The agent now has access to web search, file operations, and image generation natively!
 }
+```
+
+### 17. Local Models, Environment Variables & Thinking Severity
+
+Execute local Gemma models (`LiteRTAgentConfig`), local OpenAI-compatible backends like Ollama / LM Studio (`LocalOpenAIAgentConfig`), configure custom process environment variables, and tune reasoning severity (`ThinkingLevel`).
+
+```java
+// 1. Local Gemma Model with LiteRT
+LiteRTAgentConfig litertConfig = LiteRTAgentConfig.builder()
+    .modelPath("/models/gemma-2-9b.litertlm")
+    .backend(LiteRTAgentConfig.Backend.GPU)
+    .instructions("Local Gemma assistant")
+    .build();
+
+// 2. Local OpenAI Endpoint (Ollama / LM Studio)
+LocalOpenAIAgentConfig ollamaConfig = LocalOpenAIAgentConfig.builder()
+    .baseUrl("http://localhost:11434/v1")
+    .modelName("llama3")
+    .build();
+
+// 3. Custom Environment Variables & Thinking Severity ("extra_high")
+AgentConfig config = AgentConfig.builder()
+    .instructions("Deep reasoning architecture assistant.")
+    .environmentVariables(Map.of("CUSTOM_ENV_VAR", "value"))
+    .generation(GenerationConfig.builder()
+        .thinkingLevel(ThinkingLevel.EXTRA_HIGH)
+        .build())
+    .build();
 ```
 
 ## License

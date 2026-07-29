@@ -369,8 +369,12 @@ public class Agent implements AutoCloseable, TriggerContext {
 		}
 
 		// 4. Spawn process
-		this.goProcess = new ProcessBuilder(tempExecutable.getAbsolutePath())
-				.redirectError(ProcessBuilder.Redirect.INHERIT).start();
+		ProcessBuilder pb = new ProcessBuilder(tempExecutable.getAbsolutePath())
+				.redirectError(ProcessBuilder.Redirect.INHERIT);
+		if (config.getEnvironmentVariables() != null && !config.getEnvironmentVariables().isEmpty()) {
+			pb.environment().putAll(config.getEnvironmentVariables());
+		}
+		this.goProcess = pb.start();
 
 		try {
 			// Handshake Outbound
@@ -463,13 +467,21 @@ public class Agent implements AutoCloseable, TriggerContext {
 			HarnessConfig.Builder configBuilder = HarnessConfig.newBuilder().setCascadeId(config.getConversationId())
 					.setAppDataDir(config.getAppDataDir() != null ? config.getAppDataDir() : "");
 
-			io.github.glaforge.antigravity.localharness.ModelConfig modelConfig = io.github.glaforge.antigravity.localharness.ModelConfig
-					.newBuilder().setName(config.getModelName())
-					.addTypes(io.github.glaforge.antigravity.localharness.ModelType.MODEL_TYPE_TEXT)
-					.setGeminiApiEndpoint(io.github.glaforge.antigravity.localharness.GeminiAPIEndpoint.newBuilder()
-							.setApiKey(apiKey).build())
-					.build();
-			configBuilder.addModels(modelConfig);
+			ModelConfig.Builder modelConfigBuilder = ModelConfig.newBuilder()
+					.setName(config.getModelName() != null ? config.getModelName() : "gemma-local")
+					.addTypes(ModelType.MODEL_TYPE_TEXT);
+
+			if (config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()) {
+				modelConfigBuilder.setGemmaEndpoint(GemmaEndpoint.newBuilder().setBaseUrl(config.getBaseUrl()).build());
+			} else {
+				GeminiAPIEndpoint.Builder apiEndpointBuilder = GeminiAPIEndpoint.newBuilder().setApiKey(apiKey);
+				if (config.getGeneration() != null && config.getGeneration().thinkingLevel() != null) {
+					apiEndpointBuilder.setOptions(GeminiModelOptions.newBuilder()
+							.setThinkingLevel(config.getGeneration().thinkingLevel().getValue()).build());
+				}
+				modelConfigBuilder.setGeminiApiEndpoint(apiEndpointBuilder.build());
+			}
+			configBuilder.addModels(modelConfigBuilder.build());
 
 			configBuilder.setSystemInstructions(SystemInstructions.newBuilder()
 					.setAppended(
@@ -482,11 +494,10 @@ public class Agent implements AutoCloseable, TriggerContext {
 						.newBuilder().setName("server-" + (mcpIndex++));
 
 				if (mcp instanceof McpServerConfig.StdioMcpServerConfig stdio) {
-					mcpBuilder.setStdio(io.github.glaforge.antigravity.localharness.McpStdioTransport.newBuilder()
-							.setCommand(stdio.command()).addAllArgs(stdio.args()).build());
+					mcpBuilder.setStdio(McpStdioTransport.newBuilder().setCommand(stdio.command())
+							.addAllArgs(stdio.args()).build());
 				} else if (mcp instanceof McpServerConfig.SseMcpServerConfig sse) {
-					io.github.glaforge.antigravity.localharness.McpHttpTransport.Builder http = io.github.glaforge.antigravity.localharness.McpHttpTransport
-							.newBuilder().setUrl(sse.url());
+					McpHttpTransport.Builder http = McpHttpTransport.newBuilder().setUrl(sse.url());
 					if (sse.headers() != null) {
 						http.putAllHeaders(sse.headers());
 					}
@@ -498,27 +509,21 @@ public class Agent implements AutoCloseable, TriggerContext {
 			// Add Hooks tracking
 			for (AgentHook hook : config.getHooks()) {
 				if (hook instanceof PreTurnHook)
-					configBuilder.addEnabledHooks(
-							io.github.glaforge.antigravity.localharness.LifecycleHook.LIFECYCLE_HOOK_PRE_TURN);
+					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_PRE_TURN);
 				if (hook instanceof PostTurnHook)
-					configBuilder.addEnabledHooks(
-							io.github.glaforge.antigravity.localharness.LifecycleHook.LIFECYCLE_HOOK_POST_TURN);
+					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_POST_TURN);
 				if (hook instanceof PreToolCallDecideHook)
-					configBuilder.addEnabledHooks(
-							io.github.glaforge.antigravity.localharness.LifecycleHook.LIFECYCLE_HOOK_PRE_TOOL);
+					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_PRE_TOOL);
 				if (hook instanceof PostToolCallHook)
-					configBuilder.addEnabledHooks(
-							io.github.glaforge.antigravity.localharness.LifecycleHook.LIFECYCLE_HOOK_POST_TOOL);
+					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_POST_TOOL);
 				if (hook instanceof OnToolErrorHook)
-					configBuilder.addEnabledHooks(
-							io.github.glaforge.antigravity.localharness.LifecycleHook.LIFECYCLE_HOOK_ON_TOOL_ERROR);
+					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_ON_TOOL_ERROR);
 				if (hook instanceof OnInteractionHook)
-					configBuilder.addEnabledHooks(
-							io.github.glaforge.antigravity.localharness.LifecycleHook.LIFECYCLE_HOOK_UNSPECIFIED); // Will
-																													// use
-																													// manually
-																													// for
-																													// now
+					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_UNSPECIFIED); // Will
+																								// use
+																								// manually
+																								// for
+																								// now
 			}
 
 			for (Object obj : toolRegistry.getToolDefinitions()) {
@@ -567,6 +572,9 @@ public class Agent implements AutoCloseable, TriggerContext {
 				if (config.getCapabilities().enableGrepSearch()) {
 					capBuilder.setGrepSearch(GrepSearchToolConfig.newBuilder().setEnabled(true).build());
 				}
+				if (config.getCapabilities().enableGenerateImage()) {
+					capBuilder.setGenerateImage(GenerateImageToolConfig.newBuilder().setEnabled(true).build());
+				}
 				configBuilder.setHarnessSideTools(capBuilder.build());
 			}
 
@@ -578,42 +586,62 @@ public class Agent implements AutoCloseable, TriggerContext {
 			String initEventJson = JsonFormat.printer().omittingInsignificantWhitespace().print(initEvent);
 
 			HttpClient client = HttpClient.newHttpClient();
-			this.webSocket = client.newWebSocketBuilder().header("x-goog-api-key", securityToken)
-					.buildAsync(URI.create("ws://localhost:" + runtimePort), new WebSocket.Listener() {
-						@Override
-						public void onOpen(WebSocket webSocket) {
-							webSocket.sendText(initEventJson, true);
-							WebSocket.Listener.super.onOpen(webSocket);
-						}
+			WebSocket.Listener wsListener = new WebSocket.Listener() {
+				@Override
+				public void onOpen(WebSocket webSocket) {
+					webSocket.sendText(initEventJson, true);
+					WebSocket.Listener.super.onOpen(webSocket);
+				}
 
-						@Override
-						public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
-							wsBuffer.append(data);
-							if (last) {
-								handleIncomingMessage(webSocket, wsBuffer.toString());
-								wsBuffer.setLength(0);
-							}
-							webSocket.request(1);
-							return null;
-						}
+				@Override
+				public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+					wsBuffer.append(data);
+					if (last) {
+						handleIncomingMessage(webSocket, wsBuffer.toString());
+						wsBuffer.setLength(0);
+					}
+					webSocket.request(1);
+					return null;
+				}
 
-						@Override
-						public void onError(WebSocket webSocket, Throwable error) {
-							if (currentChatFuture != null && !currentChatFuture.isDone()) {
-								currentChatFuture.completeExceptionally(error);
-							}
-							WebSocket.Listener.super.onError(webSocket, error);
-						}
+				@Override
+				public void onError(WebSocket webSocket, Throwable error) {
+					if (currentChatFuture != null && !currentChatFuture.isDone()) {
+						currentChatFuture.completeExceptionally(error);
+					}
+					WebSocket.Listener.super.onError(webSocket, error);
+				}
 
-						@Override
-						public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
-							if (currentChatFuture != null && !currentChatFuture.isDone()) {
-								currentChatFuture.completeExceptionally(new RuntimeException(
-										"WebSocket closed unexpectedly: " + statusCode + " " + reason));
-							}
-							return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
-						}
-					}).join();
+				@Override
+				public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+					if (currentChatFuture != null && !currentChatFuture.isDone()) {
+						currentChatFuture.completeExceptionally(
+								new IllegalStateException("WebSocket closed unexpectedly: " + reason));
+					}
+					WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
+					return null;
+				}
+			};
+
+			String[] targetHosts = new String[]{"localhost", "127.0.0.1"};
+			WebSocket connectedWs = null;
+			Throwable lastWsErr = null;
+
+			for (String host : targetHosts) {
+				try {
+					connectedWs = client.newWebSocketBuilder().header("x-goog-api-key", securityToken)
+							.buildAsync(URI.create("ws://" + host + ":" + runtimePort), wsListener)
+							.get(5, java.util.concurrent.TimeUnit.SECONDS);
+					break;
+				} catch (Exception e) {
+					lastWsErr = e;
+				}
+			}
+
+			if (connectedWs == null) {
+				throw new IllegalStateException("Failed to connect to localharness WebSocket", lastWsErr);
+			}
+			this.webSocket = connectedWs;
 		} catch (Exception e) {
 			if (goProcess.isAlive())
 				goProcess.destroyForcibly();
@@ -711,10 +739,25 @@ public class Agent implements AutoCloseable, TriggerContext {
 		return new AgentStream(chunksPublisher, currentThoughtsPublisher, currentToolCallsPublisher, result);
 	}
 
+	/**
+	 * Sends a text prompt to the agent and returns an AgentStream for monitoring
+	 * chunks, thoughts, and tool calls.
+	 *
+	 * @param text
+	 *            prompt text
+	 * @return AgentStream instance
+	 */
 	public AgentStream streamChat(String text) {
 		return streamChat(List.of(AgentInput.Text.of(text)));
 	}
 
+	/**
+	 * Sends a text prompt and returns a Flow.Publisher emitting response chunks.
+	 *
+	 * @param prompt
+	 *            prompt text
+	 * @return Flow.Publisher emitting AgentResponseChunk items
+	 */
 	public Publisher<AgentResponseChunk> chatPublisher(String prompt) {
 		return chatPublisher(List.of(AgentInput.Text.of(prompt)));
 	}
@@ -751,6 +794,16 @@ public class Agent implements AutoCloseable, TriggerContext {
 		return publisher;
 	}
 
+	/**
+	 * Sends a text prompt to the agent and streams response chunks to a consumer
+	 * callback.
+	 *
+	 * @param text
+	 *            prompt text
+	 * @param onChunk
+	 *            consumer callback for response chunks
+	 * @return CompletableFuture resolving to the final AgentResponse
+	 */
 	public CompletableFuture<AgentResponse> chatStream(String text, Consumer<AgentResponseChunk> onChunk) {
 		return chatStream(List.of(AgentInput.Text.of(text)), onChunk);
 	}
@@ -1128,34 +1181,29 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 				hookFuture.whenComplete((res, err) -> {
 					try {
-						io.github.glaforge.antigravity.localharness.CallHookResponse.Builder respBuilder = io.github.glaforge.antigravity.localharness.CallHookResponse
-								.newBuilder().setRequestId(requestId);
+						CallHookResponse.Builder respBuilder = CallHookResponse.newBuilder().setRequestId(requestId);
 
 						if (err != null) {
 							respBuilder.setErrorMessage(err.getMessage());
 						} else if ("LIFECYCLE_HOOK_PRE_TURN".equals(typeStr)) {
-							io.github.glaforge.antigravity.localharness.PreTurnResult.Builder ptr = io.github.glaforge.antigravity.localharness.PreTurnResult
-									.newBuilder();
+							PreTurnResult.Builder ptr = PreTurnResult.newBuilder();
 							if (!res.allow()) {
-								ptr.setDecision(io.github.glaforge.antigravity.localharness.PreTurnResult.Decision.DENY)
+								ptr.setDecision(PreTurnResult.Decision.DENY)
 										.setReason(res.reason() != null ? res.reason() : "Hook execution denied");
 							} else {
-								ptr.setDecision(
-										io.github.glaforge.antigravity.localharness.PreTurnResult.Decision.ALLOW);
+								ptr.setDecision(PreTurnResult.Decision.ALLOW);
 								if (res.reason() != null) {
 									ptr.setReason(res.reason());
 								}
 							}
 							respBuilder.setPreTurnResult(ptr.build());
 						} else if ("LIFECYCLE_HOOK_PRE_TOOL".equals(typeStr)) {
-							io.github.glaforge.antigravity.localharness.PreToolResult.Builder ptr = io.github.glaforge.antigravity.localharness.PreToolResult
-									.newBuilder();
+							PreToolResult.Builder ptr = PreToolResult.newBuilder();
 							if (!res.allow()) {
-								ptr.setDecision(io.github.glaforge.antigravity.localharness.PreToolResult.Decision.DENY)
+								ptr.setDecision(PreToolResult.Decision.DENY)
 										.setReason(res.reason() != null ? res.reason() : "Hook execution denied");
 							} else {
-								ptr.setDecision(
-										io.github.glaforge.antigravity.localharness.PreToolResult.Decision.ALLOW);
+								ptr.setDecision(PreToolResult.Decision.ALLOW);
 								if (res.reason() != null) {
 									ptr.setReason(res.reason());
 								}
@@ -1166,16 +1214,13 @@ public class Agent implements AutoCloseable, TriggerContext {
 							respBuilder.setPreToolResult(ptr.build());
 						} else if ("LIFECYCLE_HOOK_ON_TOOL_ERROR".equals(typeStr)) {
 							if (!res.allow()) {
-								respBuilder.setOnToolErrorResult(
-										io.github.glaforge.antigravity.localharness.OnToolErrorResult.newBuilder()
-												.setCustomErrorMessage("Hook execution denied").build());
+								respBuilder.setOnToolErrorResult(OnToolErrorResult.newBuilder()
+										.setCustomErrorMessage("Hook execution denied").build());
 							} else {
-								respBuilder.setEmptyResult(
-										io.github.glaforge.antigravity.localharness.EmptyResult.getDefaultInstance());
+								respBuilder.setEmptyResult(EmptyResult.getDefaultInstance());
 							}
 						} else {
-							respBuilder.setEmptyResult(
-									io.github.glaforge.antigravity.localharness.EmptyResult.getDefaultInstance());
+							respBuilder.setEmptyResult(EmptyResult.getDefaultInstance());
 						}
 
 						InputEvent inputEvent = InputEvent.newBuilder().setCallHookResponse(respBuilder.build())
@@ -1240,7 +1285,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 				JsonNode args = jsonMapper.readTree(argsJsonString);
 
 				if (currentToolCallsPublisher != null) {
-					currentToolCallsPublisher.submit(new io.github.glaforge.antigravity.hooks.ToolCall(name, args));
+					currentToolCallsPublisher.submit(new ToolCall(name, args));
 				}
 				if ("finish".equals(name)) {
 					if (currentText != null) {

@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionStage;
 import io.github.glaforge.antigravity.DynamicTool;
 import io.github.glaforge.antigravity.ToolContext;
 
@@ -172,6 +173,9 @@ public class ToolRegistry {
 	}
 
 	private String formatToolResult(Object result) throws Exception {
+		if (result instanceof CompletionStage<?> cs) {
+			result = cs.toCompletableFuture().get();
+		}
 		if (result instanceof String str) {
 			String trimmed = str.trim();
 			if (trimmed.startsWith("{") || trimmed.startsWith("[")) {

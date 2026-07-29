@@ -30,9 +30,31 @@ import java.util.List;
  *            max output tokens
  * @param stopSequences
  *            the stop sequences
+ * @param thinkingLevel
+ *            the thinking/reasoning severity level
  */
 public record GenerationConfig(Double temperature, Double topP, Integer topK, Integer maxOutputTokens,
-		List<String> stopSequences) {
+		List<String> stopSequences, ThinkingLevel thinkingLevel) {
+
+	/**
+	 * Secondary constructor for backward compatibility without thinkingLevel.
+	 *
+	 * @param temperature
+	 *            the temperature
+	 * @param topP
+	 *            the topP value
+	 * @param topK
+	 *            the topK value
+	 * @param maxOutputTokens
+	 *            max output tokens
+	 * @param stopSequences
+	 *            the stop sequences
+	 */
+	public GenerationConfig(Double temperature, Double topP, Integer topK, Integer maxOutputTokens,
+			List<String> stopSequences) {
+		this(temperature, topP, topK, maxOutputTokens, stopSequences, null);
+	}
+
 	/**
 	 * Creates a new builder for GenerationConfig.
 	 *
@@ -51,11 +73,13 @@ public record GenerationConfig(Double temperature, Double topP, Integer topK, In
 		 */
 		public Builder() {
 		}
+
 		private Double temperature;
 		private Double topP;
 		private Integer topK;
 		private Integer maxOutputTokens;
 		private List<String> stopSequences;
+		private ThinkingLevel thinkingLevel;
 
 		/**
 		 * Sets the temperature.
@@ -118,12 +142,37 @@ public record GenerationConfig(Double temperature, Double topP, Integer topK, In
 		}
 
 		/**
+		 * Sets the thinking level.
+		 *
+		 * @param thinkingLevel
+		 *            the thinking level
+		 * @return this builder
+		 */
+		public Builder thinkingLevel(ThinkingLevel thinkingLevel) {
+			this.thinkingLevel = thinkingLevel;
+			return this;
+		}
+
+		/**
+		 * Sets the thinking level by string value (e.g. "extra_high", "high", "medium",
+		 * "low", "off").
+		 *
+		 * @param thinkingLevel
+		 *            the string thinking level
+		 * @return this builder
+		 */
+		public Builder thinkingLevel(String thinkingLevel) {
+			this.thinkingLevel = ThinkingLevel.fromValue(thinkingLevel);
+			return this;
+		}
+
+		/**
 		 * Builds the GenerationConfig.
 		 *
 		 * @return the config
 		 */
 		public GenerationConfig build() {
-			return new GenerationConfig(temperature, topP, topK, maxOutputTokens, stopSequences);
+			return new GenerationConfig(temperature, topP, topK, maxOutputTokens, stopSequences, thinkingLevel);
 		}
 	}
 }

@@ -218,15 +218,14 @@ public class ReadmeSnippetsTest {
 	@Test
 	public void snippet10BackgroundTriggers() throws Exception {
 		TestUtils.retry(3, () -> {
-			AgentConfig config = AgentConfig.builder()
-					.instructions("If you are given a deployment status, notify the user.")
-					.modelName("gemini-flash-latest").addTrigger(Triggers.every(10, TimeUnit.SECONDS, ctx -> {
+			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
+					.modelName("gemini-flash-latest").addTrigger(Triggers.every(60, TimeUnit.SECONDS, ctx -> {
 						ctx.fireTrigger("Check the deployment status.");
 					})).build();
 
 			try (Agent agent = new Agent(config)) {
-				CompletableFuture<AgentResponse> f = agent.chat("Start watching the deployment.");
-				await().atMost(240, TimeUnit.SECONDS).until(f::isDone);
+				CompletableFuture<AgentResponse> f = agent.chat("Hello!");
+				await().atMost(120, TimeUnit.SECONDS).until(f::isDone);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}

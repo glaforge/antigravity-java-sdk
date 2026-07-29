@@ -31,6 +31,11 @@ public interface DynamicTool {
 	 */
 	String getName();
 
+	/**
+	 * Returns the tool definition.
+	 *
+	 * @return tool definition
+	 */
 	ToolDefinition getDefinition();
 
 	/**

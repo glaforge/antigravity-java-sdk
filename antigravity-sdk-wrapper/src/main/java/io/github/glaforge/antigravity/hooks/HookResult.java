@@ -20,12 +20,31 @@ package io.github.glaforge.antigravity.hooks;
  *
  * @param allow
  *            true if the action is allowed, false if denied
+ * @param reason
+ *            optional reason for denial or authorization note
+ * @param modifiedArgumentsJson
+ *            optional modified tool call arguments JSON string
  */
 public record HookResult(boolean allow, String reason, String modifiedArgumentsJson) {
+	/**
+	 * Convenience constructor setting allow status with no reason or modified
+	 * arguments.
+	 *
+	 * @param allow
+	 *            true if allowed
+	 */
 	public HookResult(boolean allow) {
 		this(allow, null, null);
 	}
 
+	/**
+	 * Convenience constructor setting allow status and reason.
+	 *
+	 * @param allow
+	 *            true if allowed
+	 * @param reason
+	 *            reason string
+	 */
 	public HookResult(boolean allow, String reason) {
 		this(allow, reason, null);
 	}

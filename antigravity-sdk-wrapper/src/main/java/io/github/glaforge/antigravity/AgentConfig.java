@@ -20,16 +20,22 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.ArrayList;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Collections;
+import io.github.glaforge.antigravity.hooks.*;
 import io.github.glaforge.antigravity.tools.SchemaGenerator;
-
-import io.github.glaforge.antigravity.hooks.AgentHook;
 import io.github.glaforge.antigravity.triggers.AgentTrigger;
 
 /**
  * Configuration for the Agent.
  */
 public class AgentConfig {
+	/**
+	 * Default lightweight model for image generation tasks.
+	 */
+	public static final String DEFAULT_IMAGE_GENERATION_MODEL = "gemini-3.1-flash-lite-image";
+
 	private final String instructions;
 	private final String modelName;
 	private final List<Object> toolInstances;
@@ -45,6 +51,8 @@ public class AgentConfig {
 	private final List<Policy> policies;
 	private final String finishToolSchemaJson;
 	private final List<McpServerConfig> mcpServers;
+	private final Map<String, String> environmentVariables;
+	private final String baseUrl;
 
 	private AgentConfig(Builder builder) {
 		this.instructions = builder.instructions;
@@ -62,6 +70,8 @@ public class AgentConfig {
 		this.policies = new ArrayList<>(builder.policies);
 		this.finishToolSchemaJson = builder.finishToolSchemaJson;
 		this.mcpServers = new ArrayList<>(builder.mcpServers);
+		this.environmentVariables = new HashMap<>(builder.environmentVariables);
+		this.baseUrl = builder.baseUrl;
 	}
 
 	/**
@@ -120,11 +130,6 @@ public class AgentConfig {
 	public Path getWorkspaceDir() {
 		return workspaceDir;
 	}
-	/**
-	 * Returns the registered hooks.
-	 *
-	 * @return the registered hooks
-	 */
 
 	/**
 	 * Returns the triggers.
@@ -135,6 +140,11 @@ public class AgentConfig {
 		return Collections.unmodifiableList(triggers);
 	}
 
+	/**
+	 * Returns the registered hooks.
+	 *
+	 * @return the registered hooks
+	 */
 	public List<AgentHook> getHooks() {
 		return Collections.unmodifiableList(hooks);
 	}
@@ -188,6 +198,58 @@ public class AgentConfig {
 	}
 
 	/**
+	 * Returns the custom environment variables to pass to the agent process.
+	 *
+	 * @return custom environment variables
+	 */
+	public Map<String, String> getEnvironmentVariables() {
+		return Collections.unmodifiableMap(environmentVariables);
+	}
+
+	/**
+	 * Returns the base URL for local Gemma/OpenAI models.
+	 *
+	 * @return base URL
+	 */
+	public String getBaseUrl() {
+		return baseUrl;
+	}
+
+	/**
+	 * Hydrates the GCP/Vertex project ID from explicit config or standard
+	 * GOOGLE_CLOUD_PROJECT environment variable.
+	 *
+	 * @param explicitProject
+	 *            the explicitly specified project ID, or null
+	 * @return the hydrated project ID
+	 */
+	public static String hydrateVertexProject(String explicitProject) {
+		if (explicitProject != null && !explicitProject.isEmpty()) {
+			return explicitProject;
+		}
+		return System.getenv("GOOGLE_CLOUD_PROJECT");
+	}
+
+	/**
+	 * Hydrates the GCP/Vertex location from explicit config or standard
+	 * GOOGLE_CLOUD_LOCATION / GOOGLE_CLOUD_REGION environment variables.
+	 *
+	 * @param explicitLocation
+	 *            the explicitly specified location, or null
+	 * @return the hydrated location
+	 */
+	public static String hydrateVertexLocation(String explicitLocation) {
+		if (explicitLocation != null && !explicitLocation.isEmpty()) {
+			return explicitLocation;
+		}
+		String loc = System.getenv("GOOGLE_CLOUD_LOCATION");
+		if (loc != null && !loc.isEmpty()) {
+			return loc;
+		}
+		return System.getenv("GOOGLE_CLOUD_REGION");
+	}
+
+	/**
 	 * Creates a new Builder for AgentConfig.
 	 *
 	 * @return a new Builder instance
@@ -218,6 +280,8 @@ public class AgentConfig {
 		private List<Policy> policies = new ArrayList<>();
 		private String finishToolSchemaJson = null;
 		private List<McpServerConfig> mcpServers = new ArrayList<>();
+		private Map<String, String> environmentVariables = new HashMap<>();
+		private String baseUrl;
 
 		/**
 		 * Sets the instructions.
@@ -292,12 +356,16 @@ public class AgentConfig {
 		}
 
 		/**
-		 * Adds a hook.
+		 * Sets the base URL for local Gemma/OpenAI endpoints.
 		 *
-		 * @param hook
-		 *            the hook
+		 * @param baseUrl
+		 *            the base URL
 		 * @return this builder
 		 */
+		public Builder baseUrl(String baseUrl) {
+			this.baseUrl = baseUrl;
+			return this;
+		}
 
 		/**
 		 * Adds a trigger.
@@ -311,52 +379,122 @@ public class AgentConfig {
 			return this;
 		}
 
+		/**
+		 * Adds a generic agent hook.
+		 *
+		 * @param hook
+		 *            the hook
+		 * @return this builder
+		 */
 		public Builder addHook(AgentHook hook) {
 			this.hooks.add(hook);
 			return this;
 		}
 
-		public Builder addPreTurnHook(io.github.glaforge.antigravity.hooks.PreTurnHook hook) {
+		/**
+		 * Adds a pre-turn hook.
+		 *
+		 * @param hook
+		 *            the pre-turn hook
+		 * @return this builder
+		 */
+		public Builder addPreTurnHook(PreTurnHook hook) {
 			this.hooks.add(hook);
 			return this;
 		}
 
-		public Builder addPostTurnHook(io.github.glaforge.antigravity.hooks.PostTurnHook hook) {
+		/**
+		 * Adds a post-turn hook.
+		 *
+		 * @param hook
+		 *            the post-turn hook
+		 * @return this builder
+		 */
+		public Builder addPostTurnHook(PostTurnHook hook) {
 			this.hooks.add(hook);
 			return this;
 		}
 
-		public Builder addPreToolCallDecideHook(io.github.glaforge.antigravity.hooks.PreToolCallDecideHook hook) {
+		/**
+		 * Adds a pre-tool-call decision hook.
+		 *
+		 * @param hook
+		 *            the pre-tool-call decide hook
+		 * @return this builder
+		 */
+		public Builder addPreToolCallDecideHook(PreToolCallDecideHook hook) {
 			this.hooks.add(hook);
 			return this;
 		}
 
-		public Builder addPostToolCallHook(io.github.glaforge.antigravity.hooks.PostToolCallHook hook) {
+		/**
+		 * Adds a post-tool-call hook.
+		 *
+		 * @param hook
+		 *            the post-tool-call hook
+		 * @return this builder
+		 */
+		public Builder addPostToolCallHook(PostToolCallHook hook) {
 			this.hooks.add(hook);
 			return this;
 		}
 
-		public Builder addOnToolErrorHook(io.github.glaforge.antigravity.hooks.OnToolErrorHook hook) {
+		/**
+		 * Adds an on-tool-error hook.
+		 *
+		 * @param hook
+		 *            the on-tool-error hook
+		 * @return this builder
+		 */
+		public Builder addOnToolErrorHook(OnToolErrorHook hook) {
 			this.hooks.add(hook);
 			return this;
 		}
 
-		public Builder addOnInteractionHook(io.github.glaforge.antigravity.hooks.OnInteractionHook hook) {
+		/**
+		 * Adds an on-interaction hook.
+		 *
+		 * @param hook
+		 *            the on-interaction hook
+		 * @return this builder
+		 */
+		public Builder addOnInteractionHook(OnInteractionHook hook) {
 			this.hooks.add(hook);
 			return this;
 		}
 
-		public Builder addOnSessionStartHook(io.github.glaforge.antigravity.hooks.OnSessionStartHook hook) {
+		/**
+		 * Adds an on-session-start hook.
+		 *
+		 * @param hook
+		 *            the on-session-start hook
+		 * @return this builder
+		 */
+		public Builder addOnSessionStartHook(OnSessionStartHook hook) {
 			this.hooks.add(hook);
 			return this;
 		}
 
-		public Builder addOnSessionEndHook(io.github.glaforge.antigravity.hooks.OnSessionEndHook hook) {
+		/**
+		 * Adds an on-session-end hook.
+		 *
+		 * @param hook
+		 *            the on-session-end hook
+		 * @return this builder
+		 */
+		public Builder addOnSessionEndHook(OnSessionEndHook hook) {
 			this.hooks.add(hook);
 			return this;
 		}
 
-		public Builder addOnCompactionHook(io.github.glaforge.antigravity.hooks.OnCompactionHook hook) {
+		/**
+		 * Adds an on-compaction hook.
+		 *
+		 * @param hook
+		 *            the on-compaction hook
+		 * @return this builder
+		 */
+		public Builder addOnCompactionHook(OnCompactionHook hook) {
 			this.hooks.add(hook);
 			return this;
 		}
@@ -410,14 +548,6 @@ public class AgentConfig {
 		}
 
 		/**
-		 * Sets the finish tool schema JSON.
-		 *
-		 * @param finishToolSchemaJson
-		 *            the JSON schema
-		 * @return this builder
-		 */
-
-		/**
 		 * Sets the finish tool schema JSON by auto-generating it from the given class.
 		 *
 		 * @param targetClass
@@ -434,6 +564,13 @@ public class AgentConfig {
 			return this;
 		}
 
+		/**
+		 * Sets the finish tool schema JSON string directly.
+		 *
+		 * @param finishToolSchemaJson
+		 *            the JSON schema string
+		 * @return this builder
+		 */
 		public Builder finishToolSchemaJson(String finishToolSchemaJson) {
 			this.finishToolSchemaJson = finishToolSchemaJson;
 			return this;
@@ -448,6 +585,34 @@ public class AgentConfig {
 		 */
 		public Builder addMcpServer(McpServerConfig mcpServerConfig) {
 			this.mcpServers.add(mcpServerConfig);
+			return this;
+		}
+
+		/**
+		 * Sets custom environment variables for the agent process.
+		 *
+		 * @param environmentVariables
+		 *            map of key-value environment variables
+		 * @return this builder
+		 */
+		public Builder environmentVariables(Map<String, String> environmentVariables) {
+			if (environmentVariables != null) {
+				this.environmentVariables = new HashMap<>(environmentVariables);
+			}
+			return this;
+		}
+
+		/**
+		 * Adds a single custom environment variable for the agent process.
+		 *
+		 * @param key
+		 *            environment variable key
+		 * @param value
+		 *            environment variable value
+		 * @return this builder
+		 */
+		public Builder addEnvironmentVariable(String key, String value) {
+			this.environmentVariables.put(key, value);
 			return this;
 		}
 

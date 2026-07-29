@@ -32,13 +32,18 @@ import io.github.glaforge.antigravity.localharness.MultipleChoiceAnswer;
  */
 public record InteractionAnswer(boolean unanswered, List<Integer> selectedChoiceIndices, String freeformResponse) {
 
+	/**
+	 * Compact constructor ensuring non-null collections.
+	 */
 	public InteractionAnswer {
 		selectedChoiceIndices = selectedChoiceIndices != null ? List.copyOf(selectedChoiceIndices) : List.of();
 		freeformResponse = freeformResponse != null ? freeformResponse : "";
 	}
 
 	/**
-	 * @return a new Builder for an InteractionAnswer
+	 * Creates a new Builder for InteractionAnswer.
+	 *
+	 * @return a new Builder instance
 	 */
 	public static Builder builder() {
 		return new Builder();
@@ -83,26 +88,65 @@ public record InteractionAnswer(boolean unanswered, List<Integer> selectedChoice
 		private List<Integer> selectedChoiceIndices = new ArrayList<>();
 		private String freeformResponse = "";
 
+		/**
+		 * Default constructor.
+		 */
+		public Builder() {
+		}
+
+		/**
+		 * Sets whether unanswered.
+		 *
+		 * @param unanswered
+		 *            true if unanswered
+		 * @return this builder
+		 */
 		public Builder unanswered(boolean unanswered) {
 			this.unanswered = unanswered;
 			return this;
 		}
 
+		/**
+		 * Adds a selected choice index.
+		 *
+		 * @param index
+		 *            index of selected choice
+		 * @return this builder
+		 */
 		public Builder addSelectedChoiceIndex(int index) {
 			this.selectedChoiceIndices.add(index);
 			return this;
 		}
 
+		/**
+		 * Sets selected choice indices.
+		 *
+		 * @param indices
+		 *            list of choice indices
+		 * @return this builder
+		 */
 		public Builder selectedChoiceIndices(List<Integer> indices) {
 			this.selectedChoiceIndices = new ArrayList<>(indices);
 			return this;
 		}
 
+		/**
+		 * Sets freeform text response.
+		 *
+		 * @param response
+		 *            freeform response string
+		 * @return this builder
+		 */
 		public Builder freeformResponse(String response) {
 			this.freeformResponse = response;
 			return this;
 		}
 
+		/**
+		 * Builds InteractionAnswer.
+		 *
+		 * @return new InteractionAnswer instance
+		 */
 		public InteractionAnswer build() {
 			return new InteractionAnswer(unanswered, selectedChoiceIndices, freeformResponse);
 		}

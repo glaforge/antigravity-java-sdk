@@ -84,6 +84,11 @@ public sealed interface McpServerConfig
 
 	/**
 	 * Configuration for an MCP server that communicates over Standard Input/Output.
+	 *
+	 * @param command
+	 *            The executable command.
+	 * @param args
+	 *            The arguments to pass to the command.
 	 */
 	record StdioMcpServerConfig(String command, List<String> args) implements McpServerConfig {
 		@Override
@@ -94,6 +99,11 @@ public sealed interface McpServerConfig
 
 	/**
 	 * Configuration for an MCP server that connects over Server-Sent Events (SSE).
+	 *
+	 * @param url
+	 *            The SSE endpoint URL.
+	 * @param headers
+	 *            HTTP headers to send.
 	 */
 	record SseMcpServerConfig(String url, Map<String, String> headers) implements McpServerConfig {
 		@Override

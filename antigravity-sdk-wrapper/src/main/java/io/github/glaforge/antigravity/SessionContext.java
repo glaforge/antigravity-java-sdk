@@ -17,10 +17,13 @@ package io.github.glaforge.antigravity;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 /**
- * Represents the context of an ongoing agent session, allowing for state
- * storage and retrieval during the lifecycle of the session.
+ * Represents the context of an ongoing agent session, allowing for thread-safe
+ * state storage, retrieval, and atomic mutation across multi-threaded tools and
+ * hooks.
  */
 public class SessionContext {
 	/**
@@ -28,6 +31,7 @@ public class SessionContext {
 	 */
 	public SessionContext() {
 	}
+
 	private final ConcurrentMap<String, Object> state = new ConcurrentHashMap<>();
 
 	/**
@@ -53,6 +57,47 @@ public class SessionContext {
 	 */
 	public void set(String key, Object value) {
 		state.put(key, value);
+	}
+
+	/**
+	 * Atomically updates a state value using a remapping function.
+	 *
+	 * @param key
+	 *            the state key
+	 * @param remappingFunction
+	 *            function taking (key, currentValue) and returning newValue
+	 * @return the updated value
+	 */
+	public Object update(String key, BiFunction<String, Object, Object> remappingFunction) {
+		return state.compute(key, remappingFunction);
+	}
+
+	/**
+	 * Atomically computes a value for the key if it is absent.
+	 *
+	 * @param key
+	 *            the state key
+	 * @param mappingFunction
+	 *            function computing value from key
+	 * @return the current (existing or computed) value
+	 */
+	public Object computeIfAbsent(String key, Function<String, Object> mappingFunction) {
+		return state.computeIfAbsent(key, mappingFunction);
+	}
+
+	/**
+	 * Atomically merges a value into the state using a remapping function.
+	 *
+	 * @param key
+	 *            the state key
+	 * @param value
+	 *            the value to merge
+	 * @param remappingFunction
+	 *            remapping function for existing and new value
+	 * @return the merged value
+	 */
+	public Object merge(String key, Object value, BiFunction<Object, Object, Object> remappingFunction) {
+		return state.merge(key, value, remappingFunction);
 	}
 
 	/**

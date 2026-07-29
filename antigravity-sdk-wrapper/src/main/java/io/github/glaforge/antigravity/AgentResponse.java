@@ -29,6 +29,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public record AgentResponse(String text, String thoughts, UsageMetadata usageMetadata) {
 
+	/**
+	 * Compact constructor ensuring text and thoughts are non-null.
+	 */
 	public AgentResponse {
 		text = text != null ? text : "";
 		thoughts = thoughts != null ? thoughts : "";

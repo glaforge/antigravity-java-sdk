@@ -44,6 +44,8 @@ public class ToolDefinition {
 	}
 
 	/**
+	 * Returns the name of the tool.
+	 *
 	 * @return the name of the tool
 	 */
 	public String getName() {
@@ -51,6 +53,8 @@ public class ToolDefinition {
 	}
 
 	/**
+	 * Returns the description of the tool.
+	 *
 	 * @return the description of the tool
 	 */
 	public String getDescription() {
@@ -58,6 +62,8 @@ public class ToolDefinition {
 	}
 
 	/**
+	 * Returns the JSON schema for the tool parameters.
+	 *
 	 * @return the JSON schema for the tool parameters
 	 */
 	public String getParametersJsonSchema() {
@@ -90,6 +96,12 @@ public class ToolDefinition {
 		private String name;
 		private String description;
 		private String parametersJsonSchema;
+
+		/**
+		 * Default constructor.
+		 */
+		public Builder() {
+		}
 
 		/**
 		 * Sets the name of the tool.
@@ -141,6 +153,13 @@ public class ToolDefinition {
 			return this;
 		}
 
+		/**
+		 * Sets the tool parameters JSON schema string directly.
+		 *
+		 * @param schema
+		 *            the JSON schema string
+		 * @return this builder
+		 */
 		public Builder parametersSchema(String schema) {
 			this.parametersJsonSchema = schema;
 			return this;

@@ -1,6 +1,6 @@
 # API Reference — Antigravity SDK for Java
 
-This document details the configuration options, tool definitions, MCP integration, triggers, multimodal capabilities, and structured output patterns in the Antigravity SDK for Java.
+This document details the configuration options, tool definitions, MCP integration, local model configs, triggers, multimodal capabilities, and structured output patterns in the Antigravity SDK for Java.
 
 ---
 
@@ -12,14 +12,18 @@ This document details the configuration options, tool definitions, MCP integrati
 import io.github.glaforge.antigravity.AgentConfig;
 import io.github.glaforge.antigravity.CapabilitiesConfig;
 import io.github.glaforge.antigravity.GenerationConfig;
+import io.github.glaforge.antigravity.ThinkingLevel;
+import java.util.Map;
 
 AgentConfig config = AgentConfig.builder()
     .instructions("System instructions for the agent model.")
-    .model("gemini-2.5-flash") // Default model selection
+    .modelName("gemini-3.6-flash") // Default model selection
     .conversationId("session-123") // Resume existing session context
-    .generationConfig(GenerationConfig.builder()
+    .environmentVariables(Map.of("CUSTOM_ENV_VAR", "value")) // Custom process environment
+    .generation(GenerationConfig.builder()
         .temperature(0.2)
         .maxOutputTokens(2048)
+        .thinkingLevel(ThinkingLevel.EXTRA_HIGH) // Configure "extra_high" reasoning severity
         .build())
     .capabilities(CapabilitiesConfig.builder()
         .enableWebSearch(true)
@@ -28,6 +32,7 @@ AgentConfig config = AgentConfig.builder()
         .enableFileEdit(true)
         .enableListDir(true)
         .enableGrepSearch(true)
+        .enableGenerateImage(true) // Enable image generation capability
         .enableSubagents(true)
         .build())
     .build();
@@ -35,15 +40,56 @@ AgentConfig config = AgentConfig.builder()
 
 ---
 
-## 2. Tool Definitions
+## 2. Local Models & Custom Backends
+
+### LiteRT (Local Gemma Models)
+
+Use `LiteRTAgentConfig` to run local Gemma models via the LiteRT backend with hardware acceleration (`CPU`, `GPU`, `NPU`).
+
+```java
+import io.github.glaforge.antigravity.LiteRTAgentConfig;
+
+LiteRTAgentConfig litertConfig = LiteRTAgentConfig.builder()
+    .modelPath("/path/to/gemma.litertlm")
+    .backend(LiteRTAgentConfig.Backend.GPU)
+    .instructions("You are a local Gemma agent.")
+    .build();
+
+try (Agent agent = new Agent(litertConfig.getAgentConfig())) {
+    // Execute local agent
+}
+```
+
+### Local OpenAI Endpoints (Ollama, LM Studio)
+
+Use `LocalOpenAIAgentConfig` to connect to local OpenAI-compatible API servers.
+
+```java
+import io.github.glaforge.antigravity.LocalOpenAIAgentConfig;
+
+LocalOpenAIAgentConfig ollamaConfig = LocalOpenAIAgentConfig.builder()
+    .baseUrl("http://localhost:11434/v1")
+    .modelName("llama3")
+    .instructions("Local Ollama assistant.")
+    .build();
+
+try (Agent agent = new Agent(ollamaConfig.getAgentConfig())) {
+    // Execute local agent
+}
+```
+
+---
+
+## 3. Tool Definitions
 
 ### Annotated Tools (Recommended)
 
-Use `@Tool` on public methods and `@Param` on parameters. Primitive types, strings, records, and POJOs are automatically mapped to JSON Schema.
+Use `@Tool` on public methods and `@Param` on parameters. Synchronous methods and asynchronous futures (`CompletableFuture<T>`) are supported seamlessly.
 
 ```java
 import io.github.glaforge.antigravity.tools.Tool;
 import io.github.glaforge.antigravity.tools.Param;
+import java.util.concurrent.CompletableFuture;
 
 public class CustomerServiceTools {
 
@@ -54,6 +100,13 @@ public class CustomerServiceTools {
         @Param(name = "query", description = "Account lookup criteria") AccountQuery query
     ) {
         return "Account " + query.accountId() + " balance: $1,450.00";
+    }
+
+    @Tool(name = "async_fetch_data", description = "Fetch data asynchronously.")
+    public CompletableFuture<String> fetchAsyncData(
+        @Param(name = "key", description = "Lookup key") String key
+    ) {
+        return CompletableFuture.completedFuture("Result for " + key);
     }
 }
 ```
@@ -95,7 +148,26 @@ AgentConfig config = AgentConfig.builder()
 
 ---
 
-## 3. Structured Outputs
+## 4. Multi-Threaded State Management (`SessionContext`)
+
+`SessionContext` provides a thread-safe state store backed by `ConcurrentHashMap` with atomic update helper methods across concurrent tools and hooks.
+
+```java
+SessionContext context = new SessionContext();
+
+// Atomic update
+context.update("tool_executions", (key, oldVal) -> oldVal == null ? 1 : ((Integer) oldVal) + 1);
+
+// Compute if absent
+context.computeIfAbsent("cache_key", key -> loadDataFromDatabase(key));
+
+// Atomic merge
+context.merge("total_tokens", 150, (oldVal, newVal) -> ((Integer) oldVal) + ((Integer) newVal));
+```
+
+---
+
+## 5. Structured Outputs
 
 Force the agent to respond in a strict JSON schema format, deserializing directly into Java 21 `record`s.
 
@@ -127,7 +199,7 @@ try (Agent agent = new Agent(config)) {
 
 ---
 
-## 4. Model Context Protocol (MCP)
+## 6. Model Context Protocol (MCP)
 
 Connect to local or remote Model Context Protocol (MCP) servers to expose external tools to the agent dynamically.
 
@@ -148,7 +220,7 @@ AgentConfig config = AgentConfig.builder()
 
 ---
 
-## 5. Background Triggers
+## 7. Background Triggers
 
 Inject recurring context updates into active agent sessions without interrupting user turns.
 
@@ -169,7 +241,7 @@ AgentConfig config = AgentConfig.builder()
 
 ---
 
-## 6. Multimodal Inputs
+## 8. Multimodal Inputs
 
 Pass text, images, audio, or video files to the agent using `AgentInput`.
 

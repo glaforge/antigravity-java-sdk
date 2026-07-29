@@ -25,6 +25,9 @@ package io.github.glaforge.antigravity;
  */
 public record AgentResponseChunk(String textDelta, String thoughtsDelta) {
 
+	/**
+	 * Compact constructor ensuring deltas are non-null.
+	 */
 	public AgentResponseChunk {
 		textDelta = textDelta != null ? textDelta : "";
 		thoughtsDelta = thoughtsDelta != null ? thoughtsDelta : "";
