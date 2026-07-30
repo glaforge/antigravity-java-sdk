@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class StreamingTest {
 
 	@Test
-	@Timeout(value = 180, unit = TimeUnit.SECONDS)
+	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testStreaming() throws Exception {
 		TestUtils.retry(2, () -> {
 			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
@@ -60,7 +60,7 @@ public class StreamingTest {
 		});
 	}
 	@Test
-	@Timeout(value = 180, unit = TimeUnit.SECONDS)
+	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testAgentStream() throws Exception {
 		TestUtils.retry(2, () -> {
 			AgentConfig config = AgentConfig.builder()

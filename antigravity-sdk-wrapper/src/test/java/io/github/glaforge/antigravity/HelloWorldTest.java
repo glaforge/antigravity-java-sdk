@@ -37,7 +37,7 @@ public class HelloWorldTest {
 	}
 
 	@Test
-	@Timeout(value = 180, unit = TimeUnit.SECONDS)
+	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testWeatherAgent() throws Exception {
 		TestUtils.retry(2, () -> {
 			WeatherTools tools = new WeatherTools();

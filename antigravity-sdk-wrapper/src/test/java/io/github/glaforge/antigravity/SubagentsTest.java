@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class SubagentsTest {
 
 	@Test
-	@Timeout(value = 180, unit = TimeUnit.SECONDS)
+	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testSubagents() throws Exception {
 		TestUtils.retry(2, () -> {
 			AgentConfig config = AgentConfig.builder().instructions("You are a coordinator agent.")

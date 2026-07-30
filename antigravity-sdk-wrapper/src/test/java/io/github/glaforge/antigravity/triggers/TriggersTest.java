@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class TriggersTest {
 
 	@Test
-	@Timeout(value = 180, unit = TimeUnit.SECONDS)
+	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testBuiltInTrigger() throws Exception {
 		TestUtils.retry(2, () -> {
 			AtomicInteger triggerCount = new AtomicInteger(0);

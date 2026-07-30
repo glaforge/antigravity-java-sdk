@@ -30,7 +30,7 @@ import java.nio.file.Path;
 public class SlashCommandsTest {
 
 	@Test
-	@Timeout(value = 180, unit = TimeUnit.SECONDS)
+	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testSlashCommand() throws Exception {
 		TestUtils.retry(2, () -> {
 			Path tempDir = Files.createTempDirectory("antigravity-slash-test");

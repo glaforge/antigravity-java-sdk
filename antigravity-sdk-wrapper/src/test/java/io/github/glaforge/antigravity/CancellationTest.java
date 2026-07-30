@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class CancellationTest {
 
 	@Test
-	@Timeout(value = 180, unit = TimeUnit.SECONDS)
+	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testCancellation() throws Exception {
 		AgentConfig config = AgentConfig.builder().build();
 

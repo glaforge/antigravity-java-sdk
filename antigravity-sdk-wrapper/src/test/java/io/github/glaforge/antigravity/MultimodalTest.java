@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class MultimodalTest {
 
 	@Test
-	@Timeout(value = 180, unit = TimeUnit.SECONDS)
+	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testDocumentInput() throws Exception {
 		TestUtils.retry(2, () -> {
 			File tempDoc = File.createTempFile("sample_doc", ".txt");
