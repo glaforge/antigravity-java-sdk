@@ -31,7 +31,7 @@ public class ObservabilityTest {
 	public void testUsageObservability() throws Exception {
 		TestUtils.retry(2, () -> {
 			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
-					.modelName("gemini-2.5-flash").build();
+					.modelName("gemini-3.6-flash").build();
 
 			try (Agent agent = new Agent(config)) {
 				CompletableFuture<AgentResponse> future = agent.chat("Hi, say exactly one word: Hello.");

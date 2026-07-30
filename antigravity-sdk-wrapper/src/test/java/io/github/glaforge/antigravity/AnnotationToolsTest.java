@@ -51,7 +51,7 @@ public class AnnotationToolsTest {
 			AgentConfig config = AgentConfig.builder().instructions("""
 					You are a weather bot.
 					Always invoke the weather_forecast tool to get the weather, and tell the user the result.
-					""").addTool(new MyToolbox()).modelName("gemini-flash-latest").build();
+					""").addTool(new MyToolbox()).modelName("gemini-3.6-flash").build();
 
 			try (Agent agent = new Agent(config)) {
 				System.out.println("Agent initialized successfully!");

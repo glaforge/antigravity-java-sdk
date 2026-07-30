@@ -33,7 +33,7 @@ public class StreamingTest {
 	public void testStreaming() throws Exception {
 		TestUtils.retry(2, () -> {
 			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
-					.modelName("gemini-flash-latest").build();
+					.modelName("gemini-3.6-flash").build();
 
 			try (Agent agent = new Agent(config)) {
 				System.out.println("Starting chat stream...");
