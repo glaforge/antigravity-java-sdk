@@ -264,3 +264,52 @@ AgentResponse response = agent.chat(
     AgentInput.Audio.fromFile(Path.of("voice_memo.mp3"))
 ).get(120, TimeUnit.SECONDS);
 ```
+
+---
+
+## 9. Retry, Observability & Tool Error Configurations (v0.1.9)
+
+### Model Retry Configuration (`RetryConfig`)
+
+```java
+import io.github.glaforge.antigravity.RetryConfig;
+
+// Use preset benchmark exponential backoff (5 retries for API, 3 retries for invalid output)
+AgentConfig config = AgentConfig.builder()
+    .retryConfig(RetryConfig.benchmark())
+    .build();
+```
+
+### Connection Tracing & Logging (`DebugConfig`)
+
+```java
+import io.github.glaforge.antigravity.DebugConfig;
+
+AgentConfig config = AgentConfig.builder()
+    .debugConfig(new DebugConfig(true, "DEBUG"))
+    .build();
+```
+
+### Builtin Tools & Structured Exceptions (`BuiltinTools`, `ToolExecutionError`)
+
+```java
+import io.github.glaforge.antigravity.BuiltinTools;
+import io.github.glaforge.antigravity.ToolExecutionError;
+
+// Inspect builtin tool classifications
+List<BuiltinTools> readOnlyTools = BuiltinTools.readOnly();
+List<BuiltinTools> safeTools = BuiltinTools.nondestructive();
+
+// Structured exception handling in hooks
+AgentConfig config = AgentConfig.builder()
+    .addOnToolErrorHook((call, err, ctx) -> {
+        if (err instanceof ToolExecutionError tee) {
+            String failingTool = tee.getToolName();
+            String argsJson = tee.getArgumentsJson();
+            System.err.println("Execution failed for tool: " + failingTool + " with args: " + argsJson);
+        }
+        return CompletableFuture.completedFuture("Recovered safely");
+    })
+    .build();
+```
+

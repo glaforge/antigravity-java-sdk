@@ -521,6 +521,10 @@ public class Agent implements AutoCloseable, TriggerContext {
 				configBuilder.setFinishToolSchemaJson(config.getFinishToolSchemaJson());
 			}
 
+			if (config.getRetryConfig() != null) {
+				configBuilder.setRetryConfig(config.getRetryConfig().toProtobuf());
+			}
+
 			if (config.getCapabilities().enableSubagents() || config.getCapabilities().allowUserQuestions()
 					|| config.getCapabilities().enableWebSearch() || config.getCapabilities().enableUrlReading()
 					|| config.getCapabilities().enableShell() || config.getCapabilities().enableViewFile()

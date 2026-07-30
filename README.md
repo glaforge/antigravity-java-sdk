@@ -491,6 +491,54 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
+### 18. Model Retry Configuration & Audio Analysis
+
+Configure automatic retries with exponential backoff for transient API errors and invalid model outputs using `RetryConfig`. Pass audio input parts directly in prompts for meeting summary workflows.
+
+```java
+// Configure agent with benchmark exponential retries
+AgentConfig config = AgentConfig.builder()
+    .instructions("Summarize meeting audio recordings accurately.")
+    .retryConfig(RetryConfig.benchmark())
+    .build();
+
+byte[] meetingAudio = Files.readAllBytes(Path.of("meeting.mp3"));
+AgentInput.Audio audioInput = new AgentInput.Audio("audio/mp3", meetingAudio, "Q3 roadmap sync");
+
+try (Agent agent = new Agent(config)) {
+    AgentResponse response = agent.chat(audioInput).get(120, TimeUnit.SECONDS);
+    System.out.println(response.text());
+}
+```
+
+### 19. Structured Tool Exception Handling & `BuiltinTools` Exports
+
+Surfacing tool execution failures programmatically as `ToolExecutionError` allows safe recovery in `OnToolErrorHook`. Use `BuiltinTools` constants and helper methods (`readOnly()`, `nondestructive()`, etc.) to reference built-in tool definitions.
+
+```java
+// Reference built-in tool categories
+List<BuiltinTools> safeTools = BuiltinTools.readOnly();
+
+AgentConfig config = AgentConfig.builder()
+    .addOnToolErrorHook((call, err, ctx) -> {
+        if (err instanceof ToolExecutionError tee) {
+            System.err.println("Tool failed: " + tee.getToolName() + " with args: " + tee.getArgumentsJson());
+        }
+        return CompletableFuture.completedFuture("Safely recovered from tool error");
+    })
+    .build();
+```
+
+### 20. Unified Connection Tracing (`DebugConfig`)
+
+Configure client logging levels and server-side distributed tracing uniformly across connection strategies using `DebugConfig`.
+
+```java
+AgentConfig config = AgentConfig.builder()
+    .debugConfig(DebugConfig.defaults())
+    .build();
+```
+
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](LICENSE).

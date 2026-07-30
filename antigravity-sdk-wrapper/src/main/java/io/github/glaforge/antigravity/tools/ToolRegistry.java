@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.CompletionStage;
 import io.github.glaforge.antigravity.DynamicTool;
 import io.github.glaforge.antigravity.ToolContext;
+import io.github.glaforge.antigravity.ToolExecutionError;
 
 /**
  * Manages the registration and execution of tools for the agent.
@@ -52,6 +53,7 @@ public class ToolRegistry {
 	 */
 	public void registerToolsFromObject(Object serviceInstance) {
 		Class<?> clazz = serviceInstance.getClass();
+		boolean foundTool = false;
 
 		for (Method method : clazz.getDeclaredMethods()) {
 			if (method.isAnnotationPresent(Tool.class)) {
@@ -61,8 +63,55 @@ public class ToolRegistry {
 
 				method.setAccessible(true);
 				registry.put(toolName, new ToolMethodHandler(serviceInstance, method));
+				foundTool = true;
 			}
 		}
+
+		if (!foundTool) {
+			// Automatic tool name resolution: if object has a single public declared
+			// method, register it using class/method name
+			Method[] methods = clazz.getDeclaredMethods();
+			Method candidate = null;
+			for (Method m : methods) {
+				if (!m.isSynthetic() && !m.getName().contains("$") && !m.getName().equals("equals")
+						&& !m.getName().equals("hashCode") && !m.getName().equals("toString")) {
+					if (candidate == null) {
+						candidate = m;
+					} else {
+						candidate = null;
+						break;
+					}
+				}
+			}
+			if (candidate != null) {
+				String resolvedName = resolveToolName(serviceInstance, candidate);
+				candidate.setAccessible(true);
+				registry.put(resolvedName, new ToolMethodHandler(serviceInstance, candidate));
+			}
+		}
+	}
+
+	/**
+	 * Resolves tool name automatically from instance class or method.
+	 *
+	 * @param instance
+	 *            the service instance
+	 * @param method
+	 *            the method candidate, or null
+	 * @return resolved tool name
+	 */
+	public static String resolveToolName(Object instance, Method method) {
+		if (method != null && method.isAnnotationPresent(Tool.class)) {
+			Tool anno = method.getAnnotation(Tool.class);
+			if (!anno.name().isEmpty()) {
+				return anno.name();
+			}
+			return method.getName();
+		}
+		if (method != null) {
+			return method.getName();
+		}
+		return instance.getClass().getSimpleName();
 	}
 
 	/**
@@ -152,20 +201,33 @@ public class ToolRegistry {
 	 *             if tool execution fails
 	 */
 	public String execute(String toolName, JsonNode arguments, ToolContext toolContext) throws Exception {
-		if (dynamicRegistry.containsKey(toolName)) {
-			Object result = dynamicRegistry.get(toolName).execute(arguments);
+		try {
+			if (dynamicRegistry.containsKey(toolName)) {
+				Object result = dynamicRegistry.get(toolName).execute(arguments);
+				return formatToolResult(result);
+			}
+
+			ToolMethodHandler handler = registry.get(toolName);
+			if (handler == null) {
+				throw new IllegalArgumentException("Unknown tool requested: " + toolName);
+			}
+
+			Object[] parsedArgs = resolveArguments(handler.method(), arguments, toolContext);
+			Object result = handler.method().invoke(handler.instance(), parsedArgs);
+
 			return formatToolResult(result);
+		} catch (ToolExecutionError tee) {
+			throw tee;
+		} catch (Exception e) {
+			Throwable cause = e;
+			if (e instanceof java.lang.reflect.InvocationTargetException ite && ite.getCause() != null) {
+				cause = ite.getCause();
+			}
+			if (cause instanceof ToolExecutionError tee) {
+				throw tee;
+			}
+			throw new ToolExecutionError(toolName, arguments != null ? arguments.toString() : "{}", cause);
 		}
-
-		ToolMethodHandler handler = registry.get(toolName);
-		if (handler == null) {
-			throw new IllegalArgumentException("Unknown tool requested: " + toolName);
-		}
-
-		Object[] parsedArgs = resolveArguments(handler.method(), arguments, toolContext);
-		Object result = handler.method().invoke(handler.instance(), parsedArgs);
-
-		return formatToolResult(result);
 	}
 
 	private String formatToolResult(Object result) throws Exception {

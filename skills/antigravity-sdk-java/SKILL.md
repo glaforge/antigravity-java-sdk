@@ -94,6 +94,48 @@ try (Agent agent = new Agent(config)) {
 
 See [Streaming & Reactive Integration](references/streaming-and-reactive.md) for Spring WebFlux / RxJava 3 integration and `AgentStream` thought interception.
 
+### 4. Retry Configuration & Audio Input (v0.1.9)
+
+Configure exponential retries for transient API errors & model outputs using `RetryConfig`. Pass audio input directly to agents for meeting summary workflows.
+
+```java
+import io.github.glaforge.antigravity.RetryConfig;
+import io.github.glaforge.antigravity.AgentInput;
+
+// Configure agent to automatically retry transient API errors with backoff
+AgentConfig config = AgentConfig.builder()
+    .instructions("Analyze meeting recordings and provide a concise summary.")
+    .retryConfig(RetryConfig.benchmark())
+    .build();
+
+// Build an agent snippet that takes an audio recording of a meeting and streams a summary back
+byte[] audioData = Files.readAllBytes(Path.of("meeting.mp3"));
+AgentInput.Audio audioInput = new AgentInput.Audio("audio/mp3", audioData, "Q3 planning meeting");
+
+try (Agent agent = new Agent(config)) {
+    agent.chatStream(audioInput, chunk -> System.out.print(chunk.textDelta()))
+         .get(120, TimeUnit.SECONDS);
+}
+```
+
+### 5. Structured Tool Exception Handling & Recovery (v0.1.9)
+
+Catch tool execution errors programmatically via `ToolExecutionError` in `OnToolErrorHook` to safely recover when a tool fails.
+
+```java
+import io.github.glaforge.antigravity.ToolExecutionError;
+import io.github.glaforge.antigravity.BuiltinTools;
+
+AgentConfig config = AgentConfig.builder()
+    .addOnToolErrorHook((call, err, ctx) -> {
+        if (err instanceof ToolExecutionError tee) {
+            System.err.println("Tool execution failed on tool: " + tee.getToolName());
+        }
+        return CompletableFuture.completedFuture("Safely recovered from tool error");
+    })
+    .build();
+```
+
 ---
 
 ## Detailed References

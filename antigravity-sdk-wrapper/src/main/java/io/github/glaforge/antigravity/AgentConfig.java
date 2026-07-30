@@ -53,6 +53,8 @@ public class AgentConfig {
 	private final List<McpServerConfig> mcpServers;
 	private final Map<String, String> environmentVariables;
 	private final String baseUrl;
+	private final RetryConfig retryConfig;
+	private final DebugConfig debugConfig;
 
 	private AgentConfig(Builder builder) {
 		this.instructions = builder.instructions;
@@ -72,6 +74,8 @@ public class AgentConfig {
 		this.mcpServers = new ArrayList<>(builder.mcpServers);
 		this.environmentVariables = new HashMap<>(builder.environmentVariables);
 		this.baseUrl = builder.baseUrl;
+		this.retryConfig = builder.retryConfig;
+		this.debugConfig = builder.debugConfig;
 	}
 
 	/**
@@ -216,6 +220,24 @@ public class AgentConfig {
 	}
 
 	/**
+	 * Returns the model API and output retry configuration.
+	 *
+	 * @return retry configuration, or null if not configured
+	 */
+	public RetryConfig getRetryConfig() {
+		return retryConfig;
+	}
+
+	/**
+	 * Returns the debug and observability configuration.
+	 *
+	 * @return debug configuration, or null if not configured
+	 */
+	public DebugConfig getDebugConfig() {
+		return debugConfig;
+	}
+
+	/**
 	 * Hydrates the GCP/Vertex project ID from explicit config or standard
 	 * GOOGLE_CLOUD_PROJECT environment variable.
 	 *
@@ -282,6 +304,8 @@ public class AgentConfig {
 		private List<McpServerConfig> mcpServers = new ArrayList<>();
 		private Map<String, String> environmentVariables = new HashMap<>();
 		private String baseUrl;
+		private RetryConfig retryConfig;
+		private DebugConfig debugConfig;
 
 		/**
 		 * Sets the instructions.
@@ -613,6 +637,31 @@ public class AgentConfig {
 		 */
 		public Builder addEnvironmentVariable(String key, String value) {
 			this.environmentVariables.put(key, value);
+			return this;
+		}
+
+		/**
+		 * Sets the retry configuration for transient model API errors and output
+		 * retries.
+		 *
+		 * @param retryConfig
+		 *            the retry configuration
+		 * @return this builder
+		 */
+		public Builder retryConfig(RetryConfig retryConfig) {
+			this.retryConfig = retryConfig;
+			return this;
+		}
+
+		/**
+		 * Sets the debug configuration for client logging and server-side tracing.
+		 *
+		 * @param debugConfig
+		 *            the debug configuration
+		 * @return this builder
+		 */
+		public Builder debugConfig(DebugConfig debugConfig) {
+			this.debugConfig = debugConfig;
 			return this;
 		}
 

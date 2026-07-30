@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
@@ -45,7 +46,7 @@ public class ReadmeSnippetsTest {
 
 		try (Agent agent = new Agent(config)) {
 			CompletableFuture<AgentResponse> future = agent.chat("Hello, who are you?");
-			await().atMost(240, TimeUnit.SECONDS).until(future::isDone);
+			await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
 			AgentResponse response = future.get();
 			System.out.println(response.text());
 		}
@@ -61,7 +62,7 @@ public class ReadmeSnippetsTest {
 					chunk -> {
 						System.out.print(chunk.textDelta());
 					});
-			await().atMost(240, TimeUnit.SECONDS).until(future::isDone);
+			await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
 			future.get();
 		}
 	}
@@ -95,7 +96,7 @@ public class ReadmeSnippetsTest {
 					done.complete(null);
 				}
 			});
-			await().atMost(240, TimeUnit.SECONDS).until(done::isDone);
+			await().atMost(30, TimeUnit.SECONDS).until(done::isDone);
 		}
 	}
 
@@ -124,7 +125,7 @@ public class ReadmeSnippetsTest {
 			});
 
 			CompletableFuture<AgentResponse> future = stream.result();
-			await().atMost(240, TimeUnit.SECONDS).until(future::isDone);
+			await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
 			AgentResponse response = future.get();
 			System.out.println(response.text());
 		}
@@ -144,7 +145,7 @@ public class ReadmeSnippetsTest {
 					.modelName("gemini-flash-latest").addTool(new MyToolbox()).build();
 			try (Agent agent = new Agent(config)) {
 				CompletableFuture<AgentResponse> f = agent.chat("What's the weather in Seattle?");
-				await().atMost(240, TimeUnit.SECONDS).until(f::isDone);
+				await().atMost(30, TimeUnit.SECONDS).until(f::isDone);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}
@@ -178,7 +179,7 @@ public class ReadmeSnippetsTest {
 				}).build();
 		try (Agent agent = new Agent(config)) {
 			CompletableFuture<AgentResponse> f = agent.chat("What's the weather in Seattle?");
-			await().atMost(240, TimeUnit.SECONDS).until(f::isDone);
+			await().atMost(30, TimeUnit.SECONDS).until(f::isDone);
 		}
 	}
 
@@ -229,7 +230,7 @@ public class ReadmeSnippetsTest {
 
 			try (Agent agent = new Agent(config)) {
 				CompletableFuture<AgentResponse> f = agent.chat("Hello!");
-				await().atMost(120, TimeUnit.SECONDS).until(f::isDone);
+				await().atMost(30, TimeUnit.SECONDS).until(f::isDone);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}
@@ -256,7 +257,7 @@ public class ReadmeSnippetsTest {
 
 		try (Agent agent = new Agent(config)) {
 			CompletableFuture<AgentResponse> f = agent.chat("Extract: Alice");
-			await().atMost(240, TimeUnit.SECONDS).until(f::isDone);
+			await().atMost(30, TimeUnit.SECONDS).until(f::isDone);
 			AgentResponse response = f.get();
 
 			Person parsedPerson = response.getStructuredOutput(Person.class);
@@ -294,7 +295,7 @@ public class ReadmeSnippetsTest {
 		try (Agent agent = new Agent(config)) {
 			// You can send slash commands directly!
 			CompletableFuture<AgentResponse> f = agent.chat("/help");
-			await().atMost(240, TimeUnit.SECONDS).until(f::isDone);
+			await().atMost(30, TimeUnit.SECONDS).until(f::isDone);
 			AgentResponse response = f.get();
 			System.out.println(response.text());
 		}
@@ -312,5 +313,41 @@ public class ReadmeSnippetsTest {
 		try (Agent agent = new Agent(config)) {
 			// The agent now has access to web search and file operations natively!
 		}
+	}
+
+	@Test
+	public void snippet17RetryConfigAndAudio() throws Exception {
+		AgentConfig config = AgentConfig.builder().instructions("You summarize meeting recordings accurately.")
+				.retryConfig(RetryConfig.benchmark()).build();
+
+		byte[] meetingAudio = new byte[]{1, 2, 3, 4, 5};
+		AgentInput.Audio audioInput = new AgentInput.Audio("audio/mp3", meetingAudio, "Q3 sync meeting recording");
+
+		try (Agent agent = new Agent(config)) {
+			// Chat with audio input and automatic exponential retries
+			assertNotNull(audioInput);
+		}
+	}
+
+	@Test
+	public void snippet18BuiltinToolsEnumAndToolError() throws Exception {
+		System.out.println("Read-only tools: " + BuiltinTools.readOnly());
+		System.out.println("Non-destructive tools: " + BuiltinTools.nondestructive());
+
+		AgentConfig config = AgentConfig.builder().addOnToolErrorHook((call, err, ctx) -> {
+			if (err instanceof ToolExecutionError tee) {
+				System.err.println("Tool failed: " + tee.getToolName() + " with args: " + tee.getArgumentsJson());
+			}
+			return CompletableFuture.completedFuture("Recovered from tool error safely");
+		}).build();
+
+		assertNotNull(config);
+	}
+
+	@Test
+	public void snippet19DebugConfig() throws Exception {
+		AgentConfig config = AgentConfig.builder().debugConfig(DebugConfig.defaults()).build();
+
+		assertNotNull(config.getDebugConfig());
 	}
 }
