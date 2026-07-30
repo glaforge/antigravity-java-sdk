@@ -37,10 +37,11 @@ public class StructuredOutputsTest {
 	}
 
 	@Test
-	@Timeout(value = 180, unit = TimeUnit.SECONDS)
+	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testStructuredOutput() throws Exception {
 		TestUtils.retry(2, () -> {
-			AgentConfig config = AgentConfig.builder().instructions("Extract the person information from the text.")
+			AgentConfig config = AgentConfig.builder().instructions(
+					"Extract the person information from the text and call the finish tool with the extracted name and age.")
 					.modelName("gemini-3.6-flash").finishToolSchema(Person.class).build();
 
 			try (Agent agent = new Agent(config)) {
