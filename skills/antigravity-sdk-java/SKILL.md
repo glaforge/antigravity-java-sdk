@@ -8,6 +8,25 @@ license: Apache-2.0
 
 The **Antigravity SDK for Java** enables enterprise Java developers to build, configure, host, and execute AI agents natively in **Java 21**. It wraps the native `localharness` binary over WebSockets, supporting streaming, tool calling, Model Context Protocol (MCP), lifecycle hooks, security policies, and multimodal inputs.
 
+## Prerequisites & Authentication Setup
+
+Before executing tasks with the Antigravity Java SDK, verify the environment:
+
+- **Check Dependencies**: Ensure `io.github.glaforge:antigravity-sdk-wrapper` (and `antigravity-sdk-protocol`) are listed in `pom.xml`.
+- **API Key Setup**: A valid `GEMINI_API_KEY` environment variable is required to access Gemini models.
+  - If credentials are missing, actively help the user get set up by providing the Google AI Studio link: `https://aistudio.google.com/app/api-keys`.
+- **Vertex AI (Gemini Enterprise Agent Platform)**: Uses Application Default Credentials (ADC). Instruct the user to run `gcloud auth application-default login` and set environment variables `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION`.
+
+## Routing Table
+
+Use the following reference guide based on the user prompt:
+
+- **Core API & Multimodal**: For `AgentConfig`, MCP servers, multimodal inputs (`AgentInput.Audio`, `AgentInput.Image`), `RetryConfig`, `DebugConfig`, or `BuiltinTools`, read [API Reference](references/api-reference.md).
+- **Security & Hooks**: For policy rules (`allowTools`, `denyIf`, `askUser`), `PreTurnHook`, `PreToolCallDecideHook`, or `OnToolErrorHook` with `ToolExecutionError`, read [Security Policies & Lifecycle Hooks](references/security-and-hooks.md).
+- **Streaming & Reactive**: For `Flow.Publisher`, Spring WebFlux / RxJava 3 integration, or streaming internal thoughts via `AgentStream`, read [Streaming & Reactive Integration](references/streaming-and-reactive.md).
+
+---
+
 ## Quick Start
 
 ### Basic Agent Execution
@@ -158,4 +177,6 @@ For specialized configurations and detailed API breakdowns:
   ```
 - **Policy Order Sensitivity**: Policies evaluate strictly in insertion order. Place restrictive `denyIf` or `askUser` rules *before* `allowTools` or `denyAll`.
 - **Data Carrier Records**: Always represent custom tool parameter DTOs or structured outputs as modern **Java 21 `record`** types for immutability and automatic schema reflection.
+- **Thinking Token Overhead**: Extended reasoning models generate thinking tokens that count towards usage (`usageMetadata().thoughtsTokenCount()`). Monitor token counts when setting high `ThinkingLevel`.
+- **Observability & Wire Logs**: Use `DebugConfig.defaults()` or `.debugConfig(new DebugConfig(true, "DEBUG"))` in `AgentConfig` to enable client logging and server-side distributed tracing.
 - **No Fully Qualified Names (FQNs)**: Maintain clean imports at top of Java files (`import java.util.List;`) rather than inline FQNs.
