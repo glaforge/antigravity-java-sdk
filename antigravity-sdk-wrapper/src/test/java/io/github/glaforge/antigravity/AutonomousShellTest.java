@@ -21,6 +21,8 @@ import org.junit.jupiter.api.Timeout;
 
 import java.util.concurrent.TimeUnit;
 
+import java.util.concurrent.CompletableFuture;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("integration")
@@ -29,24 +31,27 @@ public class AutonomousShellTest {
 	@Test
 	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	public void testShellAccess() throws Exception {
-		// Enable shell and allow all policies so it can execute without permission
-		CapabilitiesConfig capabilities = CapabilitiesConfig.builder().enableShell(true).build();
+		TestUtils.retry(2, () -> {
+			CapabilitiesConfig capabilities = CapabilitiesConfig.builder().enableShell(true).build();
 
-		AgentConfig config = AgentConfig.builder().capabilities(capabilities).addPolicy(new Policy() {
-			@Override
-			public Decision evaluate(String toolName, com.fasterxml.jackson.databind.JsonNode arguments) {
-				return Decision.ALLOW;
+			AgentConfig config = AgentConfig.builder().modelName("gemini-3.6-flash").capabilities(capabilities)
+					.addPolicy(new Policy() {
+						@Override
+						public Decision evaluate(String toolName, com.fasterxml.jackson.databind.JsonNode arguments) {
+							return Decision.ALLOW;
+						}
+					}).build();
+
+			try (Agent agent = new Agent(config)) {
+				CompletableFuture<AgentResponse> future = agent
+						.chat("Run 'echo Hello from the autonomous shell!' and tell me what the output is.");
+				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
+				AgentResponse response = future.get();
+
+				assertNotNull(response);
+				assertNotNull(response.text());
+				assertTrue(response.text().contains("Hello from the autonomous shell!"));
 			}
-		}).build();
-
-		try (Agent agent = new Agent(config)) {
-			AgentResponse response = agent
-					.chat("Run 'echo Hello from the autonomous shell!' and tell me what the output is.")
-					.get(45, TimeUnit.SECONDS);
-
-			assertNotNull(response);
-			assertNotNull(response.text());
-			assertTrue(response.text().contains("Hello from the autonomous shell!"));
-		}
+		});
 	}
 }

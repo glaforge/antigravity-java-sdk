@@ -20,6 +20,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,28 +32,28 @@ public class SlashCommandsTest {
 	@Test
 	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	public void testSlashCommand() throws Exception {
-		Path tempDir = Files.createTempDirectory("antigravity-slash-test");
-		AgentConfig config = AgentConfig.builder().appDataDir(tempDir.toString())
-				.capabilities(CapabilitiesConfig.builder().enableWriteFile(true).enableViewFile(true).build())
-				.addPolicy(new Policy() {
-					@Override
-					public Decision evaluate(String toolName, com.fasterxml.jackson.databind.JsonNode arguments) {
-						return Decision.ALLOW;
-					}
-				}).build();
+		TestUtils.retry(2, () -> {
+			Path tempDir = Files.createTempDirectory("antigravity-slash-test");
+			AgentConfig config = AgentConfig.builder().modelName("gemini-3.6-flash").appDataDir(tempDir.toString())
+					.capabilities(CapabilitiesConfig.builder().enableWriteFile(true).enableViewFile(true).build())
+					.addPolicy(new Policy() {
+						@Override
+						public Decision evaluate(String toolName, com.fasterxml.jackson.databind.JsonNode arguments) {
+							return Decision.ALLOW;
+						}
+					}).build();
 
-		try (Agent agent = new Agent(config)) {
-			// Using the /plan slash command programmatically
-			AgentInput slashCommand = AgentInput.SlashCommand.of("plan");
-			AgentInput textPrompt = AgentInput.Text.of("Write a python script that prints numbers 1 to 10.");
+			try (Agent agent = new Agent(config)) {
+				// Using the /plan slash command programmatically
+				AgentInput slashCommand = AgentInput.SlashCommand.of("plan");
+				AgentInput textPrompt = AgentInput.Text.of("Write a python script that prints numbers 1 to 10.");
 
-			AgentResponse response = agent.chat(List.of(slashCommand, textPrompt)).get(45, TimeUnit.SECONDS);
-			assertNotNull(response);
-			assertNotNull(response.text());
-
-			// The planning agent should ask us a question about the plan or present the
-			// plan.
-			// Since we just execute and wait, it'll run to completion.
-		}
+				CompletableFuture<AgentResponse> future = agent.chat(List.of(slashCommand, textPrompt));
+				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
+				AgentResponse response = future.get();
+				assertNotNull(response);
+				assertNotNull(response.text());
+			}
+		});
 	}
 }

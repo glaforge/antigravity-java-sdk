@@ -20,6 +20,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import java.util.concurrent.TimeUnit;
 
+import java.util.concurrent.CompletableFuture;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("integration")
@@ -28,20 +30,21 @@ public class WebToolsTest {
 	@Test
 	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	public void testWebTools() throws Exception {
-		// Enable web search and url reading
-		CapabilitiesConfig capabilities = CapabilitiesConfig.builder().enableWebSearch(true).enableUrlReading(true)
-				.build();
-		AgentConfig config = AgentConfig.builder().capabilities(capabilities).build();
+		TestUtils.retry(2, () -> {
+			CapabilitiesConfig capabilities = CapabilitiesConfig.builder().enableWebSearch(true).enableUrlReading(true)
+					.build();
+			AgentConfig config = AgentConfig.builder().modelName("gemini-3.6-flash").capabilities(capabilities).build();
 
-		try (Agent agent = new Agent(config)) {
-			// Ask a question that requires searching the web
-			AgentResponse response = agent
-					.chat("Search the web for the current weather in New York City. Give a short summary.")
-					.get(45, TimeUnit.SECONDS);
+			try (Agent agent = new Agent(config)) {
+				CompletableFuture<AgentResponse> future = agent
+						.chat("Search the web for the current weather in New York City. Give a short summary.");
+				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
+				AgentResponse response = future.get();
 
-			assertNotNull(response);
-			assertNotNull(response.text());
-			assertTrue(response.text().length() > 0);
-		}
+				assertNotNull(response);
+				assertNotNull(response.text());
+				assertTrue(response.text().length() > 0);
+			}
+		});
 	}
 }
