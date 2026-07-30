@@ -109,7 +109,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 		try {
 			InputEvent event = InputEvent.newBuilder().setAutomatedTrigger(triggerText).build();
 			String payload = JsonFormat.printer().omittingInsignificantWhitespace().print(event);
-			webSocket.sendText(payload, true);
+			sendWebSocketMessage(payload);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -123,7 +123,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 			this.clientCancelled = true;
 			InputEvent event = InputEvent.newBuilder().setHaltRequest(true).build();
 			String payload = JsonFormat.printer().omittingInsignificantWhitespace().print(event);
-			webSocket.sendText(payload, true);
+			sendWebSocketMessage(payload);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -561,7 +561,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 			WebSocket.Listener wsListener = new WebSocket.Listener() {
 				@Override
 				public void onOpen(WebSocket webSocket) {
-					webSocket.sendText(initEventJson, true);
+					webSocket.sendText(initEventJson, true).join();
 					WebSocket.Listener.super.onOpen(webSocket);
 				}
 
@@ -814,7 +814,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 			InputEvent event = InputEvent.newBuilder().setComplexUserInput(userInputBuilder.build()).build();
 			String payload = JsonFormat.printer().omittingInsignificantWhitespace().print(event);
-			this.webSocket.sendText(payload, true);
+			sendWebSocketMessage(payload);
 		} catch (Exception e) {
 			this.currentChatFuture.completeExceptionally(e);
 		}
@@ -1011,7 +1011,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 						String responsePayload = String.format(
 								"{\"toolConfirmation\": {\"trajectoryId\": \"%s\", \"stepIndex\": %d, \"accepted\": %b}}",
 								trajectoryId, stepIndex, accepted);
-						webSocket.sendText(responsePayload, true);
+						sendWebSocketMessage(responsePayload);
 					} catch (Exception e) {
 					}
 				}
@@ -1045,7 +1045,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 												String payloadJson = JsonFormat.printer()
 														.omittingInsignificantWhitespace().print(inputEvent);
-												webSocket.sendText(payloadJson, true);
+												sendWebSocketMessage(payloadJson);
 											} catch (Exception e) {
 												e.printStackTrace();
 											}
@@ -1182,7 +1182,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 						InputEvent inputEvent = InputEvent.newBuilder().setCallHookResponse(respBuilder.build())
 								.build();
 						String payloadJson = JsonFormat.printer().omittingInsignificantWhitespace().print(inputEvent);
-						webSocket.sendText(payloadJson, true);
+						sendWebSocketMessage(payloadJson);
 					} catch (Exception e) {
 					}
 				});
@@ -1254,7 +1254,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 								.build();
 						String responsePayload = JsonFormat.printer().omittingInsignificantWhitespace()
 								.print(responseEvent);
-						webSocket.sendText(responsePayload, true);
+						sendWebSocketMessage(responsePayload);
 					} catch (Exception e) {
 						e.printStackTrace();
 					}
@@ -1315,7 +1315,17 @@ public class Agent implements AutoCloseable, TriggerContext {
 					.setToolResponse(ToolResponse.newBuilder().setId(callId).setResponseJson(resultJson).build())
 					.build();
 			String responsePayload = JsonFormat.printer().omittingInsignificantWhitespace().print(responseEvent);
-			webSocket.sendText(responsePayload, true);
+			sendWebSocketMessage(responsePayload);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private synchronized void sendWebSocketMessage(String payload) {
+		try {
+			if (this.webSocket != null) {
+				this.webSocket.sendText(payload, true).join();
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
