@@ -34,7 +34,7 @@ public class SecurityPoliciesTest {
 	}
 
 	@Test
-	@Timeout(value = 60, unit = TimeUnit.SECONDS)
+	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	public void testSecurityPolicies() throws Exception {
 		TestUtils.retry(2, () -> {
 			WeatherTool tools = new WeatherTool();

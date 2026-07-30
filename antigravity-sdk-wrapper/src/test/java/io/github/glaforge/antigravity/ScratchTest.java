@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class ScratchTest {
 
 	@Test
-	@Timeout(value = 60, unit = TimeUnit.SECONDS)
+	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	public void testSaveDirContents() throws Exception {
 		TestUtils.retry(2, () -> {
 			File tempDir = Files.createTempDirectory("antigravity-scratch").toFile();

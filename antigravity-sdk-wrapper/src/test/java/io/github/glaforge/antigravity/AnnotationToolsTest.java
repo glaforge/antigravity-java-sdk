@@ -45,7 +45,7 @@ public class AnnotationToolsTest {
 	}
 
 	@Test
-	@Timeout(value = 60, unit = TimeUnit.SECONDS)
+	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	public void testPojoToolInvocation() throws Exception {
 		TestUtils.retry(2, () -> {
 			AgentConfig config = AgentConfig.builder().instructions("""

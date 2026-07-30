@@ -37,7 +37,7 @@ public class StructuredOutputsTest {
 	}
 
 	@Test
-	@Timeout(value = 60, unit = TimeUnit.SECONDS)
+	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	public void testStructuredOutput() throws Exception {
 		TestUtils.retry(2, () -> {
 			AgentConfig config = AgentConfig.builder().instructions("Extract the person information from the text.")

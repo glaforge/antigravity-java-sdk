@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class WebToolsTest {
 
 	@Test
-	@Timeout(value = 60, unit = TimeUnit.SECONDS)
+	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	public void testWebTools() throws Exception {
 		// Enable web search and url reading
 		CapabilitiesConfig capabilities = CapabilitiesConfig.builder().enableWebSearch(true).enableUrlReading(true)

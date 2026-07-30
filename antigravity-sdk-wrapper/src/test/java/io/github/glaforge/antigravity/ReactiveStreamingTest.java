@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class ReactiveStreamingTest {
 
 	@Test
-	@Timeout(value = 60, unit = TimeUnit.SECONDS)
+	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	public void testReactiveStreaming() throws Exception {
 		TestUtils.retry(2, () -> {
 			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")

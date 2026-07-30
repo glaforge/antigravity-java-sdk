@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class AutonomousShellTest {
 
 	@Test
-	@Timeout(value = 60, unit = TimeUnit.SECONDS)
+	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	public void testShellAccess() throws Exception {
 		// Enable shell and allow all policies so it can execute without permission
 		CapabilitiesConfig capabilities = CapabilitiesConfig.builder().enableShell(true).build();

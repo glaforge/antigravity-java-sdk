@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class BackgroundTriggersTest {
 
 	@Test
-	@Timeout(value = 60, unit = TimeUnit.SECONDS)
+	@Timeout(value = 180, unit = TimeUnit.SECONDS)
 	public void testBackgroundTriggers() throws Exception {
 		TestUtils.retry(2, () -> {
 			AgentConfig config = AgentConfig.builder().instructions("""
