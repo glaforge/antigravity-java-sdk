@@ -36,7 +36,7 @@ public class SecurityPoliciesTest {
 	}
 
 	@Test
-	@Timeout(value = 180, unit = TimeUnit.SECONDS)
+	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testSecurityPolicies() throws Exception {
 		TestUtils.retry(2, () -> {
 			WeatherTool tools = new WeatherTool();
@@ -52,7 +52,7 @@ public class SecurityPoliciesTest {
 			AgentConfig config = AgentConfig.builder().instructions("""
 					You are a weather assistant. Fetch the weather for Tokyo.
 					If denied, just say you can't.
-					""").addTool(tools).addPolicy(customPolicy).build();
+					""").modelName("gemini-3.6-flash").addTool(tools).addPolicy(customPolicy).build();
 
 			try (Agent agent = new Agent(config)) {
 				System.out.println("Testing with denied policy...");
