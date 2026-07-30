@@ -354,6 +354,10 @@ public class Agent implements AutoCloseable, TriggerContext {
 		if (config.getEnvironmentVariables() != null && !config.getEnvironmentVariables().isEmpty()) {
 			pb.environment().putAll(config.getEnvironmentVariables());
 		}
+		String resolvedApiKey = resolveGeminiApiKey();
+		if (resolvedApiKey != null && !resolvedApiKey.isEmpty()) {
+			pb.environment().putIfAbsent("GEMINI_API_KEY", resolvedApiKey);
+		}
 		this.goProcess = pb.start();
 
 		try {
@@ -403,28 +407,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 			int runtimePort = outputConfig.getPort();
 			String securityToken = outputConfig.getApiKey();
 
-			String envKey = System.getenv("GEMINI_API_KEY");
-			String propKey = System.getProperty("GEMINI_API_KEY");
-			String localEnvKey = null;
-			try {
-				Path envPath = Paths.get(".local.env");
-				if (!Files.exists(envPath)) {
-					envPath = Paths.get("../.local.env");
-				}
-				if (Files.exists(envPath)) {
-					for (String line : Files.readAllLines(envPath)) {
-						if (line.startsWith("GEMINI_API_KEY=")) {
-							localEnvKey = line.substring("GEMINI_API_KEY=".length()).trim();
-							break;
-						}
-					}
-				}
-			} catch (Exception e) {
-			}
-
-			String apiKey = propKey != null
-					? propKey
-					: (envKey != null ? envKey : (localEnvKey != null ? localEnvKey : "placeholder"));
+			String apiKey = resolvedApiKey != null ? resolvedApiKey : "placeholder";
 
 			Thread stdoutConsumer = new Thread(() -> {
 				try {
@@ -1374,5 +1357,27 @@ public class Agent implements AutoCloseable, TriggerContext {
 			toolExecutor.shutdownNow();
 			Thread.currentThread().interrupt();
 		}
+	}
+
+	private static String resolveGeminiApiKey() {
+		String envKey = System.getenv("GEMINI_API_KEY");
+		String propKey = System.getProperty("GEMINI_API_KEY");
+		String localEnvKey = null;
+		try {
+			Path envPath = Paths.get(".local.env");
+			if (!Files.exists(envPath)) {
+				envPath = Paths.get("../.local.env");
+			}
+			if (Files.exists(envPath)) {
+				for (String line : Files.readAllLines(envPath)) {
+					if (line.startsWith("GEMINI_API_KEY=")) {
+						localEnvKey = line.substring("GEMINI_API_KEY=".length()).trim();
+						break;
+					}
+				}
+			}
+		} catch (Exception e) {
+		}
+		return propKey != null ? propKey : (envKey != null ? envKey : localEnvKey);
 	}
 }
