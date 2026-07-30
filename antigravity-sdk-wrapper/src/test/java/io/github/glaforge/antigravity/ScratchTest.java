@@ -15,7 +15,9 @@
  */
 package io.github.glaforge.antigravity;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import java.io.File;
 import java.nio.file.Files;
 import java.util.concurrent.CompletableFuture;
@@ -23,11 +25,13 @@ import java.util.concurrent.TimeUnit;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 
+@Tag("integration")
 public class ScratchTest {
 
 	@Test
+	@Timeout(value = 60, unit = TimeUnit.SECONDS)
 	public void testSaveDirContents() throws Exception {
-		TestUtils.retry(3, () -> {
+		TestUtils.retry(2, () -> {
 			File tempDir = Files.createTempDirectory("antigravity-scratch").toFile();
 			System.out.println("Using temp dir: " + tempDir.getAbsolutePath());
 
@@ -37,7 +41,7 @@ public class ScratchTest {
 			String conversationId;
 			try (Agent agent1 = new Agent(config1)) {
 				CompletableFuture<AgentResponse> future1 = agent1.chat("My favorite color is blue.");
-				await().atMost(120, TimeUnit.SECONDS).until(future1::isDone);
+				await().atMost(30, TimeUnit.SECONDS).until(future1::isDone);
 				AgentResponse response1 = future1.get();
 
 				System.out.println("Chat 1:");

@@ -15,8 +15,17 @@
  */
 package io.github.glaforge.antigravity;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+
 /**
- * Resolves the underlying OS and architecture platform.
+ * Resolves the underlying OS and architecture platform and manages native
+ * binary extraction.
  */
 public class PlatformResolver {
 	/**
@@ -53,5 +62,65 @@ public class PlatformResolver {
 			throw new IllegalStateException("Unsupported Architecture: " + arch);
 
 		return osPart + "-" + archPart;
+	}
+
+	/**
+	 * Resolves and extracts the native localharness binary for the current platform
+	 * into a cached directory. If the binary is already extracted and valid, it is
+	 * reused.
+	 *
+	 * @return the File handle to the executable binary
+	 * @throws IOException
+	 *             if extraction fails or asset is missing
+	 */
+	public static synchronized File resolveBinary() throws IOException {
+		String platformSlice = getPlatformSlice();
+		boolean isWindows = platformSlice.startsWith("windows");
+		String ext = isWindows ? ".exe" : "";
+		String binaryFileName = "localharness" + ext;
+		String resourcePath = "/google/antigravity/bin/" + platformSlice + "/" + binaryFileName;
+
+		File baseDir;
+		String userHome = System.getProperty("user.home");
+		if (userHome != null && !userHome.isBlank()) {
+			baseDir = new File(userHome, ".antigravity/bin/" + platformSlice);
+		} else {
+			baseDir = new File(System.getProperty("java.io.tmpdir"), "antigravity-bin/" + platformSlice);
+		}
+		if (!baseDir.exists() && !baseDir.mkdirs()) {
+			baseDir = new File(System.getProperty("java.io.tmpdir"), "antigravity-bin/" + platformSlice);
+			baseDir.mkdirs();
+		}
+
+		File targetBinary = new File(baseDir, binaryFileName);
+
+		try (InputStream binaryStream = PlatformResolver.class.getResourceAsStream(resourcePath)) {
+			if (binaryStream == null) {
+				throw new FileNotFoundException("Embedded Go harness engine asset missing for slice: " + platformSlice);
+			}
+
+			byte[] resourceBytes = binaryStream.readAllBytes();
+			if (!targetBinary.exists() || targetBinary.length() != resourceBytes.length) {
+				File tempFile = File.createTempFile("localharness-extract-", ext, baseDir);
+				Files.write(tempFile.toPath(), resourceBytes);
+				if (!tempFile.setExecutable(true)) {
+					throw new IllegalStateException(
+							"Failed to grant execution rights to binary: " + tempFile.getAbsolutePath());
+				}
+				try {
+					Files.move(tempFile.toPath(), targetBinary.toPath(), StandardCopyOption.REPLACE_EXISTING,
+							StandardCopyOption.ATOMIC_MOVE);
+				} catch (AtomicMoveNotSupportedException e) {
+					Files.move(tempFile.toPath(), targetBinary.toPath(), StandardCopyOption.REPLACE_EXISTING);
+				}
+			}
+		}
+
+		if (!targetBinary.setExecutable(true)) {
+			throw new IllegalStateException(
+					"Failed to grant execution rights to binary: " + targetBinary.getAbsolutePath());
+		}
+
+		return targetBinary;
 	}
 }

@@ -5,10 +5,10 @@
   <parent>
     <groupId>io.github.glaforge.antigravity</groupId>
     <artifactId>antigravity-sdk-parent</artifactId>
-    <version>0.2.2-SNAPSHOT</version>
+    <version>0.2.3-SNAPSHOT</version>
   </parent>
   <artifactId>antigravity-sdk-wrapper</artifactId>
-  <version>0.2.2-SNAPSHOT</version>
+  <version>0.2.3-SNAPSHOT</version>
   <name>Antigravity Java SDK - Wrapper</name>
   <description>The main Java wrapper and client for the Antigravity localharness.</description>
   <url>https://github.com/glaforge/antigravity-java-sdk</url>
@@ -55,4 +55,31 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.4</version>
+        <configuration>
+          <excludedGroups>integration</excludedGroups>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+  <profiles>
+    <profile>
+      <id>integration-tests</id>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <excludedGroups>none</excludedGroups>
+              <groups>integration</groups>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

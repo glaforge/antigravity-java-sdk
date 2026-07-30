@@ -207,14 +207,23 @@ Connect to local or remote Model Context Protocol (MCP) servers to expose extern
 import io.github.glaforge.antigravity.McpServerConfig;
 import java.util.List;
 
+// Standard I/O MCP Server
 McpServerConfig sqliteMcp = McpServerConfig.stdio(
     "npx",
     List.of("-y", "@modelcontextprotocol/server-sqlite", "app_data.db")
 );
 
+// Server-Sent Events (SSE) MCP Server
+McpServerConfig sseMcp = McpServerConfig.sse("http://localhost:8080/sse");
+
+// Streamable HTTP / HTTP MCP Server
+McpServerConfig httpMcp = McpServerConfig.streamableHttp("http://localhost:8080/mcp");
+
 AgentConfig config = AgentConfig.builder()
-    .instructions("You have access to a database via MCP.")
+    .instructions("You have access to tools via MCP.")
     .addMcpServer(sqliteMcp)
+    .addMcpServer(sseMcp)
+    .addMcpServer(httpMcp)
     .build();
 ```
 

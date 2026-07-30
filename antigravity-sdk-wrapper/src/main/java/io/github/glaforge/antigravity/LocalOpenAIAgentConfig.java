@@ -95,9 +95,9 @@ public class LocalOpenAIAgentConfig {
 	 * Builder for LocalOpenAIAgentConfig.
 	 */
 	public static class Builder {
-		private String baseUrl = "http://localhost:11434/v1";
-		private String modelName = "llama3";
-		private String apiKey = "ollama";
+		private String baseUrl = "";
+		private String modelName = "";
+		private String apiKey = "";
 		private Map<String, String> httpHeaders = new HashMap<>();
 		private final AgentConfig.Builder agentConfigBuilder = AgentConfig.builder();
 
@@ -211,6 +211,12 @@ public class LocalOpenAIAgentConfig {
 		 * @return new LocalOpenAIAgentConfig instance
 		 */
 		public LocalOpenAIAgentConfig build() {
+			if (baseUrl == null || baseUrl.isEmpty()) {
+				throw new IllegalArgumentException("baseUrl must be specified for LocalOpenAIAgentConfig");
+			}
+			if (modelName == null || modelName.isEmpty()) {
+				throw new IllegalArgumentException("modelName must be specified for LocalOpenAIAgentConfig");
+			}
 			return new LocalOpenAIAgentConfig(this);
 		}
 	}

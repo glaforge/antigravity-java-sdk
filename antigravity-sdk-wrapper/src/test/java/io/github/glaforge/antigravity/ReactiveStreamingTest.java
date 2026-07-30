@@ -15,7 +15,9 @@
  */
 package io.github.glaforge.antigravity;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
@@ -23,11 +25,13 @@ import java.util.concurrent.TimeUnit;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 
+@Tag("integration")
 public class ReactiveStreamingTest {
 
 	@Test
+	@Timeout(value = 60, unit = TimeUnit.SECONDS)
 	public void testReactiveStreaming() throws Exception {
-		TestUtils.retry(3, () -> {
+		TestUtils.retry(2, () -> {
 			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
 					.modelName("gemini-flash-latest").build();
 
@@ -65,7 +69,7 @@ public class ReactiveStreamingTest {
 					}
 				});
 
-				await().atMost(120, TimeUnit.SECONDS).until(completionFuture::isDone);
+				await().atMost(30, TimeUnit.SECONDS).until(completionFuture::isDone);
 
 				System.out.println("\n--- Reactive Stream Complete ---");
 

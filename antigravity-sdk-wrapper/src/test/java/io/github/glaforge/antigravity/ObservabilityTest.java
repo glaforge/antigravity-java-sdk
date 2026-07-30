@@ -15,23 +15,27 @@
  */
 package io.github.glaforge.antigravity;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 
+@Tag("integration")
 public class ObservabilityTest {
 
 	@Test
+	@Timeout(value = 60, unit = TimeUnit.SECONDS)
 	public void testUsageObservability() throws Exception {
-		TestUtils.retry(3, () -> {
+		TestUtils.retry(2, () -> {
 			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
 					.modelName("gemini-flash-latest").build();
 
 			try (Agent agent = new Agent(config)) {
 				CompletableFuture<AgentResponse> future = agent.chat("Hi, say exactly one word: Hello.");
-				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+				await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 
 				// Verify usage metadata is populated if available

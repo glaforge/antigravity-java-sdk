@@ -15,12 +15,15 @@
  */
 package io.github.glaforge.antigravity;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 
+@Tag("integration")
 public class StructuredOutputsTest {
 
 	public static class Person {
@@ -34,15 +37,16 @@ public class StructuredOutputsTest {
 	}
 
 	@Test
+	@Timeout(value = 60, unit = TimeUnit.SECONDS)
 	public void testStructuredOutput() throws Exception {
-		TestUtils.retry(3, () -> {
+		TestUtils.retry(2, () -> {
 			AgentConfig config = AgentConfig.builder().instructions("Extract the person information from the text.")
 					.modelName("gemini-flash-latest").finishToolSchema(Person.class).build();
 
 			try (Agent agent = new Agent(config)) {
 				System.out.println("Sending prompt...");
 				CompletableFuture<AgentResponse> future = agent.chat("Bob is 42 years old and likes to fish.");
-				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+				await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 
 				System.out.println("\n--- Agent Response ---");

@@ -32,7 +32,8 @@ This entire project was autonomously generated and implemented by me (the Antigr
 *   **Java Version**: **Java 21**. Agents must ensure they use Java 21 compatible syntax and standard library features.
 *   **Maven Wrapper**: Always use the provided Maven wrapper (`./mvnw`). Do not rely on globally installed `mvn` or `gradle`.
 *   **Compilation**: `./mvnw clean compile`
-*   **Testing**: `./mvnw test`
+*   **Fast Unit Testing**: `./mvnw test` (Runs fast offline unit tests; `@Tag("integration")` is excluded by default)
+*   **Live Integration Testing**: `./mvnw test -Pintegration-tests` or `./mvnw test -Dgroups=integration`
 *   **Code Formatting**: `./mvnw spotless:apply`
 
 ## 🎨 Coding Standards
@@ -41,10 +42,17 @@ This entire project was autonomously generated and implemented by me (the Antigr
 *   **Code Formatting**: The project uses the Maven Spotless plugin with the Eclipse formatter. Always run `./mvnw spotless:apply` and ensure the code passes before committing.
 *   **License Headers**: Spotless will automatically inject the Apache 2.0 license header. Do not manually add copyright headers.
 
-## 🧪 Testing Guidelines
+## 🧪 Testing Guidelines & Strategy
 
-*   **Framework**: We use JUnit 6.
-*   **Asynchronous Assertions**: Because agent interactions happen asynchronously over WebSockets and `CompletableFuture`s, **never use `Thread.sleep()`** for waiting on agent responses in tests. Instead, always use `Awaitility` (e.g., `await().atMost(...)`).
+*   **Framework**: We use JUnit 6 (JUnit Jupiter).
+*   **Test Categorization (`@Tag`)**:
+    *   **Unit Tests (`@Tag("unit")`)**: Fast, offline tests evaluating configuration, policies, data structures, and SDK wrappers without invoking `localharness` or external APIs. These run by default during `./mvnw test`.
+    *   **Integration Tests (`@Tag("integration")`)**: Live network tests that launch the native `localharness` Go binary and communicate with remote model APIs. Excluded by default in `./mvnw test`; run explicitly via `./mvnw test -Pintegration-tests` or `-Dgroups=integration`.
+*   **Bounded Futures & Timeouts**:
+    *   **Never use unbounded `.join()`**: Always use bounded calls like `agent.chat(...).get(45, TimeUnit.SECONDS)` or `orTimeout(...)` to prevent hanging test runs if localharness or the network stalls.
+    *   **Per-Test Timeout**: Annotate integration test classes or methods with JUnit 5 `@Timeout` (e.g., `@Timeout(value = 60, unit = TimeUnit.SECONDS)`).
+*   **Asynchronous Assertions**: Because agent interactions happen asynchronously over WebSockets and `CompletableFuture`s, **never use `Thread.sleep()`** for waiting on agent responses in tests. Always use `Awaitility` with a tight timeout (e.g., `await().atMost(30, TimeUnit.SECONDS)`).
+*   **Resilient Assertions**: Avoid rigid string matching on non-deterministic LLM tool responses (e.g. strict lowercased JSON string prefixes). Check for key semantic contents instead to prevent unnecessary retries.
 
 ## 🔄 Upstream Synchronization
 

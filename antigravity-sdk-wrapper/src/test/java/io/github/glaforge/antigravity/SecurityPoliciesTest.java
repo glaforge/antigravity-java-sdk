@@ -15,13 +15,16 @@
  */
 package io.github.glaforge.antigravity;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 
+@Tag("integration")
 public class SecurityPoliciesTest {
 
 	public static class WeatherTool {
@@ -31,8 +34,9 @@ public class SecurityPoliciesTest {
 	}
 
 	@Test
+	@Timeout(value = 60, unit = TimeUnit.SECONDS)
 	public void testSecurityPolicies() throws Exception {
-		TestUtils.retry(3, () -> {
+		TestUtils.retry(2, () -> {
 			WeatherTool tools = new WeatherTool();
 			AtomicBoolean allowWeather = new AtomicBoolean(false);
 
@@ -51,7 +55,7 @@ public class SecurityPoliciesTest {
 			try (Agent agent = new Agent(config)) {
 				System.out.println("Testing with denied policy...");
 				CompletableFuture<AgentResponse> future1 = agent.chat("What is the weather in Tokyo right now?");
-				await().atMost(120, TimeUnit.SECONDS).until(future1::isDone);
+				await().atMost(30, TimeUnit.SECONDS).until(future1::isDone);
 				AgentResponse response1 = future1.get();
 				System.out.println(response1.text());
 				assertNotNull(response1.text());
@@ -61,7 +65,7 @@ public class SecurityPoliciesTest {
 				System.out.println("\nTesting with allowed policy...");
 				allowWeather.set(true);
 				CompletableFuture<AgentResponse> future2 = agent.chat("Try to fetch the weather for Tokyo again.");
-				await().atMost(120, TimeUnit.SECONDS).until(future2::isDone);
+				await().atMost(30, TimeUnit.SECONDS).until(future2::isDone);
 				AgentResponse response2 = future2.get();
 				System.out.println(response2.text());
 				assertNotNull(response2.text());

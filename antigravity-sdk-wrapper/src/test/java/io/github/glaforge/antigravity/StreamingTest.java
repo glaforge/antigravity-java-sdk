@@ -15,7 +15,9 @@
  */
 package io.github.glaforge.antigravity;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.Flow;
 import java.util.concurrent.CompletableFuture;
@@ -23,11 +25,13 @@ import java.util.concurrent.TimeUnit;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 
+@Tag("integration")
 public class StreamingTest {
 
 	@Test
+	@Timeout(value = 60, unit = TimeUnit.SECONDS)
 	public void testStreaming() throws Exception {
-		TestUtils.retry(3, () -> {
+		TestUtils.retry(2, () -> {
 			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
 					.modelName("gemini-flash-latest").build();
 
@@ -40,7 +44,7 @@ public class StreamingTest {
 							System.out.print(chunk.textDelta());
 							chunkCount.incrementAndGet();
 						});
-				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+				await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 
 				System.out.println("\n--- Stream Complete ---");
@@ -56,8 +60,9 @@ public class StreamingTest {
 		});
 	}
 	@Test
+	@Timeout(value = 60, unit = TimeUnit.SECONDS)
 	public void testAgentStream() throws Exception {
-		TestUtils.retry(3, () -> {
+		TestUtils.retry(2, () -> {
 			AgentConfig config = AgentConfig.builder()
 					.instructions("You are a helpful assistant. Please think out loud using thoughts.")
 					.modelName("gemini-2.5-pro") // pro models usually produce more thoughts
@@ -89,7 +94,7 @@ public class StreamingTest {
 					}
 				});
 
-				await().atMost(120, TimeUnit.SECONDS).until(() -> stream.result().isDone());
+				await().atMost(30, TimeUnit.SECONDS).until(() -> stream.result().isDone());
 				AgentResponse response = stream.result().get();
 
 				// It is possible the model did not output any thoughts, but we verified the

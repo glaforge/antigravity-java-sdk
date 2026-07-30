@@ -16,13 +16,16 @@
 package io.github.glaforge.antigravity;
 
 import io.github.glaforge.antigravity.tools.Tool;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 
+@Tag("integration")
 public class HelloWorldTest {
 
 	public static class WeatherTools {
@@ -34,8 +37,9 @@ public class HelloWorldTest {
 	}
 
 	@Test
+	@Timeout(value = 60, unit = TimeUnit.SECONDS)
 	public void testWeatherAgent() throws Exception {
-		TestUtils.retry(3, () -> {
+		TestUtils.retry(2, () -> {
 			WeatherTools tools = new WeatherTools();
 			try (Agent agent = Agent.builder().instructions("""
 					You are a helpful weather assistant.
@@ -47,7 +51,7 @@ public class HelloWorldTest {
 				System.out.println("Sending prompt...");
 				CompletableFuture<AgentResponse> future = agent.chat("What is the weather in Tokyo right now?");
 
-				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+				await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 
 				System.out.println("\n--- Agent Response ---");

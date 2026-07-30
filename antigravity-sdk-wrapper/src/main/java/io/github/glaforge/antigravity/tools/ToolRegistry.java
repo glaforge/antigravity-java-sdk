@@ -19,12 +19,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -84,8 +80,8 @@ public class ToolRegistry {
 	 *
 	 * @return a list of Tool definitions
 	 */
-	public List<Object> getToolDefinitions() {
-		List<Object> definitions = new ArrayList<>();
+	public List<ToolDefinition> getToolDefinitions() {
+		List<ToolDefinition> definitions = new ArrayList<>();
 
 		for (Map.Entry<String, ToolMethodHandler> entry : registry.entrySet()) {
 			Tool annotation = entry.getValue().method().getAnnotation(Tool.class);
@@ -120,7 +116,7 @@ public class ToolRegistry {
 				required.add(paramName);
 			}
 
-			if (required.size() > 0) {
+			if (!required.isEmpty()) {
 				parametersNode.set("required", required);
 			}
 
@@ -219,8 +215,8 @@ public class ToolRegistry {
 				}
 			}
 
-			if (arguments == null || !arguments.has(name)) {
-				parsedValues[i] = null;
+			if (arguments == null || !arguments.has(name) || arguments.get(name).isNull()) {
+				parsedValues[i] = getDefaultValue(type);
 				continue;
 			}
 
@@ -229,8 +225,12 @@ public class ToolRegistry {
 				parsedValues[i] = valueNode.asText();
 			else if (type == int.class || type == Integer.class)
 				parsedValues[i] = valueNode.asInt();
+			else if (type == long.class || type == Long.class)
+				parsedValues[i] = valueNode.asLong();
 			else if (type == double.class || type == Double.class)
 				parsedValues[i] = valueNode.asDouble();
+			else if (type == float.class || type == Float.class)
+				parsedValues[i] = (float) valueNode.asDouble();
 			else if (type == boolean.class || type == Boolean.class)
 				parsedValues[i] = valueNode.asBoolean();
 			else {
@@ -238,6 +238,26 @@ public class ToolRegistry {
 			}
 		}
 		return parsedValues;
+	}
+
+	private Object getDefaultValue(Class<?> type) {
+		if (type == boolean.class)
+			return false;
+		if (type == int.class)
+			return 0;
+		if (type == long.class)
+			return 0L;
+		if (type == double.class)
+			return 0.0;
+		if (type == float.class)
+			return 0.0f;
+		if (type == short.class)
+			return (short) 0;
+		if (type == byte.class)
+			return (byte) 0;
+		if (type == char.class)
+			return '\0';
+		return null;
 	}
 
 	private record ToolMethodHandler(Object instance, Method method) {

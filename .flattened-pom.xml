@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.glaforge.antigravity</groupId>
   <artifactId>antigravity-sdk-parent</artifactId>
-  <version>0.2.2-SNAPSHOT</version>
+  <version>0.2.3-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Antigravity Java SDK</name>
   <description>A Java SDK for building agents using the Antigravity localharness.</description>
@@ -38,7 +38,7 @@
     <protobuf.version>3.25.3</protobuf.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jackson.version>2.17.1</jackson.version>
-    <revision>0.2.2-SNAPSHOT</revision>
+    <revision>0.2.3-SNAPSHOT</revision>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -152,6 +152,20 @@
     </plugins>
   </build>
   <profiles>
+    <profile>
+      <id>integration-tests</id>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <excludedGroups>none</excludedGroups>
+              <groups>integration</groups>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
     <profile>
       <id>deployment</id>
       <build>

@@ -15,11 +15,13 @@
  */
 package io.github.glaforge.antigravity;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 
+@Tag("unit")
 class AgentConfigMcpTest {
 
 	@Test
@@ -27,9 +29,11 @@ class AgentConfigMcpTest {
 		AgentConfig config = AgentConfig.builder().instructions("Test Persona")
 				.addMcpServer(
 						McpServerConfig.stdio("npx", List.of("-y", "@modelcontextprotocol/server-everything", "stdio")))
-				.addMcpServer(McpServerConfig.sse("http://localhost:8080/sse")).build();
+				.addMcpServer(McpServerConfig.sse("http://localhost:8080/sse"))
+				.addMcpServer(McpServerConfig.http("http://localhost:8080/mcp"))
+				.addMcpServer(McpServerConfig.streamableHttp("http://localhost:8080/stream")).build();
 
-		assertEquals(2, config.getMcpServers().size());
+		assertEquals(4, config.getMcpServers().size());
 
 		McpServerConfig.StdioMcpServerConfig stdioConfig = (McpServerConfig.StdioMcpServerConfig) config.getMcpServers()
 				.get(0);
@@ -41,5 +45,15 @@ class AgentConfigMcpTest {
 				.get(1);
 		assertEquals(McpServerConfig.TransportType.SSE, sseConfig.type());
 		assertEquals("http://localhost:8080/sse", sseConfig.url());
+
+		McpServerConfig.HttpMcpServerConfig httpConfig = (McpServerConfig.HttpMcpServerConfig) config.getMcpServers()
+				.get(2);
+		assertEquals(McpServerConfig.TransportType.HTTP, httpConfig.type());
+		assertEquals("http://localhost:8080/mcp", httpConfig.url());
+
+		McpServerConfig.HttpMcpServerConfig streamableConfig = (McpServerConfig.HttpMcpServerConfig) config
+				.getMcpServers().get(3);
+		assertEquals(McpServerConfig.TransportType.HTTP, streamableConfig.type());
+		assertEquals("http://localhost:8080/stream", streamableConfig.url());
 	}
 }

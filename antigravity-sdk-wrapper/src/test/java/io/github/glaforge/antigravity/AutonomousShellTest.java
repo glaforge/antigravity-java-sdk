@@ -15,13 +15,19 @@
  */
 package io.github.glaforge.antigravity;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@Tag("integration")
 public class AutonomousShellTest {
 
 	@Test
+	@Timeout(value = 60, unit = TimeUnit.SECONDS)
 	public void testShellAccess() throws Exception {
 		// Enable shell and allow all policies so it can execute without permission
 		CapabilitiesConfig capabilities = CapabilitiesConfig.builder().enableShell(true).build();
@@ -35,7 +41,8 @@ public class AutonomousShellTest {
 
 		try (Agent agent = new Agent(config)) {
 			AgentResponse response = agent
-					.chat("Run 'echo Hello from the autonomous shell!' and tell me what the output is.").join();
+					.chat("Run 'echo Hello from the autonomous shell!' and tell me what the output is.")
+					.get(45, TimeUnit.SECONDS);
 
 			assertNotNull(response);
 			assertNotNull(response.text());

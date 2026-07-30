@@ -19,7 +19,9 @@ import io.github.glaforge.antigravity.Agent;
 import io.github.glaforge.antigravity.AgentConfig;
 import io.github.glaforge.antigravity.AgentResponse;
 import io.github.glaforge.antigravity.TestUtils;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -28,11 +30,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("integration")
 public class TriggersTest {
 
 	@Test
+	@Timeout(value = 60, unit = TimeUnit.SECONDS)
 	public void testBuiltInTrigger() throws Exception {
-		TestUtils.retry(3, () -> {
+		TestUtils.retry(2, () -> {
 			AtomicInteger triggerCount = new AtomicInteger(0);
 
 			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
@@ -45,7 +49,7 @@ public class TriggersTest {
 
 			try (Agent agent = new Agent(config)) {
 				CompletableFuture<AgentResponse> future = agent.chat("What is 2+2?");
-				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+				await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
 
 				AgentResponse response = future.get();
 				System.out.println(response.text());

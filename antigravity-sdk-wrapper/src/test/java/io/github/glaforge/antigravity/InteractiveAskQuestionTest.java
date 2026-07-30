@@ -16,7 +16,9 @@
 package io.github.glaforge.antigravity;
 
 import io.github.glaforge.antigravity.hooks.*;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -26,11 +28,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 
+@Tag("integration")
 public class InteractiveAskQuestionTest {
 
 	@Test
+	@Timeout(value = 60, unit = TimeUnit.SECONDS)
 	public void testAskQuestionInteraction() throws Exception {
-		TestUtils.retry(3, () -> {
+		TestUtils.retry(2, () -> {
 			AtomicReference<InteractionRequest> capturedRequest = new AtomicReference<>();
 
 			AgentHook mockAskHook = new OnInteractionHook() {
@@ -54,7 +58,7 @@ public class InteractiveAskQuestionTest {
 						"Ask me a multiple choice question with 3 options: red, blue, green. Then tell me what I chose.");
 				CompletableFuture<AgentResponse> responseFuture = agent.chat(List.of(prompt));
 
-				await().atMost(120, TimeUnit.SECONDS).until(responseFuture::isDone);
+				await().atMost(30, TimeUnit.SECONDS).until(responseFuture::isDone);
 				AgentResponse response = responseFuture.get();
 
 				assertNotNull(capturedRequest.get(), "Agent should have requested interaction");

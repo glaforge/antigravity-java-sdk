@@ -22,7 +22,9 @@ import io.github.glaforge.antigravity.tools.ToolDefinition;
 import io.github.glaforge.antigravity.triggers.Triggers;
 import io.github.glaforge.antigravity.hooks.*;
 import com.fasterxml.jackson.databind.JsonNode;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import static org.awaitility.Awaitility.await;
 
 import java.util.concurrent.Flow;
@@ -32,6 +34,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Scanner;
 
+@Tag("integration")
+@Timeout(value = 180, unit = TimeUnit.SECONDS)
 public class ReadmeSnippetsTest {
 
 	@Test

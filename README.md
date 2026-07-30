@@ -283,13 +283,22 @@ AgentConfig config = AgentConfig.builder()
 Seamlessly connect to Model Context Protocol (MCP) servers to expand your agent's capabilities dynamically.
 
 ```java
-McpServerConfig mcpConfig = McpServerConfig.stdio(
+// Standard I/O MCP Server
+McpServerConfig stdioConfig = McpServerConfig.stdio(
     "npx", 
     List.of("-y", "@modelcontextprotocol/server-sqlite", "test.db")
 );
 
+// Server-Sent Events (SSE) MCP Server
+McpServerConfig sseConfig = McpServerConfig.sse("http://localhost:8080/sse");
+
+// Streamable HTTP / HTTP MCP Server
+McpServerConfig httpConfig = McpServerConfig.streamableHttp("http://localhost:8080/mcp");
+
 AgentConfig config = AgentConfig.builder()
-    .addMcpServer(mcpConfig)
+    .addMcpServer(stdioConfig)
+    .addMcpServer(sseConfig)
+    .addMcpServer(httpConfig)
     .build();
 ```
 

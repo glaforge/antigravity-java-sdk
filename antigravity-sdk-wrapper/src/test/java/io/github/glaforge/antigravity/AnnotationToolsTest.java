@@ -17,13 +17,17 @@ package io.github.glaforge.antigravity;
 
 import io.github.glaforge.antigravity.tools.Tool;
 import io.github.glaforge.antigravity.tools.Param;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.awaitility.Awaitility.await;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+
+@Tag("integration")
 public class AnnotationToolsTest {
 
 	public record Location(String city, String country, int zipCode) {
@@ -41,8 +45,9 @@ public class AnnotationToolsTest {
 	}
 
 	@Test
+	@Timeout(value = 60, unit = TimeUnit.SECONDS)
 	public void testPojoToolInvocation() throws Exception {
-		TestUtils.retry(3, () -> {
+		TestUtils.retry(2, () -> {
 			AgentConfig config = AgentConfig.builder().instructions("""
 					You are a weather bot.
 					Always invoke the weather_forecast tool to get the weather, and tell the user the result.
@@ -54,7 +59,7 @@ public class AnnotationToolsTest {
 				System.out.println("Sending prompt...");
 				CompletableFuture<AgentResponse> future = agent
 						.chat("What is the weather in Paris, France, zip 75001?");
-				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+				await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 				System.out.println("\n--- Agent Response ---");
 				System.out.println(response.text());

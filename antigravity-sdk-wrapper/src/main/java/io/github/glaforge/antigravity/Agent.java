@@ -59,7 +59,7 @@ import java.nio.file.Paths;
  */
 public class Agent implements AutoCloseable, TriggerContext {
 	private final Process goProcess;
-	private WebSocket webSocket;
+	private volatile WebSocket webSocket;
 	private final ToolRegistry toolRegistry = new ToolRegistry();
 	private final ExecutorService toolExecutor = Executors.newVirtualThreadPerTaskExecutor();
 	private final JsonMapper jsonMapper = JsonMapper.builder().build();
@@ -84,7 +84,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 	 *
 	 * @return the usage metadata
 	 */
-	UsageMetadata getUsageMetadata() {
+	public UsageMetadata getUsageMetadata() {
 		return currentUsage;
 	}
 
@@ -93,7 +93,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 	 *
 	 * @return the conversation ID
 	 */
-	String getConversationId() {
+	public String getConversationId() {
 		return conversationId;
 	}
 
@@ -345,31 +345,11 @@ public class Agent implements AutoCloseable, TriggerContext {
 			this.registerTools(tool);
 		}
 
-		// 1. Detect environment variables
-		String platformSlice = PlatformResolver.getPlatformSlice();
-		boolean isWindows = platformSlice.startsWith("windows");
-		String ext = isWindows ? ".exe" : "";
-		String resourcePath = "/google/antigravity/bin/" + platformSlice + "/localharness" + ext;
+		// 1. Resolve and extract (or reuse cached) localharness binary
+		File binaryFile = PlatformResolver.resolveBinary();
 
-		// 2. Extract binary to temp dir
-		File tempExecutable = File.createTempFile("localharness-" + platformSlice + "-", isWindows ? ".exe" : ".tmp");
-		tempExecutable.deleteOnExit();
-
-		try (InputStream binaryStream = Agent.class.getResourceAsStream(resourcePath)) {
-			if (binaryStream == null) {
-				throw new FileNotFoundException("Embedded Go harness engine asset missing for slice: " + platformSlice);
-			}
-			Files.copy(binaryStream, tempExecutable.toPath(), StandardCopyOption.REPLACE_EXISTING);
-		}
-
-		// 3. Set Unix file permissions natively
-		if (!tempExecutable.setExecutable(true)) {
-			throw new IllegalStateException(
-					"Failed to grant execution rights to temp binary: " + tempExecutable.getAbsolutePath());
-		}
-
-		// 4. Spawn process
-		ProcessBuilder pb = new ProcessBuilder(tempExecutable.getAbsolutePath())
+		// 2. Spawn process
+		ProcessBuilder pb = new ProcessBuilder(binaryFile.getAbsolutePath())
 				.redirectError(ProcessBuilder.Redirect.INHERIT);
 		if (config.getEnvironmentVariables() != null && !config.getEnvironmentVariables().isEmpty()) {
 			pb.environment().putAll(config.getEnvironmentVariables());
@@ -490,8 +470,8 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 			int mcpIndex = 1;
 			for (McpServerConfig mcp : config.getMcpServers()) {
-				io.github.glaforge.antigravity.localharness.McpServerConfig.Builder mcpBuilder = io.github.glaforge.antigravity.localharness.McpServerConfig
-						.newBuilder().setName("server-" + (mcpIndex++));
+				var mcpBuilder = io.github.glaforge.antigravity.localharness.McpServerConfig.newBuilder()
+						.setName("server-" + (mcpIndex++));
 
 				if (mcp instanceof McpServerConfig.StdioMcpServerConfig stdio) {
 					mcpBuilder.setStdio(McpStdioTransport.newBuilder().setCommand(stdio.command())
@@ -500,6 +480,12 @@ public class Agent implements AutoCloseable, TriggerContext {
 					McpHttpTransport.Builder http = McpHttpTransport.newBuilder().setUrl(sse.url());
 					if (sse.headers() != null) {
 						http.putAllHeaders(sse.headers());
+					}
+					mcpBuilder.setHttp(http.build());
+				} else if (mcp instanceof McpServerConfig.HttpMcpServerConfig httpConfig) {
+					McpHttpTransport.Builder http = McpHttpTransport.newBuilder().setUrl(httpConfig.url());
+					if (httpConfig.headers() != null) {
+						http.putAllHeaders(httpConfig.headers());
 					}
 					mcpBuilder.setHttp(http.build());
 				}
@@ -526,8 +512,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 																								// now
 			}
 
-			for (Object obj : toolRegistry.getToolDefinitions()) {
-				ToolDefinition toolDef = (ToolDefinition) obj;
+			for (ToolDefinition toolDef : toolRegistry.getToolDefinitions()) {
 				configBuilder.addTools(toolDef.toProtobuf());
 			}
 			configBuilder.addAllSkillsPaths(config.getSkillsPaths());
@@ -606,6 +591,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 				@Override
 				public void onError(WebSocket webSocket, Throwable error) {
+					wsBuffer.setLength(0);
 					if (currentChatFuture != null && !currentChatFuture.isDone()) {
 						currentChatFuture.completeExceptionally(error);
 					}
@@ -614,6 +600,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 				@Override
 				public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+					wsBuffer.setLength(0);
 					if (currentChatFuture != null && !currentChatFuture.isDone()) {
 						currentChatFuture.completeExceptionally(
 								new IllegalStateException("WebSocket closed unexpectedly: " + reason));
@@ -631,7 +618,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 				try {
 					connectedWs = client.newWebSocketBuilder().header("x-goog-api-key", securityToken)
 							.buildAsync(URI.create("ws://" + host + ":" + runtimePort), wsListener)
-							.get(5, java.util.concurrent.TimeUnit.SECONDS);
+							.get(5, TimeUnit.SECONDS);
 					break;
 				} catch (Exception e) {
 					lastWsErr = e;
@@ -697,24 +684,6 @@ public class Agent implements AutoCloseable, TriggerContext {
 	}
 
 	/**
-	 * Sends a text message to the agent and streams the response chunks.
-	 *
-	 * @param text
-	 *            the text message
-	 * @param onChunk
-	 *            a consumer to handle the incoming chunks
-	 * @return a CompletableFuture containing the final AgentResponse
-	 */
-
-	/**
-	 * Sends a text message to the agent and returns a Publisher of response chunks.
-	 *
-	 * @param prompt
-	 *            the text prompt to send
-	 * @return a Flow.Publisher emitting AgentResponseChunk items
-	 */
-
-	/**
 	 * Sends multiple inputs to the agent and returns an AgentStream containing
 	 * distinct publishers for chunks, thoughts, and tool calls.
 	 *
@@ -723,9 +692,9 @@ public class Agent implements AutoCloseable, TriggerContext {
 	 * @return an AgentStream
 	 */
 	public AgentStream streamChat(List<AgentInput> inputs) {
-		java.util.concurrent.SubmissionPublisher<AgentResponseChunk> chunksPublisher = new java.util.concurrent.SubmissionPublisher<>();
-		this.currentThoughtsPublisher = new java.util.concurrent.SubmissionPublisher<>();
-		this.currentToolCallsPublisher = new java.util.concurrent.SubmissionPublisher<>();
+		SubmissionPublisher<AgentResponseChunk> chunksPublisher = new SubmissionPublisher<>();
+		this.currentThoughtsPublisher = new SubmissionPublisher<>();
+		this.currentToolCallsPublisher = new SubmissionPublisher<>();
 
 		CompletableFuture<AgentResponse> result = chatStream(inputs, chunksPublisher::submit)
 				.whenComplete((response, error) -> {
@@ -1393,5 +1362,13 @@ public class Agent implements AutoCloseable, TriggerContext {
 			}
 		}
 		toolExecutor.shutdown();
+		try {
+			if (!toolExecutor.awaitTermination(2, TimeUnit.SECONDS)) {
+				toolExecutor.shutdownNow();
+			}
+		} catch (InterruptedException e) {
+			toolExecutor.shutdownNow();
+			Thread.currentThread().interrupt();
+		}
 	}
 }

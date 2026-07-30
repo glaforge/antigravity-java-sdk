@@ -15,15 +15,20 @@
  */
 package io.github.glaforge.antigravity;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+@Tag("integration")
 public class SlashCommandsTest {
 
 	@Test
+	@Timeout(value = 60, unit = TimeUnit.SECONDS)
 	public void testSlashCommand() throws Exception {
 		Path tempDir = Files.createTempDirectory("antigravity-slash-test");
 		AgentConfig config = AgentConfig.builder().appDataDir(tempDir.toString())
@@ -40,7 +45,7 @@ public class SlashCommandsTest {
 			AgentInput slashCommand = AgentInput.SlashCommand.of("plan");
 			AgentInput textPrompt = AgentInput.Text.of("Write a python script that prints numbers 1 to 10.");
 
-			AgentResponse response = agent.chat(List.of(slashCommand, textPrompt)).join();
+			AgentResponse response = agent.chat(List.of(slashCommand, textPrompt)).get(45, TimeUnit.SECONDS);
 			assertNotNull(response);
 			assertNotNull(response.text());
 

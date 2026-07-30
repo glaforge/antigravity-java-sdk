@@ -22,8 +22,8 @@ import java.util.Map;
  * Configuration for connecting to an external Model Context Protocol (MCP)
  * server.
  */
-public sealed interface McpServerConfig
-		permits McpServerConfig.StdioMcpServerConfig, McpServerConfig.SseMcpServerConfig {
+public sealed interface McpServerConfig permits McpServerConfig.StdioMcpServerConfig,
+		McpServerConfig.SseMcpServerConfig, McpServerConfig.HttpMcpServerConfig {
 
 	/**
 	 * Defines the transport mechanism for the MCP server connection.
@@ -32,7 +32,9 @@ public sealed interface McpServerConfig
 		/** Standard Input/Output transport. */
 		STDIO,
 		/** Server-Sent Events transport. */
-		SSE
+		SSE,
+		/** HTTP / Streamable HTTP transport. */
+		HTTP
 	}
 
 	/**
@@ -83,6 +85,57 @@ public sealed interface McpServerConfig
 	}
 
 	/**
+	 * Creates an MCP Server configuration that connects over HTTP / Streamable
+	 * HTTP.
+	 * 
+	 * @param url
+	 *            The HTTP endpoint URL.
+	 * @return A new HttpMcpServerConfig instance.
+	 */
+	static HttpMcpServerConfig http(String url) {
+		return new HttpMcpServerConfig(url, null);
+	}
+
+	/**
+	 * Creates an MCP Server configuration that connects over HTTP / Streamable HTTP
+	 * with headers.
+	 * 
+	 * @param url
+	 *            The HTTP endpoint URL.
+	 * @param headers
+	 *            HTTP headers to send (e.g. for authentication).
+	 * @return A new HttpMcpServerConfig instance.
+	 */
+	static HttpMcpServerConfig http(String url, Map<String, String> headers) {
+		return new HttpMcpServerConfig(url, headers);
+	}
+
+	/**
+	 * Creates an MCP Server configuration that connects over Streamable HTTP.
+	 * 
+	 * @param url
+	 *            The HTTP endpoint URL.
+	 * @return A new HttpMcpServerConfig instance.
+	 */
+	static HttpMcpServerConfig streamableHttp(String url) {
+		return new HttpMcpServerConfig(url, null);
+	}
+
+	/**
+	 * Creates an MCP Server configuration that connects over Streamable HTTP with
+	 * headers.
+	 * 
+	 * @param url
+	 *            The HTTP endpoint URL.
+	 * @param headers
+	 *            HTTP headers to send (e.g. for authentication).
+	 * @return A new HttpMcpServerConfig instance.
+	 */
+	static HttpMcpServerConfig streamableHttp(String url, Map<String, String> headers) {
+		return new HttpMcpServerConfig(url, headers);
+	}
+
+	/**
 	 * Configuration for an MCP server that communicates over Standard Input/Output.
 	 *
 	 * @param command
@@ -109,6 +162,21 @@ public sealed interface McpServerConfig
 		@Override
 		public TransportType type() {
 			return TransportType.SSE;
+		}
+	}
+
+	/**
+	 * Configuration for an MCP server that connects over HTTP / Streamable HTTP.
+	 *
+	 * @param url
+	 *            The HTTP endpoint URL.
+	 * @param headers
+	 *            HTTP headers to send.
+	 */
+	record HttpMcpServerConfig(String url, Map<String, String> headers) implements McpServerConfig {
+		@Override
+		public TransportType type() {
+			return TransportType.HTTP;
 		}
 	}
 }

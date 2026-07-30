@@ -15,17 +15,22 @@
  */
 package io.github.glaforge.antigravity;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@Tag("integration")
 public class CancellationTest {
 
 	@Test
+	@Timeout(value = 30, unit = TimeUnit.SECONDS)
 	public void testCancellation() throws Exception {
 		AgentConfig config = AgentConfig.builder().build();
 

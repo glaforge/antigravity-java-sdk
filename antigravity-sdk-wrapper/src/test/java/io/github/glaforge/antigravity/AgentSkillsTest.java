@@ -22,9 +22,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.awaitility.Awaitility.await;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Disabled;
 import io.github.glaforge.antigravity.tools.Tool;
 
+@Tag("unit")
 @Disabled("Skills auto-read functionality was moved to sidecars in 0.1.6, breaking this standalone test")
 public class AgentSkillsTest {
 

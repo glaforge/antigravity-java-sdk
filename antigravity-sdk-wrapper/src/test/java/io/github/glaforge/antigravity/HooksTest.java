@@ -17,7 +17,9 @@ package io.github.glaforge.antigravity;
 
 import io.github.glaforge.antigravity.hooks.*;
 import io.github.glaforge.antigravity.tools.Tool;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("integration")
 public class HooksTest {
 
 	public static class EchoTool {
@@ -38,8 +41,9 @@ public class HooksTest {
 	}
 
 	@Test
+	@Timeout(value = 60, unit = TimeUnit.SECONDS)
 	public void testLifecycleHooksOrder() throws Exception {
-		TestUtils.retry(3, () -> {
+		TestUtils.retry(2, () -> {
 			List<String> events = new ArrayList<>();
 
 			OnSessionStartHook startHook = () -> {
@@ -76,7 +80,7 @@ public class HooksTest {
 
 			try (Agent agent = new Agent(config)) {
 				CompletableFuture<AgentResponse> future = agent.chat("Say hello");
-				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+				await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 				assertNotNull(response.text());
 			}
@@ -86,13 +90,15 @@ public class HooksTest {
 			assertEquals("start", events.get(0));
 			assertEquals("pre_turn:Say hello", events.get(1));
 			assertEquals("pre_tool:echo", events.get(2));
-			assertTrue(events.get(3).toLowerCase().startsWith("post_tool:{\"result\": \"echo: hello"));
+			String postToolEvent = events.get(3).toLowerCase();
+			assertTrue(postToolEvent.startsWith("post_tool:") && postToolEvent.contains("echo"));
 			assertTrue(events.contains("post_turn"));
 			assertTrue(events.contains("end"));
 		});
 	}
 
 	@Test
+	@Tag("unit")
 	public void testHookResultFactoryMethods() {
 		HookResult allowed = HookResult.allowed();
 		assertTrue(allowed.allow());

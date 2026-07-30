@@ -25,8 +25,10 @@ import io.github.glaforge.antigravity.tools.Tool;
 
 import io.github.glaforge.antigravity.ToolContext;
 import io.github.glaforge.antigravity.tools.ToolRegistry;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+@Tag("unit")
 public class FeatureParity017Test {
 
 	@Test
@@ -109,6 +111,11 @@ public class FeatureParity017Test {
 		assertEquals("llama3", openai.getModelName());
 		assertEquals("llama3", openai.getAgentConfig().getModelName());
 		assertEquals("Local Ollama assistant", openai.getAgentConfig().getInstructions());
+
+		org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+				() -> LocalOpenAIAgentConfig.builder().modelName("llama3").build());
+		org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+				() -> LocalOpenAIAgentConfig.builder().baseUrl("http://localhost:11434/v1").build());
 	}
 
 	@Test
