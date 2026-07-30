@@ -44,7 +44,7 @@ public class StreamingTest {
 							System.out.print(chunk.textDelta());
 							chunkCount.incrementAndGet();
 						});
-				await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
+				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 
 				System.out.println("\n--- Stream Complete ---");
@@ -94,7 +94,7 @@ public class StreamingTest {
 					}
 				});
 
-				await().atMost(30, TimeUnit.SECONDS).until(() -> stream.result().isDone());
+				await().atMost(90, TimeUnit.SECONDS).until(() -> stream.result().isDone());
 				AgentResponse response = stream.result().get();
 
 				// It is possible the model did not output any thoughts, but we verified the

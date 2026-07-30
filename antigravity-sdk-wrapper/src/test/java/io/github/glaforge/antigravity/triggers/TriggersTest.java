@@ -49,7 +49,7 @@ public class TriggersTest {
 
 			try (Agent agent = new Agent(config)) {
 				CompletableFuture<AgentResponse> future = agent.chat("What is 2+2?");
-				await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
+				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
 
 				AgentResponse response = future.get();
 				System.out.println(response.text());

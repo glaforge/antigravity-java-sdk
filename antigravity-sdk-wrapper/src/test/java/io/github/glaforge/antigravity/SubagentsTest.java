@@ -36,7 +36,7 @@ public class SubagentsTest {
 			try (Agent agent = new Agent(config)) {
 				CompletableFuture<AgentResponse> future = agent
 						.chat("Please spawn a subagent to write a 2 sentence poem about space.");
-				await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
+				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 
 				System.out.println(response.text());

@@ -35,7 +35,7 @@ public class ObservabilityTest {
 
 			try (Agent agent = new Agent(config)) {
 				CompletableFuture<AgentResponse> future = agent.chat("Hi, say exactly one word: Hello.");
-				await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
+				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 
 				// Verify usage metadata is populated if available

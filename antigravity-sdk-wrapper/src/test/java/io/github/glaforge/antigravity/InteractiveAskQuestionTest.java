@@ -58,7 +58,7 @@ public class InteractiveAskQuestionTest {
 						"Ask me a multiple choice question with 3 options: red, blue, green. Then tell me what I chose.");
 				CompletableFuture<AgentResponse> responseFuture = agent.chat(List.of(prompt));
 
-				await().atMost(30, TimeUnit.SECONDS).until(responseFuture::isDone);
+				await().atMost(90, TimeUnit.SECONDS).until(responseFuture::isDone);
 				AgentResponse response = responseFuture.get();
 
 				assertNotNull(capturedRequest.get(), "Agent should have requested interaction");

@@ -41,7 +41,7 @@ public class ScratchTest {
 			String conversationId;
 			try (Agent agent1 = new Agent(config1)) {
 				CompletableFuture<AgentResponse> future1 = agent1.chat("My favorite color is blue.");
-				await().atMost(30, TimeUnit.SECONDS).until(future1::isDone);
+				await().atMost(90, TimeUnit.SECONDS).until(future1::isDone);
 				AgentResponse response1 = future1.get();
 
 				System.out.println("Chat 1:");

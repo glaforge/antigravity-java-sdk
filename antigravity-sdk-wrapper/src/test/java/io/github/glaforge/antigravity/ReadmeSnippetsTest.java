@@ -46,7 +46,7 @@ public class ReadmeSnippetsTest {
 
 		try (Agent agent = new Agent(config)) {
 			CompletableFuture<AgentResponse> future = agent.chat("Hello, who are you?");
-			await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
+			await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
 			AgentResponse response = future.get();
 			System.out.println(response.text());
 		}
@@ -62,7 +62,7 @@ public class ReadmeSnippetsTest {
 					chunk -> {
 						System.out.print(chunk.textDelta());
 					});
-			await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
+			await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
 			future.get();
 		}
 	}
@@ -96,7 +96,7 @@ public class ReadmeSnippetsTest {
 					done.complete(null);
 				}
 			});
-			await().atMost(30, TimeUnit.SECONDS).until(done::isDone);
+			await().atMost(90, TimeUnit.SECONDS).until(done::isDone);
 		}
 	}
 
@@ -125,7 +125,7 @@ public class ReadmeSnippetsTest {
 			});
 
 			CompletableFuture<AgentResponse> future = stream.result();
-			await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
+			await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
 			AgentResponse response = future.get();
 			System.out.println(response.text());
 		}
@@ -145,7 +145,7 @@ public class ReadmeSnippetsTest {
 					.modelName("gemini-flash-latest").addTool(new MyToolbox()).build();
 			try (Agent agent = new Agent(config)) {
 				CompletableFuture<AgentResponse> f = agent.chat("What's the weather in Seattle?");
-				await().atMost(30, TimeUnit.SECONDS).until(f::isDone);
+				await().atMost(90, TimeUnit.SECONDS).until(f::isDone);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}
@@ -179,7 +179,7 @@ public class ReadmeSnippetsTest {
 				}).build();
 		try (Agent agent = new Agent(config)) {
 			CompletableFuture<AgentResponse> f = agent.chat("What's the weather in Seattle?");
-			await().atMost(30, TimeUnit.SECONDS).until(f::isDone);
+			await().atMost(90, TimeUnit.SECONDS).until(f::isDone);
 		}
 	}
 
@@ -230,7 +230,7 @@ public class ReadmeSnippetsTest {
 
 			try (Agent agent = new Agent(config)) {
 				CompletableFuture<AgentResponse> f = agent.chat("Hello!");
-				await().atMost(30, TimeUnit.SECONDS).until(f::isDone);
+				await().atMost(90, TimeUnit.SECONDS).until(f::isDone);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}
@@ -257,7 +257,7 @@ public class ReadmeSnippetsTest {
 
 		try (Agent agent = new Agent(config)) {
 			CompletableFuture<AgentResponse> f = agent.chat("Extract: Alice");
-			await().atMost(30, TimeUnit.SECONDS).until(f::isDone);
+			await().atMost(90, TimeUnit.SECONDS).until(f::isDone);
 			AgentResponse response = f.get();
 
 			Person parsedPerson = response.getStructuredOutput(Person.class);
@@ -295,7 +295,7 @@ public class ReadmeSnippetsTest {
 		try (Agent agent = new Agent(config)) {
 			// You can send slash commands directly!
 			CompletableFuture<AgentResponse> f = agent.chat("/help");
-			await().atMost(30, TimeUnit.SECONDS).until(f::isDone);
+			await().atMost(90, TimeUnit.SECONDS).until(f::isDone);
 			AgentResponse response = f.get();
 			System.out.println(response.text());
 		}

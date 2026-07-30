@@ -69,7 +69,7 @@ public class ReactiveStreamingTest {
 					}
 				});
 
-				await().atMost(30, TimeUnit.SECONDS).until(completionFuture::isDone);
+				await().atMost(90, TimeUnit.SECONDS).until(completionFuture::isDone);
 
 				System.out.println("\n--- Reactive Stream Complete ---");
 

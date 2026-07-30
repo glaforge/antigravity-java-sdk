@@ -48,7 +48,7 @@ public class MultimodalTest {
 						new AgentInput.Document("text/plain", Files.readAllBytes(tempDoc.toPath()),
 								"Attached Document: secret_file.txt"));
 
-				await().atMost(30, TimeUnit.SECONDS).until(future::isDone);
+				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 
 				System.out.println("Response: " + response.text());

@@ -44,7 +44,7 @@ public class PersistenceTest {
 			try (Agent agent1 = new Agent(config1)) {
 				CompletableFuture<AgentResponse> future1 = agent1
 						.chat("Please remember the secret code word is BANANA.");
-				await().atMost(30, TimeUnit.SECONDS).until(future1::isDone);
+				await().atMost(90, TimeUnit.SECONDS).until(future1::isDone);
 				AgentResponse response1 = future1.get();
 
 				System.out.println("Session 1 response: " + response1.text());
@@ -67,7 +67,7 @@ public class PersistenceTest {
 
 			try (Agent agent2 = new Agent(config2)) {
 				CompletableFuture<AgentResponse> future2 = agent2.chat("What is the secret code word?");
-				await().atMost(30, TimeUnit.SECONDS).until(future2::isDone);
+				await().atMost(90, TimeUnit.SECONDS).until(future2::isDone);
 				AgentResponse response2 = future2.get();
 
 				System.out.println("Session 2 response: " + response2.text());
