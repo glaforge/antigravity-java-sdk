@@ -26,6 +26,8 @@ import io.github.glaforge.antigravity.tools.ToolRegistry;
 import io.github.glaforge.antigravity.tools.ToolDefinition;
 import com.google.protobuf.util.JsonFormat;
 import com.google.protobuf.ByteString;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.io.OutputStream;
@@ -58,6 +60,9 @@ import java.nio.file.Paths;
  * local harness.
  */
 public class Agent implements AutoCloseable, TriggerContext {
+	private static final Logger log = LoggerFactory.getLogger(Agent.class);
+	private static final JsonFormat.Printer JSON_PRINTER = JsonFormat.printer().omittingInsignificantWhitespace();
+
 	private final Process goProcess;
 	private volatile WebSocket webSocket;
 	private final ToolRegistry toolRegistry = new ToolRegistry();
@@ -108,10 +113,10 @@ public class Agent implements AutoCloseable, TriggerContext {
 	public void fireTrigger(String triggerText) {
 		try {
 			InputEvent event = InputEvent.newBuilder().setAutomatedTrigger(triggerText).build();
-			String payload = JsonFormat.printer().omittingInsignificantWhitespace().print(event);
+			String payload = JSON_PRINTER.print(event);
 			sendWebSocketMessage(payload);
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("Failed to fire trigger", e);
 		}
 	}
 
@@ -122,10 +127,10 @@ public class Agent implements AutoCloseable, TriggerContext {
 		try {
 			this.clientCancelled = true;
 			InputEvent event = InputEvent.newBuilder().setHaltRequest(true).build();
-			String payload = JsonFormat.printer().omittingInsignificantWhitespace().print(event);
+			String payload = JSON_PRINTER.print(event);
 			sendWebSocketMessage(payload);
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("Failed to cancel agent execution", e);
 		}
 	}
 
@@ -555,7 +560,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 			InitializeConversationEvent initEvent = InitializeConversationEvent.newBuilder().setConfig(protoConfig)
 					.build();
 
-			String initEventJson = JsonFormat.printer().omittingInsignificantWhitespace().print(initEvent);
+			String initEventJson = JSON_PRINTER.print(initEvent);
 
 			HttpClient client = HttpClient.newHttpClient();
 			WebSocket.Listener wsListener = new WebSocket.Listener() {
@@ -813,7 +818,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 			}
 
 			InputEvent event = InputEvent.newBuilder().setComplexUserInput(userInputBuilder.build()).build();
-			String payload = JsonFormat.printer().omittingInsignificantWhitespace().print(event);
+			String payload = JSON_PRINTER.print(event);
 			sendWebSocketMessage(payload);
 		} catch (Exception e) {
 			this.currentChatFuture.completeExceptionally(e);
@@ -1043,18 +1048,17 @@ public class Agent implements AutoCloseable, TriggerContext {
 												InputEvent inputEvent = InputEvent.newBuilder()
 														.setQuestionResponse(fullResp).build();
 
-												String payloadJson = JsonFormat.printer()
-														.omittingInsignificantWhitespace().print(inputEvent);
+												String payloadJson = JSON_PRINTER.print(inputEvent);
 												sendWebSocketMessage(payloadJson);
 											} catch (Exception e) {
-												e.printStackTrace();
+												log.error("Failed to send question response", e);
 											}
 										});
 								break;
 							}
 						}
 					} catch (Exception e) {
-						e.printStackTrace();
+						log.error("Error processing questions request", e);
 					}
 				}
 			}
@@ -1181,9 +1185,10 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 						InputEvent inputEvent = InputEvent.newBuilder().setCallHookResponse(respBuilder.build())
 								.build();
-						String payloadJson = JsonFormat.printer().omittingInsignificantWhitespace().print(inputEvent);
+						String payloadJson = JSON_PRINTER.print(inputEvent);
 						sendWebSocketMessage(payloadJson);
 					} catch (Exception e) {
+						log.error("Failed to send call hook response", e);
 					}
 				});
 			}
@@ -1252,11 +1257,10 @@ public class Agent implements AutoCloseable, TriggerContext {
 						InputEvent responseEvent = InputEvent.newBuilder()
 								.setToolResponse(ToolResponse.newBuilder().setId(callId).setResponseJson("{}").build())
 								.build();
-						String responsePayload = JsonFormat.printer().omittingInsignificantWhitespace()
-								.print(responseEvent);
+						String responsePayload = JSON_PRINTER.print(responseEvent);
 						sendWebSocketMessage(responsePayload);
 					} catch (Exception e) {
-						e.printStackTrace();
+						log.error("Failed to send finish tool response", e);
 					}
 					return;
 				}
@@ -1299,13 +1303,13 @@ public class Agent implements AutoCloseable, TriggerContext {
 						});
 						sendToolResponse(callId, resultJson);
 					} catch (Exception e) {
-						e.printStackTrace();
+						log.error("Tool execution error for {}", name, e);
 						sendToolResponse(callId, "{\"error\": \"Tool error: " + e.getMessage() + "\"}");
 					}
 				});
 			}
 		} catch (Exception e) {
-			System.err.println("Error processing WS message: " + e.getMessage());
+			log.error("Error processing WS message: {}", e.getMessage(), e);
 		}
 	}
 
@@ -1314,10 +1318,13 @@ public class Agent implements AutoCloseable, TriggerContext {
 			InputEvent responseEvent = InputEvent.newBuilder()
 					.setToolResponse(ToolResponse.newBuilder().setId(callId).setResponseJson(resultJson).build())
 					.build();
-			String responsePayload = JsonFormat.printer().omittingInsignificantWhitespace().print(responseEvent);
+			String responsePayload = JSON_PRINTER.print(responseEvent);
 			sendWebSocketMessage(responsePayload);
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("Failed to send tool response for callId {}", callId, e);
+			if (currentChatFuture != null && !currentChatFuture.isDone()) {
+				currentChatFuture.completeExceptionally(e);
+			}
 		}
 	}
 
@@ -1327,7 +1334,10 @@ public class Agent implements AutoCloseable, TriggerContext {
 				this.webSocket.sendText(payload, true).join();
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("Failed to send WebSocket payload: {}", payload, e);
+			if (currentChatFuture != null && !currentChatFuture.isDone()) {
+				currentChatFuture.completeExceptionally(e);
+			}
 		}
 	}
 

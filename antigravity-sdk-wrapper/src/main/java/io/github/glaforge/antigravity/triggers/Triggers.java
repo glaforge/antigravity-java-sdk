@@ -16,6 +16,8 @@
 package io.github.glaforge.antigravity.triggers;
 
 import io.github.glaforge.antigravity.TriggerContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -25,6 +27,7 @@ import java.util.function.Consumer;
  * Utility class for creating common AgentTriggers.
  */
 public final class Triggers {
+	private static final Logger log = LoggerFactory.getLogger(Triggers.class);
 
 	private Triggers() {
 	}
@@ -51,7 +54,7 @@ public final class Triggers {
 					try {
 						action.accept(context);
 					} catch (Exception e) {
-						e.printStackTrace();
+						log.error("Error executing periodic trigger action", e);
 					}
 				}, delay, delay, unit);
 			}
