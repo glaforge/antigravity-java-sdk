@@ -507,6 +507,7 @@ message TrajectoryStateUpdate {
     STATE_UNSPECIFIED = 0;
     STATE_RUNNING = 1;
     STATE_IDLE = 2;
+    STATE_FULLY_IDLE = 5;
     STATE_CANCELLED = 3;
     STATE_WAITING_FOR_TASKS = 4;
   }

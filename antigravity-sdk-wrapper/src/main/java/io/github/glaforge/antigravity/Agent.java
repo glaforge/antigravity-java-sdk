@@ -1190,7 +1190,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 			if (payload.has("trajectoryStateUpdate")) {
 				String state = payload.get("trajectoryStateUpdate").path("state").asText();
-				if ("STATE_IDLE".equals(state)) {
+				if ("STATE_IDLE".equals(state) || "STATE_FULLY_IDLE".equals(state)) {
 					if (currentChatFuture != null && !currentChatFuture.isDone()) {
 						if (clientCancelled) {
 							currentChatFuture.completeExceptionally(new AgentCancelledException());
