@@ -81,6 +81,8 @@
                         <configuration>
                             <excludedGroups>none</excludedGroups>
                             <groups>integration</groups>
+                            <parallel>classes</parallel>
+                            <threadCount>4</threadCount>
                         </configuration>
                     </plugin>
                 </plugins>
