@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Timeout;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import io.github.glaforge.antigravity.tools.Tool;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -28,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class SecurityPoliciesTest {
 
 	public static class WeatherTool {
+		@Tool(name = "get_weather", description = "Get the current weather for a location")
 		public String get_weather(String location) {
 			return "Sunny and 22C";
 		}

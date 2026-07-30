@@ -81,8 +81,6 @@
                         <configuration>
                             <excludedGroups>none</excludedGroups>
                             <groups>integration</groups>
-                            <forkCount>4</forkCount>
-                            <reuseForks>true</reuseForks>
                         </configuration>
                     </plugin>
                 </plugins>
