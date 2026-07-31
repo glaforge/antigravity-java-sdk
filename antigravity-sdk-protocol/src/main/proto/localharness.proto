@@ -25,6 +25,20 @@ enum NullValue {
   NULL_VALUE = 0;
 }
 
+enum PolicyDecision {
+  POLICY_DECISION_UNSPECIFIED = 0;
+  POLICY_DECISION_ALLOW = 1;
+  POLICY_DECISION_DENY = 2;
+  POLICY_DECISION_ASK_USER = 3;
+}
+
+enum PolicyEvaluationOutcome {
+  POLICY_EVALUATION_OUTCOME_UNSPECIFIED = 0;
+  POLICY_EVALUATION_OUTCOME_ALLOW = 1;
+  POLICY_EVALUATION_OUTCOME_DENY = 2;
+  POLICY_EVALUATION_OUTCOME_NO_MATCH = 3;
+}
+
 message InputConfig {
   string storage_directory = 1;
   uint32 port = 2;
@@ -70,6 +84,7 @@ message HarnessConfig {
   ToolOutputTruncation tool_output_truncation = 18;
   SessionContinuationMode session_continuation_mode = 19;
   RetryConfig retry_config = 20;
+  PolicyConfig policy_config = 21;
 }
 
 message ModelAPIRetryConfig {
@@ -269,6 +284,7 @@ message OutputEvent {
     InitializeConversationResponse initialize_conversation_response = 13;
     CallHookRequest call_hook_request = 14;
     bool session_end_response = 15;
+    PolicyDecisionRequest policy_decision_request = 16;
   }
   int64 seq_num = 1;
   int64 timestamp_micros = 2;
@@ -471,6 +487,7 @@ message InputEvent {
     string automated_trigger = 6;
     CallHookResponse call_hook_response = 8;
     bool session_end_request = 9;
+    PolicyDecisionResponse policy_decision_response = 10;
   }
 }
 
@@ -733,5 +750,31 @@ message ToolOutputTruncation {
     TruncateStrategy truncate = 1;
     ErrorStrategy error = 2;
   }
+}
+
+message PolicyConfig {
+  repeated PolicyRule rules = 1;
+}
+
+message PolicyRule {
+  string tool = 1;
+  string server_name = 2;
+  string name = 3;
+  PolicyDecision decision = 4;
+  string deny_reason = 5;
+  bool is_dynamic = 6;
+  string rule_id = 7;
+}
+
+message PolicyDecisionRequest {
+  string request_id = 1;
+  string rule_id = 2;
+  PreToolArgs tool_args = 3;
+}
+
+message PolicyDecisionResponse {
+  string request_id = 1;
+  PolicyEvaluationOutcome outcome = 2;
+  string deny_reason = 3;
 }
 

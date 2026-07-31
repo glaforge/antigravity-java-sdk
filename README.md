@@ -238,6 +238,9 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
+> [!NOTE]
+> **Protobuf Policy Engine Alignment**: The underlying `antigravity-sdk-protocol` module maintains full wire compatibility with upstream `PolicyConfig`, `PolicyRule`, `PolicyDecision`, and `PolicyEvaluationOutcome` Protobuf structures for low-level policy negotiation over `localharness` WebSockets.
+
 ### 6. Lifecycle Hooks
 
 Hook into the agent's execution lifecycle to monitor, intercept, or modify interactions.

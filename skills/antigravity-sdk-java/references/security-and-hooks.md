@@ -60,6 +60,16 @@ AgentConfig config = AgentConfig.builder()
 
 ---
 
+### Protobuf Policy Wire Definitions (`PolicyConfig`)
+
+The underlying protocol module (`antigravity-sdk-protocol`) provides Protobuf wire classes matching upstream Antigravity specifications:
+
+* `PolicyConfig`: Contains `repeated PolicyRule rules`.
+* `PolicyRule`: Specifies `tool`, `server_name`, `name`, `decision` (`PolicyDecision`), `deny_reason`, `is_dynamic`, and `rule_id`.
+* `PolicyDecisionRequest` / `PolicyDecisionResponse`: Handlers for asynchronous policy evaluation events streamed via WebSockets.
+
+---
+
 ## 2. Lifecycle Hooks
 
 Lifecycle hooks allow applications to monitor, gate, or sanitize agent turns and tool calls.

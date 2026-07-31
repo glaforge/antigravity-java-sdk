@@ -15,6 +15,15 @@
  */
 package io.github.glaforge.antigravity;
 
+import io.github.glaforge.antigravity.localharness.HarnessConfig;
+import io.github.glaforge.antigravity.localharness.InputEvent;
+import io.github.glaforge.antigravity.localharness.OutputEvent;
+import io.github.glaforge.antigravity.localharness.PolicyConfig;
+import io.github.glaforge.antigravity.localharness.PolicyDecision;
+import io.github.glaforge.antigravity.localharness.PolicyDecisionRequest;
+import io.github.glaforge.antigravity.localharness.PolicyDecisionResponse;
+import io.github.glaforge.antigravity.localharness.PolicyEvaluationOutcome;
+import io.github.glaforge.antigravity.localharness.PolicyRule;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -150,5 +159,45 @@ public class PoliciesTest {
 			Policy.Decision denied = (Policy.Decision) evalMethod.invoke(agent, "run_command", null);
 			assertEquals(Policy.Decision.DENY, denied);
 		}
+	}
+
+	@Test
+	public void testProtobufPolicyConfig() {
+		PolicyRule rule = PolicyRule.newBuilder().setRuleId("rule-1").setTool("run_command")
+				.setDecision(PolicyDecision.POLICY_DECISION_DENY).setDenyReason("Security restriction").build();
+
+		PolicyConfig protoConfig = PolicyConfig.newBuilder().addRules(rule).build();
+
+		HarnessConfig harnessConfig = HarnessConfig.newBuilder().setCascadeId("test-cascade")
+				.setPolicyConfig(protoConfig).build();
+
+		assertTrue(harnessConfig.hasPolicyConfig());
+		assertEquals(1, harnessConfig.getPolicyConfig().getRulesCount());
+
+		PolicyRule retrievedRule = harnessConfig.getPolicyConfig().getRules(0);
+		assertEquals("rule-1", retrievedRule.getRuleId());
+		assertEquals("run_command", retrievedRule.getTool());
+		assertEquals(PolicyDecision.POLICY_DECISION_DENY, retrievedRule.getDecision());
+		assertEquals("Security restriction", retrievedRule.getDenyReason());
+	}
+
+	@Test
+	public void testProtobufPolicyDecisionEvent() {
+		PolicyDecisionRequest request = PolicyDecisionRequest.newBuilder().setRequestId("req-123").setRuleId("rule-1")
+				.build();
+
+		OutputEvent outputEvent = OutputEvent.newBuilder().setPolicyDecisionRequest(request).build();
+
+		assertTrue(outputEvent.hasPolicyDecisionRequest());
+		assertEquals("req-123", outputEvent.getPolicyDecisionRequest().getRequestId());
+
+		PolicyDecisionResponse response = PolicyDecisionResponse.newBuilder().setRequestId("req-123")
+				.setOutcome(PolicyEvaluationOutcome.POLICY_EVALUATION_OUTCOME_ALLOW).build();
+
+		InputEvent inputEvent = InputEvent.newBuilder().setPolicyDecisionResponse(response).build();
+
+		assertTrue(inputEvent.hasPolicyDecisionResponse());
+		assertEquals(PolicyEvaluationOutcome.POLICY_EVALUATION_OUTCOME_ALLOW,
+				inputEvent.getPolicyDecisionResponse().getOutcome());
 	}
 }

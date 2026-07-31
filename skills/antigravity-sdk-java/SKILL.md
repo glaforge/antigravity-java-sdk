@@ -97,7 +97,7 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
-See [Security Policies & Lifecycle Hooks](references/security-and-hooks.md) for interactive user confirmation policies.
+See [Security Policies & Lifecycle Hooks](references/security-and-hooks.md) for interactive user confirmation policies and Protobuf `PolicyConfig` wire definitions.
 
 ### 3. Response Streaming
 
