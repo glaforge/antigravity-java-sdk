@@ -35,8 +35,8 @@ public class SubagentsTest {
 					.capabilities(CapabilitiesConfig.builder().enableSubagents(true).build()).build();
 
 			try (Agent agent = new Agent(config)) {
-				CompletableFuture<AgentResponse> future = agent.chat(
-						"Please spawn a subagent with model gemini-3.6-flash to write a 2 sentence poem about space.");
+				CompletableFuture<AgentResponse> future = agent
+						.chat("Please spawn a subagent with Model 'inherit' to write a 2 sentence poem about space.");
 				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 
