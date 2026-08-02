@@ -79,7 +79,7 @@ public class HooksTest {
 					.addHook(postTurnHook).addHook(preToolHook).addHook(postToolHook).build();
 
 			try (Agent agent = new Agent(config)) {
-				CompletableFuture<AgentResponse> future = agent.chat("Say hello");
+				CompletableFuture<AgentResponse> future = agent.chat("Please echo: hello");
 				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 				assertNotNull(response.text());
@@ -88,7 +88,7 @@ public class HooksTest {
 			System.out.println("Events: " + events);
 
 			assertEquals("start", events.get(0));
-			assertEquals("pre_turn:Say hello", events.get(1));
+			assertEquals("pre_turn:Please echo: hello", events.get(1));
 			assertEquals("pre_tool:echo", events.get(2));
 			String postToolEvent = events.get(3).toLowerCase();
 			assertTrue(postToolEvent.startsWith("post_tool:") && postToolEvent.contains("echo"));

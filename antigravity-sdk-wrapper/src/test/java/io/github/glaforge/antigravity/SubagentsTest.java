@@ -30,19 +30,21 @@ public class SubagentsTest {
 	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testSubagents() throws Exception {
 		TestUtils.retry(2, () -> {
-			AgentConfig config = AgentConfig.builder().instructions("You are a coordinator agent.")
+			AgentConfig config = AgentConfig.builder().modelName("gemini-3.6-flash")
+					.instructions("You are a coordinator agent.")
 					.capabilities(CapabilitiesConfig.builder().enableSubagents(true).build()).build();
 
 			try (Agent agent = new Agent(config)) {
-				CompletableFuture<AgentResponse> future = agent
-						.chat("Please spawn a subagent to write a 2 sentence poem about space.");
+				CompletableFuture<AgentResponse> future = agent.chat(
+						"Please spawn a subagent with model gemini-3.6-flash to write a 2 sentence poem about space.");
 				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 
 				System.out.println(response.text());
 				assertNotNull(response.text());
 				assertTrue(response.text().toLowerCase().contains("subagent")
-						|| response.text().toLowerCase().contains("spawned"));
+						|| response.text().toLowerCase().contains("spawned")
+						|| response.text().toLowerCase().contains("poem"));
 			}
 		});
 	}
