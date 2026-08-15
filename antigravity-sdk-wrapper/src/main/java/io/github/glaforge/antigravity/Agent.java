@@ -882,7 +882,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 				}
 			}
 
-			InputEvent event = InputEvent.newBuilder().setComplexUserInput(userInputBuilder.build()).build();
+			InputEvent event = InputEvent.newBuilder().setUserInput(userInputBuilder.build()).build();
 			String payload = JSON_PRINTER.print(event);
 			sendWebSocketMessage(payload);
 		} catch (Exception e) {

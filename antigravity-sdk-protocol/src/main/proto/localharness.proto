@@ -523,8 +523,7 @@ message MultipleChoice {
 
 message InputEvent {
   oneof event {
-    string user_input = 1;
-    UserInput complex_user_input = 7;
+    UserInput user_input = 7;
     ToolConfirmation tool_confirmation = 2;
     ToolResponse tool_response = 3;
     UserQuestionsResponse question_response = 4;

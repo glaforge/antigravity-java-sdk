@@ -5,10 +5,10 @@
   <parent>
     <groupId>io.github.glaforge.antigravity</groupId>
     <artifactId>antigravity-sdk-parent</artifactId>
-    <version>0.2.6-SNAPSHOT</version>
+    <version>0.2.7-SNAPSHOT</version>
   </parent>
   <artifactId>antigravity-sdk-protocol</artifactId>
-  <version>0.2.6-SNAPSHOT</version>
+  <version>0.2.7-SNAPSHOT</version>
   <name>Antigravity Java SDK - Protocol</name>
   <description>The Protocol Buffers definitions and generated classes for Antigravity Java SDK.</description>
   <url>https://github.com/glaforge/antigravity-java-sdk</url>
