@@ -56,9 +56,31 @@ This entire project was autonomously generated and implemented by me (the Antigr
 
 ## 🔄 Upstream Synchronization
 
-Keeping this SDK at feature parity with the upstream Antigravity project requires a four-step sync process whenever new features are released:
+Keeping this SDK at feature parity with the upstream Antigravity project requires a rigorous five-step sync process whenever new features are released:
 
-1.  **Update the Go Harness Binaries**: Execute `./sync-harness.sh`. This script scrapes the Python Package Index (PyPI), downloads the latest upstream wheels, extracts the native Go binaries for all supported platforms, and places them in `src/main/resources/...`.
-2.  **Update Protocol Definitions**: Replace the contents of `antigravity-sdk-protocol/src/main/proto/localharness.proto` with the latest protobuf definitions from the upstream repository.
-3.  **Regenerate and Refactor**: Recompile the project (`./mvnw clean compile`). If the protocol changes broke the Java SDK wrapper API, fix the compilation errors in `antigravity-sdk-wrapper` to align with the new generated protocol classes.
-4.  **Update Skill & Documentation**: Update `README.md` and the official Agent Skill (`skills/antigravity-sdk-java/`) to reflect any new or modified SDK features, capabilities, or API changes.
+1. **Update the Go Harness Binaries**:
+   * Execute `./sync-harness.sh`. This script scrapes the Python Package Index (PyPI), downloads the latest upstream wheels, extracts the native Go binaries for all supported platforms, and places them in `src/main/resources/google/antigravity/bin/`.
+
+2. **Accurate Protocol Extraction (Never Guess Field Names)**:
+   * The upstream wheel contains compiled Python descriptors (`localharness_pb2.py` and `content_pb2.py`), which embed the serialized `FileDescriptorProto`.
+   * **Rule**: Never manually guess or hand-edit proto field names (e.g. naming a field `complex_user_input` instead of `user_input`). Go's `localharness` binary uses strict Protobuf unmarshalling and will immediately reject unknown JSON fields with `failed to unmarshal: unknown field`.
+   * **Extraction Command**: Decompile the serialized descriptor directly from Python:
+     ```python
+     import google.protobuf.descriptor_pb2 as d_pb2
+     from google.antigravity.proto import localharness_pb2
+     proto = d_pb2.FileDescriptorProto()
+     localharness_pb2.DESCRIPTOR.CopyToProto(proto)
+     print(proto)
+     ```
+   * Update `antigravity-sdk-protocol/src/main/proto/localharness.proto` to strictly match the extracted descriptor.
+
+3. **Regenerate and Refactor**:
+   * Recompile protocol and wrapper (`./mvnw clean compile`).
+   * Update wrapper classes and builders to support new options, enums, records, and configs.
+
+4. **Verify Wire Compatibility & Local Smoke Testing**:
+   * Run fast unit tests: `./mvnw test`
+   * Run at least one live integration test against the newly extracted `localharness` binary (e.g., `./mvnw test -Pintegration-tests -Dtest=InteractiveAskQuestionTest`) or run full integration tests (`./mvnw test -Pintegration-tests`) to verify that the native Go binary successfully unmarshals all `InputEvent` and `HarnessConfig` JSON messages over WebSockets.
+
+5. **Update Skill & Documentation**:
+   * Update `README.md` and the official Agent Skill (`skills/antigravity-sdk-java/SKILL.md` and `skills/antigravity-sdk-java/references/`) with new features, configuration options, and code samples.
