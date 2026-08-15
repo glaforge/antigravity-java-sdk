@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.glaforge.antigravity</groupId>
   <artifactId>antigravity-sdk-parent</artifactId>
-  <version>0.2.3-SNAPSHOT</version>
+  <version>0.2.6-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Antigravity Java SDK</name>
   <description>A Java SDK for building agents using the Antigravity localharness.</description>
@@ -34,11 +34,12 @@
   </scm>
   <properties>
     <maven.compiler.target>21</maven.compiler.target>
+    <slf4j.version>2.0.18</slf4j.version>
     <maven.compiler.source>21</maven.compiler.source>
     <protobuf.version>3.25.3</protobuf.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jackson.version>2.17.1</jackson.version>
-    <revision>0.2.3-SNAPSHOT</revision>
+    <revision>0.2.6-SNAPSHOT</revision>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -66,6 +67,16 @@
         <groupId>com.google.protobuf</groupId>
         <artifactId>protobuf-java-util</artifactId>
         <version>${protobuf.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>${slf4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-simple</artifactId>
+        <version>${slf4j.version}</version>
       </dependency>
       <dependency>
         <groupId>io.github.glaforge.antigravity</groupId>

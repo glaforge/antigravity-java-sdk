@@ -155,13 +155,40 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
+### 6. Session Budget Limits & Autonomous Behavior (v0.1.12)
+
+Enforce strict model call, tool call, and token caps using `BudgetConfig`, choose `AgentBehavior` mode, set inference `ServiceTier`, and inspect fine-grained token usage breakdown by `Modality`.
+
+```java
+import io.github.glaforge.antigravity.BudgetConfig;
+import io.github.glaforge.antigravity.AgentBehavior;
+import io.github.glaforge.antigravity.ServiceTier;
+import io.github.glaforge.antigravity.GenerationConfig;
+
+BudgetConfig budget = BudgetConfig.builder()
+    .maxModelCalls(10)
+    .maxToolCalls(20)
+    .maxInputTokens(40_000L)
+    .maxOutputTokens(8_000L)
+    .build();
+
+AgentConfig config = AgentConfig.builder()
+    .instructions("Autonomous assistant running with strict budget caps.")
+    .budgetConfig(budget)
+    .agentBehavior(AgentBehavior.AUTONOMOUS)
+    .generation(GenerationConfig.builder()
+        .serviceTier(ServiceTier.PRIORITY)
+        .build())
+    .build();
+```
+
 ---
 
 ## Detailed References
 
 For specialized configurations and detailed API breakdowns:
 
-- [API Reference](references/api-reference.md) — `AgentConfig` options, MCP servers, background triggers, multimodal inputs (`AgentInput`), and structured output `record`s.
+- [API Reference](references/api-reference.md) — `AgentConfig` options, MCP servers, background triggers, multimodal inputs (`AgentInput`), structured output `record`s, and `BudgetConfig` / `AgentBehavior`.
 - [Security Policies & Lifecycle Hooks](references/security-and-hooks.md) — Three-tier hook framework (`PreTurnHook`, `PreToolCallDecideHook`, `OnToolErrorHook`, `OnInteractionHook`) and security policy evaluation.
 - [Streaming & Reactive Integration](references/streaming-and-reactive.md) — Reactive Streams (`Flow.Publisher`), Project Reactor/RxJava interop, and `AgentStream` internal thought channels.
 

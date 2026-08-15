@@ -542,6 +542,45 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
+### 21. Budget Caps, Agent Behavior & Modality Breakdown (v0.1.12)
+
+Enforce strict session-level limits on model calls, tool calls, and token usage using `BudgetConfig`, toggle autonomous versus interactive mode using `AgentBehavior`, specify inference `ServiceTier`, and inspect fine-grained token usage broken down by `Modality`.
+
+```java
+// 1. Configure session-level budget limits and autonomous behavior
+BudgetConfig budget = BudgetConfig.builder()
+    .maxModelCalls(10)
+    .maxToolCalls(25)
+    .maxInputTokens(50_000L)
+    .maxOutputTokens(10_000L)
+    .maxTotalTokens(60_000L)
+    .build();
+
+AgentConfig config = AgentConfig.builder()
+    .instructions("Autonomous research assistant with budget limits.")
+    .budgetConfig(budget)
+    .agentBehavior(AgentBehavior.AUTONOMOUS)
+    .generation(GenerationConfig.builder()
+        .serviceTier(ServiceTier.PRIORITY)
+        .thinkingLevel(ThinkingLevel.HIGH)
+        .build())
+    .build();
+
+try (Agent agent = new Agent(config)) {
+    AgentResponse response = agent.chat("Perform deep codebase analysis.").get(120, TimeUnit.SECONDS);
+    
+    // 2. Inspect multimodal token breakdown from UsageMetadata
+    UsageMetadata usage = response.usage();
+    if (usage != null) {
+        System.out.println("Total tokens: " + usage.totalTokenCount());
+        System.out.println("Service tier: " + usage.serviceTier());
+        for (ModalityTokenCount detail : usage.promptTokensDetails()) {
+            System.out.println("  Modality " + detail.modality() + ": " + detail.tokenCount() + " tokens");
+        }
+    }
+}
+```
+
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](LICENSE).
@@ -549,3 +588,4 @@ This project is licensed under the [Apache License, Version 2.0](LICENSE).
 ## Disclaimer
 
 **This is not an officially supported Google product.** It is a community-driven, experimental port created for educational and development purposes.
+

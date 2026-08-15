@@ -32,12 +32,36 @@ import java.util.List;
  *            the stop sequences
  * @param thinkingLevel
  *            the thinking/reasoning severity level
+ * @param serviceTier
+ *            the inference service tier (e.g. STANDARD, PRIORITY, FLEX)
  */
 public record GenerationConfig(Double temperature, Double topP, Integer topK, Integer maxOutputTokens,
-		List<String> stopSequences, ThinkingLevel thinkingLevel) {
+		List<String> stopSequences, ThinkingLevel thinkingLevel, ServiceTier serviceTier) {
 
 	/**
-	 * Secondary constructor for backward compatibility without thinkingLevel.
+	 * Secondary constructor for backward compatibility without serviceTier.
+	 *
+	 * @param temperature
+	 *            the temperature
+	 * @param topP
+	 *            the topP value
+	 * @param topK
+	 *            the topK value
+	 * @param maxOutputTokens
+	 *            max output tokens
+	 * @param stopSequences
+	 *            the stop sequences
+	 * @param thinkingLevel
+	 *            the thinking/reasoning severity level
+	 */
+	public GenerationConfig(Double temperature, Double topP, Integer topK, Integer maxOutputTokens,
+			List<String> stopSequences, ThinkingLevel thinkingLevel) {
+		this(temperature, topP, topK, maxOutputTokens, stopSequences, thinkingLevel, null);
+	}
+
+	/**
+	 * Secondary constructor for backward compatibility without thinkingLevel and
+	 * serviceTier.
 	 *
 	 * @param temperature
 	 *            the temperature
@@ -52,7 +76,7 @@ public record GenerationConfig(Double temperature, Double topP, Integer topK, In
 	 */
 	public GenerationConfig(Double temperature, Double topP, Integer topK, Integer maxOutputTokens,
 			List<String> stopSequences) {
-		this(temperature, topP, topK, maxOutputTokens, stopSequences, null);
+		this(temperature, topP, topK, maxOutputTokens, stopSequences, null, null);
 	}
 
 	/**
@@ -80,6 +104,7 @@ public record GenerationConfig(Double temperature, Double topP, Integer topK, In
 		private Integer maxOutputTokens;
 		private List<String> stopSequences;
 		private ThinkingLevel thinkingLevel;
+		private ServiceTier serviceTier;
 
 		/**
 		 * Sets the temperature.
@@ -167,12 +192,38 @@ public record GenerationConfig(Double temperature, Double topP, Integer topK, In
 		}
 
 		/**
+		 * Sets the inference service tier.
+		 *
+		 * @param serviceTier
+		 *            the service tier
+		 * @return this builder
+		 */
+		public Builder serviceTier(ServiceTier serviceTier) {
+			this.serviceTier = serviceTier;
+			return this;
+		}
+
+		/**
+		 * Sets the inference service tier by name or string value (e.g. "priority",
+		 * "standard", "flex").
+		 *
+		 * @param serviceTier
+		 *            the string service tier
+		 * @return this builder
+		 */
+		public Builder serviceTier(String serviceTier) {
+			this.serviceTier = ServiceTier.fromString(serviceTier);
+			return this;
+		}
+
+		/**
 		 * Builds the GenerationConfig.
 		 *
 		 * @return the config
 		 */
 		public GenerationConfig build() {
-			return new GenerationConfig(temperature, topP, topK, maxOutputTokens, stopSequences, thinkingLevel);
+			return new GenerationConfig(temperature, topP, topK, maxOutputTokens, stopSequences, thinkingLevel,
+					serviceTier);
 		}
 	}
 }

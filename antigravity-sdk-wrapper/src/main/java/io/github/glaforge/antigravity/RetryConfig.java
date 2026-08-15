@@ -82,20 +82,4 @@ public record RetryConfig(ModelAPIRetryConfigRecord apiRetry, ModelOutputRetryCo
 	public static RetryConfig benchmark() {
 		return new RetryConfig(new ModelAPIRetryConfigRecord(5, 1000, 2.0, 0.2), new ModelOutputRetryConfigRecord(3));
 	}
-
-	/**
-	 * Converts this RetryConfig into its Protobuf counterpart.
-	 *
-	 * @return Protobuf RetryConfig
-	 */
-	public io.github.glaforge.antigravity.localharness.RetryConfig toProtobuf() {
-		var builder = io.github.glaforge.antigravity.localharness.RetryConfig.newBuilder();
-		if (apiRetry != null) {
-			builder.setApiRetry(apiRetry.toProtobuf());
-		}
-		if (modelOutputRetry != null) {
-			builder.setModelOutputRetry(modelOutputRetry.toProtobuf());
-		}
-		return builder.build();
-	}
 }

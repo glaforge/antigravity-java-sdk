@@ -20,6 +20,8 @@ import io.github.glaforge.antigravity.triggers.AgentTrigger;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.github.glaforge.antigravity.localharness.*;
+import static io.github.glaforge.antigravity.localharness.AgentBehavior.AGENT_BEHAVIOR_AUTONOMOUS;
+import static io.github.glaforge.antigravity.localharness.AgentBehavior.AGENT_BEHAVIOR_INTERACTIVE;
 import io.github.glaforge.antigravity.hooks.*;
 import io.github.glaforge.antigravity.hooks.ToolCall;
 import io.github.glaforge.antigravity.tools.ToolRegistry;
@@ -52,6 +54,8 @@ import java.util.concurrent.SubmissionPublisher;
 
 import java.util.function.Consumer;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -324,6 +328,30 @@ public class Agent implements AutoCloseable, TriggerContext {
 		}
 
 		/**
+		 * Sets the budget configuration for session limits.
+		 *
+		 * @param budgetConfig
+		 *            the budget configuration
+		 * @return this builder
+		 */
+		public Builder budgetConfig(BudgetConfig budgetConfig) {
+			configBuilder.budgetConfig(budgetConfig);
+			return this;
+		}
+
+		/**
+		 * Sets the agent behavior mode (AUTONOMOUS or INTERACTIVE).
+		 *
+		 * @param agentBehavior
+		 *            the agent behavior
+		 * @return this builder
+		 */
+		public Builder agentBehavior(AgentBehavior agentBehavior) {
+			configBuilder.agentBehavior(agentBehavior);
+			return this;
+		}
+
+		/**
 		 * Builds the Agent.
 		 *
 		 * @return the configured Agent
@@ -443,9 +471,15 @@ public class Agent implements AutoCloseable, TriggerContext {
 				modelConfigBuilder.setGemmaEndpoint(GemmaEndpoint.newBuilder().setBaseUrl(config.getBaseUrl()).build());
 			} else {
 				GeminiAPIEndpoint.Builder apiEndpointBuilder = GeminiAPIEndpoint.newBuilder().setApiKey(apiKey);
-				if (config.getGeneration() != null && config.getGeneration().thinkingLevel() != null) {
-					apiEndpointBuilder.setOptions(GeminiModelOptions.newBuilder()
-							.setThinkingLevel(config.getGeneration().thinkingLevel().getValue()).build());
+				if (config.getGeneration() != null) {
+					GeminiModelOptions.Builder optionsBuilder = GeminiModelOptions.newBuilder();
+					if (config.getGeneration().thinkingLevel() != null) {
+						optionsBuilder.setThinkingLevel(config.getGeneration().thinkingLevel().getValue());
+					}
+					if (config.getGeneration().serviceTier() != null) {
+						optionsBuilder.setServiceTier(config.getGeneration().serviceTier().getValue());
+					}
+					apiEndpointBuilder.setOptions(optionsBuilder.build());
 				}
 				modelConfigBuilder.setGeminiApiEndpoint(apiEndpointBuilder.build());
 			}
@@ -458,8 +492,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 			int mcpIndex = 1;
 			for (McpServerConfig mcp : config.getMcpServers()) {
-				var mcpBuilder = io.github.glaforge.antigravity.localharness.McpServerConfig.newBuilder()
-						.setName("server-" + (mcpIndex++));
+				var mcpBuilder = configBuilder.addMcpServersBuilder().setName("server-" + (mcpIndex++));
 
 				if (mcp instanceof McpServerConfig.StdioMcpServerConfig stdio) {
 					mcpBuilder.setStdio(McpStdioTransport.newBuilder().setCommand(stdio.command())
@@ -477,7 +510,6 @@ public class Agent implements AutoCloseable, TriggerContext {
 					}
 					mcpBuilder.setHttp(http.build());
 				}
-				configBuilder.addMcpServers(mcpBuilder.build());
 			}
 
 			// Add Hooks tracking
@@ -510,7 +542,40 @@ public class Agent implements AutoCloseable, TriggerContext {
 			}
 
 			if (config.getRetryConfig() != null) {
-				configBuilder.setRetryConfig(config.getRetryConfig().toProtobuf());
+				var retryBuilder = configBuilder.getRetryConfigBuilder();
+				if (config.getRetryConfig().apiRetry() != null) {
+					retryBuilder.setApiRetry(config.getRetryConfig().apiRetry().toProtobuf());
+				}
+				if (config.getRetryConfig().modelOutputRetry() != null) {
+					retryBuilder.setModelOutputRetry(config.getRetryConfig().modelOutputRetry().toProtobuf());
+				}
+			}
+
+			if (config.getBudgetConfig() != null) {
+				BudgetConfig b = config.getBudgetConfig();
+				var budgetBuilder = configBuilder.getBudgetConfigBuilder();
+				if (b.maxModelCalls() != null) {
+					budgetBuilder.setMaxModelCalls(b.maxModelCalls());
+				}
+				if (b.maxToolCalls() != null) {
+					budgetBuilder.setMaxToolCalls(b.maxToolCalls());
+				}
+				if (b.maxInputTokens() != null) {
+					budgetBuilder.setMaxInputTokens(b.maxInputTokens());
+				}
+				if (b.maxOutputTokens() != null) {
+					budgetBuilder.setMaxOutputTokens(b.maxOutputTokens());
+				}
+				if (b.maxTotalTokens() != null) {
+					budgetBuilder.setMaxTotalTokens(b.maxTotalTokens());
+				}
+			}
+
+			if (config.getAgentBehavior() != null) {
+				switch (config.getAgentBehavior()) {
+					case AUTONOMOUS -> configBuilder.setAgentBehavior(AGENT_BEHAVIOR_AUTONOMOUS);
+					case INTERACTIVE -> configBuilder.setAgentBehavior(AGENT_BEHAVIOR_INTERACTIVE);
+				}
 			}
 
 			if (config.getCapabilities().enableSubagents() || config.getCapabilities().allowUserQuestions()
@@ -962,9 +1027,18 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 				if (stepUpdate.has("usageMetadata")) {
 					JsonNode usage = stepUpdate.get("usageMetadata");
+					List<ModalityTokenCount> promptDetails = parseModalityDetails(usage.path("promptTokensDetails"));
+					List<ModalityTokenCount> cacheDetails = parseModalityDetails(usage.path("cacheTokensDetails"));
+					List<ModalityTokenCount> candidateDetails = parseModalityDetails(
+							usage.path("candidatesTokensDetails"));
+					List<ModalityTokenCount> toolUseDetails = parseModalityDetails(
+							usage.path("toolUsePromptTokensDetails"));
+					String serviceTier = usage.has("serviceTier") ? usage.get("serviceTier").asText() : null;
+
 					currentUsage = new UsageMetadata(usage.path("promptTokenCount").asInt(),
 							usage.path("cachedContentTokenCount").asInt(), usage.path("candidatesTokenCount").asInt(),
-							usage.path("thoughtsTokenCount").asInt(), usage.path("totalTokenCount").asInt());
+							usage.path("thoughtsTokenCount").asInt(), usage.path("totalTokenCount").asInt(),
+							serviceTier, promptDetails, cacheDetails, candidateDetails, toolUseDetails);
 				}
 
 				if (stepUpdate.has("state") && "STATE_ERROR".equals(stepUpdate.path("state").asText())) {
@@ -1399,5 +1473,27 @@ public class Agent implements AutoCloseable, TriggerContext {
 		} catch (Exception e) {
 		}
 		return propKey != null ? propKey : (envKey != null ? envKey : localEnvKey);
+	}
+
+	/**
+	 * Parses a JSON array of modality token details into a list of
+	 * {@link ModalityTokenCount} records.
+	 *
+	 * @param node
+	 *            the JSON node containing the modality details array
+	 * @return an unmodifiable list of ModalityTokenCount records
+	 */
+	private static List<ModalityTokenCount> parseModalityDetails(JsonNode node) {
+		if (node == null || !node.isArray()) {
+			return List.of();
+		}
+		List<ModalityTokenCount> list = new ArrayList<>();
+		for (JsonNode item : node) {
+			String modStr = item.path("modality").asText("");
+			long count = item.path("tokenCount").asLong();
+			Modality mod = Modality.fromString(modStr);
+			list.add(new ModalityTokenCount(mod, count));
+		}
+		return Collections.unmodifiableList(list);
 	}
 }

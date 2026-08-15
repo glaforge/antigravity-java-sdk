@@ -55,6 +55,8 @@ public class AgentConfig {
 	private final String baseUrl;
 	private final RetryConfig retryConfig;
 	private final DebugConfig debugConfig;
+	private final BudgetConfig budgetConfig;
+	private final AgentBehavior agentBehavior;
 
 	private AgentConfig(Builder builder) {
 		this.instructions = builder.instructions;
@@ -76,6 +78,8 @@ public class AgentConfig {
 		this.baseUrl = builder.baseUrl;
 		this.retryConfig = builder.retryConfig;
 		this.debugConfig = builder.debugConfig;
+		this.budgetConfig = builder.budgetConfig;
+		this.agentBehavior = builder.agentBehavior;
 	}
 
 	/**
@@ -238,6 +242,24 @@ public class AgentConfig {
 	}
 
 	/**
+	 * Returns the session budget configuration.
+	 *
+	 * @return budget configuration, or null if not configured
+	 */
+	public BudgetConfig getBudgetConfig() {
+		return budgetConfig;
+	}
+
+	/**
+	 * Returns the agent behavior mode.
+	 *
+	 * @return agent behavior mode, or null if not configured
+	 */
+	public AgentBehavior getAgentBehavior() {
+		return agentBehavior;
+	}
+
+	/**
 	 * Hydrates the GCP/Vertex project ID from explicit config or standard
 	 * GOOGLE_CLOUD_PROJECT environment variable.
 	 *
@@ -306,6 +328,8 @@ public class AgentConfig {
 		private String baseUrl;
 		private RetryConfig retryConfig;
 		private DebugConfig debugConfig;
+		private BudgetConfig budgetConfig;
+		private AgentBehavior agentBehavior;
 
 		/**
 		 * Sets the instructions.
@@ -662,6 +686,30 @@ public class AgentConfig {
 		 */
 		public Builder debugConfig(DebugConfig debugConfig) {
 			this.debugConfig = debugConfig;
+			return this;
+		}
+
+		/**
+		 * Sets the session budget configuration for call counts and token caps.
+		 *
+		 * @param budgetConfig
+		 *            the budget configuration
+		 * @return this builder
+		 */
+		public Builder budgetConfig(BudgetConfig budgetConfig) {
+			this.budgetConfig = budgetConfig;
+			return this;
+		}
+
+		/**
+		 * Sets the agent behavior mode (e.g. AUTONOMOUS or INTERACTIVE).
+		 *
+		 * @param agentBehavior
+		 *            the agent behavior mode
+		 * @return this builder
+		 */
+		public Builder agentBehavior(AgentBehavior agentBehavior) {
+			this.agentBehavior = agentBehavior;
 			return this;
 		}
 

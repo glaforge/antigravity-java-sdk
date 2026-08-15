@@ -5,10 +5,10 @@
   <parent>
     <groupId>io.github.glaforge.antigravity</groupId>
     <artifactId>antigravity-sdk-parent</artifactId>
-    <version>0.2.3-SNAPSHOT</version>
+    <version>0.2.6-SNAPSHOT</version>
   </parent>
   <artifactId>antigravity-sdk-wrapper</artifactId>
-  <version>0.2.3-SNAPSHOT</version>
+  <version>0.2.6-SNAPSHOT</version>
   <name>Antigravity Java SDK - Wrapper</name>
   <description>The main Java wrapper and client for the Antigravity localharness.</description>
   <url>https://github.com/glaforge/antigravity-java-sdk</url>
@@ -26,6 +26,15 @@
     <dependency>
       <groupId>org.awaitility</groupId>
       <artifactId>awaitility</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

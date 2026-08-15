@@ -15,6 +15,8 @@
  */
 package io.github.glaforge.antigravity;
 
+import java.util.List;
+
 /**
  * Represents the usage metadata and token counts for a generation.
  *
@@ -28,7 +30,39 @@ package io.github.glaforge.antigravity;
  *            the number of thoughts tokens
  * @param totalTokenCount
  *            the total token count
+ * @param serviceTier
+ *            the service tier used for inference (e.g. "priority", "standard")
+ * @param promptTokensDetails
+ *            the breakdown of prompt tokens by modality
+ * @param cacheTokensDetails
+ *            the breakdown of cached tokens by modality
+ * @param candidatesTokensDetails
+ *            the breakdown of candidate tokens by modality
+ * @param toolUsePromptTokensDetails
+ *            the breakdown of tool-use prompt tokens by modality
  */
 public record UsageMetadata(int promptTokenCount, int cachedContentTokenCount, int candidatesTokenCount,
-		int thoughtsTokenCount, int totalTokenCount) {
+		int thoughtsTokenCount, int totalTokenCount, String serviceTier, List<ModalityTokenCount> promptTokensDetails,
+		List<ModalityTokenCount> cacheTokensDetails, List<ModalityTokenCount> candidatesTokensDetails,
+		List<ModalityTokenCount> toolUsePromptTokensDetails) {
+
+	/**
+	 * Convenience constructor without detailed modality breakdown.
+	 *
+	 * @param promptTokenCount
+	 *            the number of prompt tokens
+	 * @param cachedContentTokenCount
+	 *            the number of cached content tokens
+	 * @param candidatesTokenCount
+	 *            the number of candidates tokens
+	 * @param thoughtsTokenCount
+	 *            the number of thoughts tokens
+	 * @param totalTokenCount
+	 *            the total token count
+	 */
+	public UsageMetadata(int promptTokenCount, int cachedContentTokenCount, int candidatesTokenCount,
+			int thoughtsTokenCount, int totalTokenCount) {
+		this(promptTokenCount, cachedContentTokenCount, candidatesTokenCount, thoughtsTokenCount, totalTokenCount, null,
+				List.of(), List.of(), List.of(), List.of());
+	}
 }

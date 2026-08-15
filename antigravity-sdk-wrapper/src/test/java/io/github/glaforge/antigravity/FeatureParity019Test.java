@@ -54,9 +54,10 @@ public class FeatureParity019Test {
 		assertNotNull(benchmarkCfg.modelOutputRetry());
 		assertEquals(3, benchmarkCfg.modelOutputRetry().maxRetries());
 
-		var proto = benchmarkCfg.toProtobuf();
-		assertEquals(5, proto.getApiRetry().getMaxRetries());
-		assertEquals(3, proto.getModelOutputRetry().getMaxRetries());
+		var apiProto = benchmarkCfg.apiRetry().toProtobuf();
+		var outputProto = benchmarkCfg.modelOutputRetry().toProtobuf();
+		assertEquals(5, apiProto.getMaxRetries());
+		assertEquals(3, outputProto.getMaxRetries());
 	}
 
 	@Test

@@ -21,7 +21,14 @@ package io.github.glaforge.antigravity;
  */
 public class ToolExecutionError extends RuntimeException {
 
+	/**
+	 * Name of the failing tool.
+	 */
 	private final String toolName;
+
+	/**
+	 * Raw arguments passed to the tool as JSON.
+	 */
 	private final String argumentsJson;
 
 	/**

@@ -313,3 +313,56 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
+---
+
+## 10. Session Budget, Behavior & Multimodal Usage Breakdown (v0.1.12)
+
+### Session Budget Configuration (`BudgetConfig`)
+
+```java
+import io.github.glaforge.antigravity.BudgetConfig;
+
+BudgetConfig budget = BudgetConfig.builder()
+    .maxModelCalls(10)
+    .maxToolCalls(30)
+    .maxInputTokens(100_000L)
+    .maxOutputTokens(20_000L)
+    .maxTotalTokens(120_000L)
+    .build();
+
+AgentConfig config = AgentConfig.builder()
+    .budgetConfig(budget)
+    .build();
+```
+
+### Agent Behavior (`AgentBehavior`) & Service Tier (`ServiceTier`)
+
+```java
+import io.github.glaforge.antigravity.AgentBehavior;
+import io.github.glaforge.antigravity.ServiceTier;
+import io.github.glaforge.antigravity.GenerationConfig;
+
+AgentConfig config = AgentConfig.builder()
+    .agentBehavior(AgentBehavior.AUTONOMOUS)
+    .generation(GenerationConfig.builder()
+        .serviceTier(ServiceTier.PRIORITY)
+        .build())
+    .build();
+```
+
+### Multimodal Token Usage Breakdown (`UsageMetadata`, `ModalityTokenCount`)
+
+```java
+UsageMetadata usage = response.usage();
+if (usage != null) {
+    System.out.println("Service tier: " + usage.serviceTier());
+    System.out.println("Cached tokens: " + usage.cachedContentTokenCount());
+    System.out.println("Thoughts tokens: " + usage.thoughtsTokenCount());
+    
+    for (ModalityTokenCount detail : usage.promptTokensDetails()) {
+        System.out.println("Prompt modality: " + detail.modality() + " -> " + detail.tokenCount() + " tokens");
+    }
+}
+```
+
+

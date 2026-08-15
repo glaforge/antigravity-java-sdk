@@ -13,19 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.github.glaforge.antigravity;
 
 /**
- * Contains lifecycle hooks for the Antigravity Agent.
- * <p>
- * The hooks in this package follow the core architectural pillars of the
- * Antigravity SDK:
- * <ul>
- * <li><b>{@link InspectHook Inspect Hooks}</b>: Read-Only, Non-Blocking. For
- * logging, audit trails, and metrics.
- * <li><b>{@link DecideHook Decide Hooks}</b>: Read-Only, Blocking. For custom
- * approval/denial logic and policies.
- * <li><b>{@link TransformHook Transform Hooks}</b>: Modifying, Blocking. For
- * sanitizing data in transit or recovering from errors.
- * </ul>
+ * Token count breakdown for a specific content modality.
+ *
+ * @param modality
+ *            the content modality (e.g. TEXT, IMAGE, AUDIO)
+ * @param tokenCount
+ *            the number of tokens attributed to this modality
  */
-package io.github.glaforge.antigravity.hooks;
+public record ModalityTokenCount(Modality modality, long tokenCount) {
+}
