@@ -50,6 +50,7 @@ public class InteractiveAskQuestionTest {
 			};
 
 			AgentConfig config = AgentConfig.builder().modelName("gemini-3.6-flash")
+					.agentBehavior(AgentBehavior.INTERACTIVE)
 					.instructions(
 							"""
 									You are a helpful assistant.

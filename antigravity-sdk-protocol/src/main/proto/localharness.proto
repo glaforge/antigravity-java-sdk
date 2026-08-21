@@ -249,6 +249,7 @@ message FindToolConfig {
 message RunCommandToolConfig {
   bool enabled = 1;
   uint32 max_timeout_ms = 2;
+  bool enable_daemon_commands = 3;
 }
 
 message SubagentsConfig {
@@ -743,6 +744,8 @@ message PreToolArgs {
   string arguments_json = 2;
   string server_name = 3;
   string call_id = 4;
+  string trajectory_id = 5;
+  uint32 step_index = 6;
 }
 
 message PostToolArgs {
@@ -751,6 +754,8 @@ message PostToolArgs {
   string error = 3;
   string server_name = 5;
   string call_id = 6;
+  string trajectory_id = 7;
+  uint32 step_index = 8;
 }
 
 message OnToolErrorArgs {
@@ -758,6 +763,8 @@ message OnToolErrorArgs {
   string error_message = 2;
   string server_name = 4;
   string call_id = 5;
+  string trajectory_id = 6;
+  uint32 step_index = 7;
 }
 
 message PreTurnArgs {
@@ -843,8 +850,15 @@ message ToolOutputTruncation {
   }
 }
 
+enum WorkspaceContainment {
+  WORKSPACE_CONTAINMENT_UNSPECIFIED = 0;
+  WORKSPACE_CONTAINMENT_ENABLED = 1;
+  WORKSPACE_CONTAINMENT_DISABLED = 2;
+}
+
 message PolicyConfig {
   repeated PolicyRule rules = 1;
+  WorkspaceContainment workspace_containment = 2;
 }
 
 message PolicyRule {

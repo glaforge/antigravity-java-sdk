@@ -22,6 +22,9 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.github.glaforge.antigravity.localharness.*;
 import static io.github.glaforge.antigravity.localharness.AgentBehavior.AGENT_BEHAVIOR_AUTONOMOUS;
 import static io.github.glaforge.antigravity.localharness.AgentBehavior.AGENT_BEHAVIOR_INTERACTIVE;
+import static io.github.glaforge.antigravity.localharness.WorkspaceContainment.WORKSPACE_CONTAINMENT_ENABLED;
+import static io.github.glaforge.antigravity.localharness.WorkspaceContainment.WORKSPACE_CONTAINMENT_DISABLED;
+import static io.github.glaforge.antigravity.localharness.WorkspaceContainment.WORKSPACE_CONTAINMENT_UNSPECIFIED;
 import io.github.glaforge.antigravity.hooks.*;
 import io.github.glaforge.antigravity.hooks.ToolCall;
 import io.github.glaforge.antigravity.tools.ToolRegistry;
@@ -355,6 +358,18 @@ public class Agent implements AutoCloseable, TriggerContext {
 		}
 
 		/**
+		 * Sets the workspace containment policy.
+		 *
+		 * @param workspaceContainment
+		 *            the workspace containment policy
+		 * @return this builder
+		 */
+		public Builder workspaceContainment(WorkspaceContainment workspaceContainment) {
+			configBuilder.workspaceContainment(workspaceContainment);
+			return this;
+		}
+
+		/**
 		 * Builds the Agent.
 		 *
 		 * @return the configured Agent
@@ -581,6 +596,15 @@ public class Agent implements AutoCloseable, TriggerContext {
 				}
 			}
 
+			if (config.getWorkspaceContainment() != null) {
+				var policyBuilder = configBuilder.getPolicyConfigBuilder();
+				switch (config.getWorkspaceContainment()) {
+					case ENABLED -> policyBuilder.setWorkspaceContainment(WORKSPACE_CONTAINMENT_ENABLED);
+					case DISABLED -> policyBuilder.setWorkspaceContainment(WORKSPACE_CONTAINMENT_DISABLED);
+					case UNSPECIFIED -> policyBuilder.setWorkspaceContainment(WORKSPACE_CONTAINMENT_UNSPECIFIED);
+				}
+			}
+
 			if (config.getCapabilities().enableSubagents() || config.getCapabilities().allowUserQuestions()
 					|| config.getCapabilities().enableWebSearch() || config.getCapabilities().enableUrlReading()
 					|| config.getCapabilities().enableShell() || config.getCapabilities().enableViewFile()
@@ -600,7 +624,15 @@ public class Agent implements AutoCloseable, TriggerContext {
 					capBuilder.setReadUrlContent(ReadUrlContentToolConfig.newBuilder().setEnabled(true).build());
 				}
 				if (config.getCapabilities().enableShell()) {
-					capBuilder.setRunCommand(RunCommandToolConfig.newBuilder().setEnabled(true).build());
+					var runCmdBuilder = RunCommandToolConfig.newBuilder().setEnabled(true);
+					if (config.getCapabilities().runCommandConfig() != null) {
+						RunCommandConfig rcc = config.getCapabilities().runCommandConfig();
+						runCmdBuilder.setEnableDaemonCommands(rcc.enableDaemons());
+						if (rcc.timeoutSeconds() != null) {
+							runCmdBuilder.setMaxTimeoutMs((int) (rcc.timeoutSeconds() * 1000));
+						}
+					}
+					capBuilder.setRunCommand(runCmdBuilder.build());
 				}
 				if (config.getCapabilities().enableViewFile()) {
 					capBuilder.setViewFile(ViewFileToolConfig.newBuilder().setEnabled(true).build());
@@ -1178,7 +1210,15 @@ public class Agent implements AutoCloseable, TriggerContext {
 								: (args.path("call").has("arguments")
 										? args.path("call").path("arguments").toString()
 										: "{}");
-						ToolCall call = new ToolCall(toolName, jsonMapper.readTree(argumentsJson));
+						String callId = args.has("callId") ? args.path("callId").asText(null) : null;
+						String serverName = args.has("serverName") ? args.path("serverName").asText(null) : null;
+						String trajectoryId = args.has("trajectoryId") ? args.path("trajectoryId").asText(null) : null;
+						Integer stepIndex = args.has("stepIndex") ? args.path("stepIndex").asInt() : null;
+						String stepId = (trajectoryId != null && stepIndex != null)
+								? (trajectoryId + ":" + stepIndex)
+								: null;
+						ToolCall call = new ToolCall(toolName, jsonMapper.readTree(argumentsJson), callId, stepId,
+								serverName);
 						hookFuture = triggerPreToolCallDecide(call);
 					} catch (Exception e) {
 					}
@@ -1193,7 +1233,15 @@ public class Agent implements AutoCloseable, TriggerContext {
 								: (args.path("call").has("arguments")
 										? args.path("call").path("arguments").toString()
 										: "{}");
-						ToolCall call = new ToolCall(toolName, jsonMapper.readTree(argumentsJson));
+						String callId = args.has("callId") ? args.path("callId").asText(null) : null;
+						String serverName = args.has("serverName") ? args.path("serverName").asText(null) : null;
+						String trajectoryId = args.has("trajectoryId") ? args.path("trajectoryId").asText(null) : null;
+						Integer stepIndex = args.has("stepIndex") ? args.path("stepIndex").asInt() : null;
+						String stepId = (trajectoryId != null && stepIndex != null)
+								? (trajectoryId + ":" + stepIndex)
+								: null;
+						ToolCall call = new ToolCall(toolName, jsonMapper.readTree(argumentsJson), callId, stepId,
+								serverName);
 						String result = args.has("result")
 								? args.path("result").asText("")
 								: args.path("toolResult").asText("");
@@ -1211,13 +1259,22 @@ public class Agent implements AutoCloseable, TriggerContext {
 								: (args.path("call").has("arguments")
 										? args.path("call").path("arguments").toString()
 										: "{}");
-						ToolCall call = new ToolCall(toolName, jsonMapper.readTree(argumentsJson));
-						hookFuture = triggerOnToolError(call,
-								new RuntimeException(args.path("errorMessage").asText(""))).thenApply(recovery -> {
-									if (recovery != null)
-										return HookResult.denied();
-									return HookResult.allowed();
-								});
+						String callId = args.has("callId") ? args.path("callId").asText(null) : null;
+						String serverName = args.has("serverName") ? args.path("serverName").asText(null) : null;
+						String trajectoryId = args.has("trajectoryId") ? args.path("trajectoryId").asText(null) : null;
+						Integer stepIndex = args.has("stepIndex") ? args.path("stepIndex").asInt() : null;
+						String stepId = (trajectoryId != null && stepIndex != null)
+								? (trajectoryId + ":" + stepIndex)
+								: null;
+						ToolCall call = new ToolCall(toolName, jsonMapper.readTree(argumentsJson), callId, stepId,
+								serverName);
+						Throwable error = new ToolExecutionError(toolName, argumentsJson, serverName, callId, stepId,
+								args.path("errorMessage").asText(""), null);
+						hookFuture = triggerOnToolError(call, error).thenApply(recovery -> {
+							if (recovery != null)
+								return HookResult.denied();
+							return HookResult.allowed();
+						});
 					} catch (Exception e) {
 					}
 				}

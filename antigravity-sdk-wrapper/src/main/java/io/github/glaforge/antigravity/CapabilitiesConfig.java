@@ -43,11 +43,50 @@ package io.github.glaforge.antigravity;
  * @param imageModelName
  *            the image generation model name (defaults to
  *            "gemini-3.1-flash-lite-image")
+ * @param runCommandConfig
+ *            optional configuration for the builtin {@code run_command} tool
  */
 public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuestions, boolean enableWebSearch,
 		boolean enableUrlReading, boolean enableShell, boolean enableViewFile, boolean enableWriteFile,
 		boolean enableFileEdit, boolean enableListDir, boolean enableGrepSearch, boolean enableGenerateImage,
-		String imageModelName) {
+		String imageModelName, RunCommandConfig runCommandConfig) {
+
+	/**
+	 * Secondary constructor for backward compatibility with 12 parameters.
+	 *
+	 * @param enableSubagents
+	 *            true if subagents are enabled
+	 * @param allowUserQuestions
+	 *            true if user questions are allowed
+	 * @param enableWebSearch
+	 *            true if web search is enabled
+	 * @param enableUrlReading
+	 *            true if URL reading is enabled
+	 * @param enableShell
+	 *            true if shell execution is enabled
+	 * @param enableViewFile
+	 *            true if file viewing is enabled
+	 * @param enableWriteFile
+	 *            true if file writing is enabled
+	 * @param enableFileEdit
+	 *            true if file editing is enabled
+	 * @param enableListDir
+	 *            true if list directory is enabled
+	 * @param enableGrepSearch
+	 *            true if grep search is enabled
+	 * @param enableGenerateImage
+	 *            true if image generation capability is enabled
+	 * @param imageModelName
+	 *            the image generation model name
+	 */
+	public CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuestions, boolean enableWebSearch,
+			boolean enableUrlReading, boolean enableShell, boolean enableViewFile, boolean enableWriteFile,
+			boolean enableFileEdit, boolean enableListDir, boolean enableGrepSearch, boolean enableGenerateImage,
+			String imageModelName) {
+		this(enableSubagents, allowUserQuestions, enableWebSearch, enableUrlReading, enableShell, enableViewFile,
+				enableWriteFile, enableFileEdit, enableListDir, enableGrepSearch, enableGenerateImage, imageModelName,
+				null);
+	}
 
 	/**
 	 * Secondary constructor for backward compatibility without image generation.
@@ -78,7 +117,7 @@ public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuest
 			boolean enableFileEdit, boolean enableListDir, boolean enableGrepSearch) {
 		this(enableSubagents, allowUserQuestions, enableWebSearch, enableUrlReading, enableShell, enableViewFile,
 				enableWriteFile, enableFileEdit, enableListDir, enableGrepSearch, false,
-				AgentConfig.DEFAULT_IMAGE_GENERATION_MODEL);
+				AgentConfig.DEFAULT_IMAGE_GENERATION_MODEL, null);
 	}
 
 	/**
@@ -112,6 +151,7 @@ public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuest
 		private boolean enableGrepSearch = false;
 		private boolean enableGenerateImage = false;
 		private String imageModelName = AgentConfig.DEFAULT_IMAGE_GENERATION_MODEL;
+		private RunCommandConfig runCommandConfig;
 
 		/**
 		 * Enables or disables subagents.
@@ -258,6 +298,18 @@ public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuest
 		}
 
 		/**
+		 * Sets the configuration for the builtin {@code run_command} tool.
+		 *
+		 * @param runCommandConfig
+		 *            the run command configuration
+		 * @return this builder
+		 */
+		public Builder runCommandConfig(RunCommandConfig runCommandConfig) {
+			this.runCommandConfig = runCommandConfig;
+			return this;
+		}
+
+		/**
 		 * Builds the CapabilitiesConfig.
 		 *
 		 * @return the config
@@ -265,7 +317,7 @@ public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuest
 		public CapabilitiesConfig build() {
 			return new CapabilitiesConfig(enableSubagents, allowUserQuestions, enableWebSearch, enableUrlReading,
 					enableShell, enableViewFile, enableWriteFile, enableFileEdit, enableListDir, enableGrepSearch,
-					enableGenerateImage, imageModelName);
+					enableGenerateImage, imageModelName, runCommandConfig);
 		}
 	}
 }

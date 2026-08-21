@@ -18,12 +18,30 @@ package io.github.glaforge.antigravity.hooks;
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**
- * Represents a tool call with its arguments.
+ * Represents a tool call with its arguments and correlation identifiers.
  *
  * @param name
  *            the name of the tool
  * @param args
  *            the JSON arguments provided to the tool
+ * @param id
+ *            optional unique identifier for the tool call
+ * @param stepId
+ *            optional trajectory step ID correlating with the step
+ * @param serverName
+ *            optional MCP server name for MCP tools
  */
-public record ToolCall(String name, JsonNode args) {
+public record ToolCall(String name, JsonNode args, String id, String stepId, String serverName) {
+
+	/**
+	 * Convenience constructor for backward compatibility.
+	 *
+	 * @param name
+	 *            the name of the tool
+	 * @param args
+	 *            the JSON arguments provided to the tool
+	 */
+	public ToolCall(String name, JsonNode args) {
+		this(name, args, null, null, null);
+	}
 }

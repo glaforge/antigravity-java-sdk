@@ -182,6 +182,36 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
+### 7. Run Command Options & Workspace Containment (v0.1.13)
+
+Configure daemon commands and timeouts via `RunCommandConfig`, enforce strict filesystem containment with `WorkspaceContainment`, correlate trajectory steps (`stepId`), and rewrite tool arguments in `PreToolCallDecideHook`.
+
+```java
+import io.github.glaforge.antigravity.RunCommandConfig;
+import io.github.glaforge.antigravity.WorkspaceContainment;
+import io.github.glaforge.antigravity.hooks.HookResult;
+
+RunCommandConfig runCmd = RunCommandConfig.builder()
+    .enableDaemons(true)
+    .timeoutSeconds(120.0)
+    .build();
+
+AgentConfig config = AgentConfig.builder()
+    .instructions("Secure assistant with workspace containment.")
+    .capabilities(CapabilitiesConfig.builder().enableShell(true).runCommandConfig(runCmd).build())
+    .workspaceContainment(WorkspaceContainment.ENABLED)
+    .addPreToolCallDecideHook((toolCall, ctx) -> {
+        // Rewrite tool arguments dynamically
+        if ("run_command".equals(toolCall.name())) {
+            return CompletableFuture.completedFuture(
+                HookResult.allowedWithModifiedArguments("{\"command_line\": \"echo safe\"}")
+            );
+        }
+        return CompletableFuture.completedFuture(HookResult.allowed());
+    })
+    .build();
+```
+
 ---
 
 ## Detailed References

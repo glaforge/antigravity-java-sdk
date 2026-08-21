@@ -365,4 +365,66 @@ if (usage != null) {
 }
 ```
 
+---
+
+## 11. Run Command Options, Workspace Containment & Step Correlation (v0.1.13)
+
+### Run Command Tool Configuration (`RunCommandConfig`)
+
+```java
+import io.github.glaforge.antigravity.RunCommandConfig;
+import io.github.glaforge.antigravity.CapabilitiesConfig;
+
+RunCommandConfig runConfig = RunCommandConfig.builder()
+    .enableDaemons(true)
+    .timeoutSeconds(180.0)
+    .build();
+
+CapabilitiesConfig capabilities = CapabilitiesConfig.builder()
+    .enableShell(true)
+    .runCommandConfig(runConfig)
+    .build();
+```
+
+### Workspace Containment Policy (`WorkspaceContainment`)
+
+```java
+import io.github.glaforge.antigravity.WorkspaceContainment;
+
+AgentConfig config = AgentConfig.builder()
+    .instructions("Contain all operations strictly within the configured workspace directory.")
+    .workspaceContainment(WorkspaceContainment.ENABLED)
+    .build();
+```
+
+### Step Correlation & Argument Modification in Hooks (`ToolCall`, `HookResult`, `ToolExecutionError`)
+
+```java
+import io.github.glaforge.antigravity.hooks.ToolCall;
+import io.github.glaforge.antigravity.hooks.HookResult;
+import io.github.glaforge.antigravity.ToolExecutionError;
+
+AgentConfig config = AgentConfig.builder()
+    .addPreToolCallDecideHook((toolCall, ctx) -> {
+        String stepId = toolCall.stepId(); // E.g. "traj_main:3"
+        String callId = toolCall.id();
+        String server = toolCall.serverName();
+        
+        // Rewrite arguments dynamically
+        if ("view_file".equals(toolCall.name())) {
+            return CompletableFuture.completedFuture(
+                HookResult.allowedWithModifiedArguments("{\"file_path\": \"sanitized_path.txt\"}")
+            );
+        }
+        return CompletableFuture.completedFuture(HookResult.allowed());
+    })
+    .addOnToolErrorHook((toolCall, error, ctx) -> {
+        if (error instanceof ToolExecutionError tee) {
+            System.err.println("Failure on step: " + tee.getStepId() + " in server: " + tee.getServerName());
+        }
+        return CompletableFuture.completedFuture("Handled error");
+    })
+    .build();
+```
+
 

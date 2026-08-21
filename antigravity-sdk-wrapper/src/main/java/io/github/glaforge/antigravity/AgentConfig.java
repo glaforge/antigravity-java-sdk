@@ -57,6 +57,7 @@ public class AgentConfig {
 	private final DebugConfig debugConfig;
 	private final BudgetConfig budgetConfig;
 	private final AgentBehavior agentBehavior;
+	private final WorkspaceContainment workspaceContainment;
 
 	private AgentConfig(Builder builder) {
 		this.instructions = builder.instructions;
@@ -80,6 +81,7 @@ public class AgentConfig {
 		this.debugConfig = builder.debugConfig;
 		this.budgetConfig = builder.budgetConfig;
 		this.agentBehavior = builder.agentBehavior;
+		this.workspaceContainment = builder.workspaceContainment;
 	}
 
 	/**
@@ -260,6 +262,15 @@ public class AgentConfig {
 	}
 
 	/**
+	 * Returns the workspace containment policy.
+	 *
+	 * @return workspace containment policy, or null if not configured
+	 */
+	public WorkspaceContainment getWorkspaceContainment() {
+		return workspaceContainment;
+	}
+
+	/**
 	 * Hydrates the GCP/Vertex project ID from explicit config or standard
 	 * GOOGLE_CLOUD_PROJECT environment variable.
 	 *
@@ -327,9 +338,10 @@ public class AgentConfig {
 		private Map<String, String> environmentVariables = new HashMap<>();
 		private String baseUrl;
 		private RetryConfig retryConfig;
-		private DebugConfig debugConfig;
+		private DebugConfig debugConfig = DebugConfig.defaults();
 		private BudgetConfig budgetConfig;
 		private AgentBehavior agentBehavior;
+		private WorkspaceContainment workspaceContainment;
 
 		/**
 		 * Sets the instructions.
@@ -710,6 +722,18 @@ public class AgentConfig {
 		 */
 		public Builder agentBehavior(AgentBehavior agentBehavior) {
 			this.agentBehavior = agentBehavior;
+			return this;
+		}
+
+		/**
+		 * Sets the workspace containment policy.
+		 *
+		 * @param workspaceContainment
+		 *            the workspace containment policy
+		 * @return this builder
+		 */
+		public Builder workspaceContainment(WorkspaceContainment workspaceContainment) {
+			this.workspaceContainment = workspaceContainment;
 			return this;
 		}
 

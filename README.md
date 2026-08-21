@@ -581,6 +581,46 @@ try (Agent agent = new Agent(config)) {
 }
 ```
 
+### 22. Run Command Options, Workspace Containment & Step Correlation (v0.1.13)
+
+Configure daemon tasks and execution timeouts for the builtin `run_command` tool with `RunCommandConfig`, enforce strict filesystem containment policies with `WorkspaceContainment`, correlate trajectory steps (`stepId`) across hooks and structured errors, and rewrite arguments dynamically in pre-tool hooks.
+
+```java
+// 1. Configure run_command tool behavior with daemon permissions and custom timeout
+RunCommandConfig runCmdConfig = RunCommandConfig.builder()
+    .enableDaemons(true)
+    .timeoutSeconds(120.0)
+    .build();
+
+CapabilitiesConfig capabilities = CapabilitiesConfig.builder()
+    .enableShell(true)
+    .runCommandConfig(runCmdConfig)
+    .build();
+
+// 2. Configure workspace containment policy & pre-tool argument rewriting
+AgentConfig config = AgentConfig.builder()
+    .instructions("Secure assistant with workspace containment and daemon permissions.")
+    .capabilities(capabilities)
+    .workspaceContainment(WorkspaceContainment.ENABLED)
+    .addPreToolCallDecideHook((toolCall, ctx) -> {
+        System.out.println("Executing tool " + toolCall.name() + " on step: " + toolCall.stepId());
+        if ("run_command".equals(toolCall.name())) {
+            // Rewrite tool arguments safely in hook
+            return CompletableFuture.completedFuture(
+                HookResult.allowedWithModifiedArguments("{\"command_line\": \"echo safe\"}")
+            );
+        }
+        return CompletableFuture.completedFuture(HookResult.allowed());
+    })
+    .addOnToolErrorHook((toolCall, err, ctx) -> {
+        if (err instanceof ToolExecutionError tee) {
+            System.err.println("Step " + tee.getStepId() + " failed: " + tee.getMessage());
+        }
+        return CompletableFuture.completedFuture("Recovered");
+    })
+    .build();
+```
+
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](LICENSE).
