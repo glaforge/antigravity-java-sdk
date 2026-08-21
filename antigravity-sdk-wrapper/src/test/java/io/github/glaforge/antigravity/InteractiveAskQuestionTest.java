@@ -49,7 +49,13 @@ public class InteractiveAskQuestionTest {
 				}
 			};
 
-			AgentConfig config = AgentConfig.builder()
+			AgentConfig config = AgentConfig.builder().modelName("gemini-3.6-flash")
+					.instructions(
+							"""
+									You are a helpful assistant.
+									When the user asks you to ask a multiple choice question, invoke the ask_question tool with the requested options.
+									After receiving the user's answer, tell them what choice they made.
+									""")
 					.capabilities(CapabilitiesConfig.builder().allowUserQuestions(true).build()).addHook(mockAskHook)
 					.build();
 

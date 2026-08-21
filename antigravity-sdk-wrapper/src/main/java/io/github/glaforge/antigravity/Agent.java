@@ -54,6 +54,7 @@ import java.util.concurrent.SubmissionPublisher;
 
 import java.util.function.Consumer;
 import java.util.List;
+import java.util.Set;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.nio.file.Path;
@@ -86,6 +87,8 @@ public class Agent implements AutoCloseable, TriggerContext {
 	private boolean hasStructuredOutput;
 	private StringBuilder wsBuffer = new StringBuilder();
 	private final ConcurrentMap<String, Object> toolState = new ConcurrentHashMap<>();
+	private final Set<String> handledQuestionRequests = ConcurrentHashMap.newKeySet();
+	private final Set<String> handledToolConfirmations = ConcurrentHashMap.newKeySet();
 	private final SessionContext sessionContext = new SessionContext();
 
 	/**
@@ -1060,79 +1063,85 @@ public class Agent implements AutoCloseable, TriggerContext {
 				}
 
 				if (stepUpdate.has("toolConfirmationRequest")) {
-					JsonNode req = stepUpdate.get("toolConfirmationRequest");
-					String toolName = "unknown";
-					JsonNode args = null;
-					if (req.has("invokeSubagent"))
-						toolName = "invoke_subagent";
-					else if (req.has("runCommand"))
-						toolName = "run_command";
-					else if (req.has("fileEdit"))
-						toolName = "file_edit";
-					else if (req.has("finish"))
-						toolName = "finish";
-					else if (req.has("customToolCall")) {
-						toolName = req.get("customToolCall").path("name").asText("unknown");
+					String trajectoryId = stepUpdate.path("trajectoryId").asText("");
+					int stepIndex = stepUpdate.path("stepIndex").asInt(0);
+					String key = trajectoryId + ":" + stepIndex;
+
+					if (handledToolConfirmations.add(key)) {
+						JsonNode req = stepUpdate.get("toolConfirmationRequest");
+						String toolName = "unknown";
+						JsonNode args = null;
+						if (req.has("invokeSubagent"))
+							toolName = "invoke_subagent";
+						else if (req.has("runCommand"))
+							toolName = "run_command";
+						else if (req.has("fileEdit"))
+							toolName = "file_edit";
+						else if (req.has("finish"))
+							toolName = "finish";
+						else if (req.has("customToolCall")) {
+							toolName = req.get("customToolCall").path("name").asText("unknown");
+							try {
+								String argsStr = req.get("customToolCall").path("argumentsJson").asText("{}");
+								args = jsonMapper.readTree(argsStr);
+							} catch (Exception e) {
+							}
+						}
+
+						Policy.Decision decision = evaluatePolicies(toolName, args);
+						boolean accepted = (decision != Policy.Decision.DENY);
+
 						try {
-							String argsStr = req.get("customToolCall").path("argumentsJson").asText("{}");
-							args = jsonMapper.readTree(argsStr);
+							String responsePayload = String.format(
+									"{\"toolConfirmation\": {\"trajectoryId\": \"%s\", \"stepIndex\": %d, \"accepted\": %b}}",
+									trajectoryId, stepIndex, accepted);
+							sendWebSocketMessage(responsePayload);
 						} catch (Exception e) {
 						}
-					}
-
-					Policy.Decision decision = evaluatePolicies(toolName, args);
-					boolean accepted = (decision != Policy.Decision.DENY);
-
-					try {
-						String trajectoryId = stepUpdate.get("trajectoryId").asText();
-						int stepIndex = stepUpdate.get("stepIndex").asInt();
-
-						String responsePayload = String.format(
-								"{\"toolConfirmation\": {\"trajectoryId\": \"%s\", \"stepIndex\": %d, \"accepted\": %b}}",
-								trajectoryId, stepIndex, accepted);
-						sendWebSocketMessage(responsePayload);
-					} catch (Exception e) {
 					}
 				}
 
 				if (stepUpdate.has("questionsRequest")) {
-					try {
-						String trajectoryId = stepUpdate.get("trajectoryId").asText();
-						int stepIndex = stepUpdate.get("stepIndex").asInt();
+					String trajectoryId = stepUpdate.path("trajectoryId").asText("");
+					int stepIndex = stepUpdate.path("stepIndex").asInt(0);
+					String key = trajectoryId + ":" + stepIndex;
 
-						String json = stepUpdate.get("questionsRequest").toString();
-						UserQuestionsRequest.Builder reqBuilder = UserQuestionsRequest.newBuilder();
-						JsonFormat.parser().ignoringUnknownFields().merge(json, reqBuilder);
-						UserQuestionsRequest req = reqBuilder.build();
+					if (handledQuestionRequests.add(key)) {
+						try {
+							String json = stepUpdate.get("questionsRequest").toString();
+							UserQuestionsRequest.Builder reqBuilder = UserQuestionsRequest.newBuilder();
+							JsonFormat.parser().ignoringUnknownFields().merge(json, reqBuilder);
+							UserQuestionsRequest req = reqBuilder.build();
 
-						for (AgentHook hook : config.getHooks()) {
-							if (hook instanceof OnInteractionHook) {
-								((OnInteractionHook) hook).onInteraction(InteractionRequest.fromProtobuf(req))
-										.thenAccept(resp -> {
-											try {
-												List<UserQuestionAnswer> answers = resp.stream()
-														.map(InteractionAnswer::toProtobuf).toList();
-												UserQuestionsResponse.QuestionsResponse questionsResp = UserQuestionsResponse.QuestionsResponse
-														.newBuilder().addAllAnswers(answers).build();
+							for (AgentHook hook : config.getHooks()) {
+								if (hook instanceof OnInteractionHook) {
+									((OnInteractionHook) hook).onInteraction(InteractionRequest.fromProtobuf(req))
+											.thenAccept(resp -> {
+												try {
+													List<UserQuestionAnswer> answers = resp.stream()
+															.map(InteractionAnswer::toProtobuf).toList();
+													UserQuestionsResponse.QuestionsResponse questionsResp = UserQuestionsResponse.QuestionsResponse
+															.newBuilder().addAllAnswers(answers).build();
 
-												UserQuestionsResponse fullResp = UserQuestionsResponse.newBuilder()
-														.setTrajectoryId(trajectoryId).setStepIndex(stepIndex)
-														.setResponse(questionsResp).build();
+													UserQuestionsResponse fullResp = UserQuestionsResponse.newBuilder()
+															.setTrajectoryId(trajectoryId).setStepIndex(stepIndex)
+															.setResponse(questionsResp).build();
 
-												InputEvent inputEvent = InputEvent.newBuilder()
-														.setQuestionResponse(fullResp).build();
+													InputEvent inputEvent = InputEvent.newBuilder()
+															.setQuestionResponse(fullResp).build();
 
-												String payloadJson = JSON_PRINTER.print(inputEvent);
-												sendWebSocketMessage(payloadJson);
-											} catch (Exception e) {
-												log.error("Failed to send question response", e);
-											}
-										});
-								break;
+													String payloadJson = JSON_PRINTER.print(inputEvent);
+													sendWebSocketMessage(payloadJson);
+												} catch (Exception e) {
+													log.error("Failed to send question response", e);
+												}
+											});
+									break;
+								}
 							}
+						} catch (Exception e) {
+							log.error("Error processing questions request", e);
 						}
-					} catch (Exception e) {
-						log.error("Error processing questions request", e);
 					}
 				}
 			}

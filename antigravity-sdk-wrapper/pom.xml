@@ -92,8 +92,6 @@
                         <configuration>
                             <excludedGroups>none</excludedGroups>
                             <groups>integration</groups>
-                            <forkCount>2</forkCount>
-                            <reuseForks>true</reuseForks>
                         </configuration>
                     </plugin>
                 </plugins>
