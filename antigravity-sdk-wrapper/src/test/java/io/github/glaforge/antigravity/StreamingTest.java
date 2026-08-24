@@ -65,8 +65,7 @@ public class StreamingTest {
 		TestUtils.retry(2, () -> {
 			AgentConfig config = AgentConfig.builder()
 					.instructions("You are a helpful assistant. Please think out loud using thoughts.")
-					.modelName("gemini-2.5-pro") // pro models usually produce more thoughts
-					.build();
+					.modelName("gemini-3.6-flash").build();
 
 			try (Agent agent = new Agent(config)) {
 				System.out.println("Starting AgentStream test...");
