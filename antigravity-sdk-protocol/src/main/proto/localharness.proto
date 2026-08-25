@@ -722,6 +722,7 @@ message CallHookRequest {
     PreToolArgs pre_tool_args = 5;
     PostToolArgs post_tool_args = 6;
     OnToolErrorArgs on_tool_error_args = 8;
+    OnCompactionArgs on_compaction_args = 9;
   }
   string request_id = 1;
   string name = 2;
@@ -769,10 +770,18 @@ message OnToolErrorArgs {
 
 message PreTurnArgs {
   UserInput user_input = 1;
+  string trajectory_id = 2;
 }
 
 message PostTurnArgs {
   string response_text = 1;
+  string trajectory_id = 2;
+}
+
+message OnCompactionArgs {
+  string trajectory_id = 1;
+  uint32 step_index = 2;
+  string summary = 3;
 }
 
 message EmptyResult {
