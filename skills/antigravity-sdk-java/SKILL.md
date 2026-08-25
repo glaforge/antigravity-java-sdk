@@ -207,7 +207,19 @@ AgentConfig config = AgentConfig.builder()
                 HookResult.allowedWithModifiedArguments("{\"command_line\": \"echo safe\"}")
             );
         }
-        return CompletableFuture.completedFuture(HookResult.allowed());
+    .build();
+```
+
+### 8. Compaction Hooks & Trajectory Trace Context (v0.1.14)
+
+Intercept context compaction notifications with `OnCompactionHook`, inspect trajectory termination reasons (`StopReason`) and depth hierarchy (`parentTrajectoryId`, `depth`), and correlate call IDs and step indices across hook events.
+
+```java
+AgentConfig config = AgentConfig.builder()
+    .addOnCompactionHook((compactionArgs, ctx) -> {
+        System.out.println("Compaction triggered on trajectory " + compactionArgs.getTrajectoryId() 
+            + " step " + compactionArgs.getStepIndex());
+        return CompletableFuture.completedFuture(null);
     })
     .build();
 ```

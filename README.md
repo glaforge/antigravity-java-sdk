@@ -621,6 +621,23 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
+### 23. Compaction Hooks, Subagent Skill Policies & Trace Correlation (v0.1.14)
+
+Listen to context compaction events with `OnCompactionHook`, inspect trajectory termination reasons (`StopReason`) and depth metadata, correlate call IDs and step indices across hook types, and configure subagent skill inheritance policies (`SubagentSkillsConfig`).
+
+```java
+// Intercept history compaction notifications and inspect trajectory metadata
+AgentConfig config = AgentConfig.builder()
+    .instructions("Assistant with compaction logging and subagent skill controls.")
+    .addOnCompactionHook((compactionArgs, ctx) -> {
+        System.out.println("Compacted trajectory: " + compactionArgs.getTrajectoryId() 
+            + " at step: " + compactionArgs.getStepIndex() 
+            + " summary: " + compactionArgs.getSummary());
+        return CompletableFuture.completedFuture(null);
+    })
+    .build();
+```
+
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](LICENSE).
@@ -628,4 +645,5 @@ This project is licensed under the [Apache License, Version 2.0](LICENSE).
 ## Disclaimer
 
 **This is not an officially supported Google product.** It is a community-driven, experimental port created for educational and development purposes.
+
 

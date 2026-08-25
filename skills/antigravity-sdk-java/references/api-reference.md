@@ -427,4 +427,20 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
+### Trajectory Metadata & Termination Reasons (`StopReason`, `OnCompactionArgs`) (v0.1.14)
+
+```java
+import io.github.glaforge.antigravity.localharness.TrajectoryStateUpdate.StopReason;
+import io.github.glaforge.antigravity.localharness.OnCompactionArgs;
+
+// StopReason enum values returned when turn budget or limits are exceeded:
+// StopReason.STOP_REASON_MAX_MODEL_CALLS_EXCEEDED
+// StopReason.STOP_REASON_MAX_TOOL_CALLS_EXCEEDED
+// StopReason.STOP_REASON_MAX_INPUT_TOKENS_EXCEEDED
+// StopReason.STOP_REASON_MAX_OUTPUT_TOKENS_EXCEEDED
+// StopReason.STOP_REASON_MAX_TOTAL_TOKENS_EXCEEDED
+// StopReason.STOP_REASON_QUOTA_EXHAUSTED
+```
+
+
 

@@ -183,3 +183,19 @@ AgentConfig config = AgentConfig.builder()
     })
     .build();
 ```
+
+### Context Compaction Notifications (`OnCompactionHook`) — Inspect (v0.1.14)
+
+Listen to context compaction events and log summarized trajectory history.
+
+```java
+AgentConfig config = AgentConfig.builder()
+    .addOnCompactionHook((compactionArgs, ctx) -> {
+        System.out.println("History compacted for trajectory " + compactionArgs.getTrajectoryId() 
+            + " at step " + compactionArgs.getStepIndex() 
+            + ": " + compactionArgs.getSummary());
+        return CompletableFuture.completedFuture(null);
+    })
+    .build();
+```
+
