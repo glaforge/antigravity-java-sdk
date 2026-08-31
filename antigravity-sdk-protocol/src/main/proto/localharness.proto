@@ -240,6 +240,8 @@ message HarnessSideTools {
   SearchWebToolConfig search_web = 12;
   ReadUrlContentToolConfig read_url_content = 14;
   ToolSearchConfig tool_search_config = 15;
+  ManageTaskToolConfig manage_task = 16;
+  ScheduleToolConfig schedule = 17;
 }
 
 message FindToolConfig {
@@ -295,6 +297,14 @@ message ReadUrlContentToolConfig {
 }
 
 message ToolSearchConfig {
+  bool enabled = 1;
+}
+
+message ManageTaskToolConfig {
+  bool enabled = 1;
+}
+
+message ScheduleToolConfig {
   bool enabled = 1;
 }
 
@@ -460,6 +470,7 @@ message ActionViewFile {
   string file_path = 1;
   uint32 start_line = 2;
   uint32 end_line = 3;
+  uint32 content_offset = 4;
 }
 
 message ActionCreateFile {
