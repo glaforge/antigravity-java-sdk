@@ -39,7 +39,8 @@ public class TriggersTest {
 		TestUtils.retry(2, () -> {
 			AtomicInteger triggerCount = new AtomicInteger(0);
 
-			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
+			AgentConfig config = AgentConfig.builder().modelName("gemini-3.6-flash")
+					.instructions("You are a helpful assistant.")
 					.addTrigger(Triggers.every(300, TimeUnit.MILLISECONDS, ctx -> {
 						if (triggerCount.getAndIncrement() == 0) {
 							System.out.println("Trigger fired!");
