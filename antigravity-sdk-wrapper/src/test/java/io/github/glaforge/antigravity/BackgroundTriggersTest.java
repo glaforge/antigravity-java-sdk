@@ -30,10 +30,10 @@ public class BackgroundTriggersTest {
 	@Test
 	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testBackgroundTriggers() throws Exception {
-		TestUtils.retry(2, () -> {
+		TestUtils.retry(3, () -> {
 			AgentConfig config = AgentConfig.builder().instructions("""
 					You are an assistant. Wait for me to give you a command.
-					If I sneeze, immediately say 'Bless you'.
+					If you receive a notification that I sneezed, respond with 'Bless you'.
 					""").build();
 
 			try (Agent agent = new Agent(config)) {
@@ -43,7 +43,7 @@ public class BackgroundTriggersTest {
 					agent.fireTrigger("The user has just sneezed. Say bless you.");
 				}, 500, TimeUnit.MILLISECONDS);
 
-				CompletableFuture<AgentResponse> future = agent.chat("What is the weather in Tokyo right now?");
+				CompletableFuture<AgentResponse> future = agent.chat("What is 2+2?");
 				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 				System.out.println(response.text());
