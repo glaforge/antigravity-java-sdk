@@ -32,6 +32,11 @@ import io.github.glaforge.antigravity.triggers.AgentTrigger;
  */
 public class AgentConfig {
 	/**
+	 * Default model for new agents.
+	 */
+	public static final String DEFAULT_MODEL_NAME = "gemini-3.8-flash";
+
+	/**
 	 * Default lightweight model for image generation tasks.
 	 */
 	public static final String DEFAULT_IMAGE_GENERATION_MODEL = "gemini-3.1-flash-lite-image";
@@ -321,7 +326,7 @@ public class AgentConfig {
 		public Builder() {
 		}
 		private String instructions = "";
-		private String modelName = "gemini-flash-latest";
+		private String modelName = DEFAULT_MODEL_NAME;
 		private List<Object> toolInstances = new ArrayList<>();
 		private List<String> skillsPaths = new ArrayList<>();
 		private CapabilitiesConfig capabilities = CapabilitiesConfig.builder().build();
@@ -556,6 +561,34 @@ public class AgentConfig {
 		 */
 		public Builder addOnCompactionHook(OnCompactionHook hook) {
 			this.hooks.add(hook);
+			return this;
+		}
+
+		/**
+		 * Adds an on-stop hook triggered when agent execution is stopped.
+		 *
+		 * @param hook
+		 *            the on-stop hook
+		 * @return this builder
+		 */
+		public Builder addOnStopHook(OnStopHook hook) {
+			this.hooks.add(hook);
+			return this;
+		}
+
+		/**
+		 * Configures the agent with minimal lightweight defaults optimized for smaller,
+		 * local-running models (e.g., LiteRT / Gemma). Sets
+		 * {@link AgentBehavior#MINIMAL}, disables subagents, and configures a minimal
+		 * tool set.
+		 *
+		 * @return this builder
+		 */
+		public Builder lightweight() {
+			this.agentBehavior = AgentBehavior.MINIMAL;
+			this.capabilities = CapabilitiesConfig.builder().enableSubagents(false).allowUserQuestions(false)
+					.enableWebSearch(false).enableUrlReading(false).enableShell(false).enableViewFile(true)
+					.enableWriteFile(false).enableFileEdit(false).enableListDir(true).enableGrepSearch(true).build();
 			return this;
 		}
 

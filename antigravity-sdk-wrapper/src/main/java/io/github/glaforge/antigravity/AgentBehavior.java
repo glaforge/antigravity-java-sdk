@@ -27,13 +27,20 @@ public enum AgentBehavior {
 	/**
 	 * Agent operates in interactive mode.
 	 */
-	INTERACTIVE;
+	INTERACTIVE,
+
+	/**
+	 * Agent operates in minimal lightweight mode optimized for smaller/local
+	 * models.
+	 */
+	MINIMAL;
 
 	/**
 	 * Parses a string value into an {@link AgentBehavior}.
 	 *
 	 * @param value
-	 *            the string behavior value (e.g. "AUTONOMOUS", "INTERACTIVE")
+	 *            the string behavior value (e.g. "AUTONOMOUS", "INTERACTIVE",
+	 *            "MINIMAL")
 	 * @return the matching AgentBehavior, or null if unknown
 	 */
 	public static AgentBehavior fromString(String value) {

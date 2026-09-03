@@ -638,6 +638,29 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
+### 24. Gemini 3.8 Flash, Lightweight Agent Mode, Command Sandboxing & Stop Hooks (v0.1.16)
+
+Agents now default to **`gemini-3.8-flash`** for higher quality reasoning. Configure lightweight agents optimized for small/local models via `.lightweight()`, isolate shell execution with command sandboxing, and listen to cancellation/stop events with `OnStopHook`.
+
+```java
+// 1. Configure lightweight agent for local/small models with sandboxed command execution
+RunCommandConfig runCmd = RunCommandConfig.builder()
+    .enableSandbox(true)
+    .timeoutSeconds(60.0)
+    .build();
+
+AgentConfig config = AgentConfig.builder()
+    .instructions("Lightweight agent running with sandbox isolation and stop monitoring.")
+    .lightweight() // Sets MINIMAL behavior, disables subagents, enables minimal safe tools
+    .capabilities(CapabilitiesConfig.builder().enableShell(true).runCommandConfig(runCmd).build())
+    .addOnStopHook((stopArgs, ctx) -> {
+        System.out.println("Agent stopped: " + stopArgs.getStopReason() 
+            + " on trajectory: " + stopArgs.getTrajectoryId());
+        return CompletableFuture.completedFuture(null);
+    })
+    .build();
+```
+
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](LICENSE).

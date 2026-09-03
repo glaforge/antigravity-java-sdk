@@ -13,12 +13,15 @@ enum LifecycleHook {
   LIFECYCLE_HOOK_PRE_TOOL = 5;
   LIFECYCLE_HOOK_POST_TOOL = 6;
   LIFECYCLE_HOOK_ON_TOOL_ERROR = 7;
+  LIFECYCLE_HOOK_ON_COMPACTION = 8;
+  LIFECYCLE_HOOK_STOP = 9;
 }
 
 enum AgentBehavior {
   AGENT_BEHAVIOR_UNSPECIFIED = 0;
   AGENT_BEHAVIOR_AUTONOMOUS = 1;
   AGENT_BEHAVIOR_INTERACTIVE = 2;
+  AGENT_BEHAVIOR_MINIMAL = 3;
 }
 
 enum ModelType {
@@ -252,6 +255,7 @@ message RunCommandToolConfig {
   bool enabled = 1;
   uint32 max_timeout_ms = 2;
   bool enable_daemon_commands = 3;
+  bool enable_sandbox = 4;
 }
 
 message SubagentsConfig {
@@ -734,10 +738,12 @@ message CallHookRequest {
     PostToolArgs post_tool_args = 6;
     OnToolErrorArgs on_tool_error_args = 8;
     OnCompactionArgs on_compaction_args = 9;
+    StopArgs stop_args = 10;
   }
   string request_id = 1;
   string name = 2;
   LifecycleHook type = 7;
+  string client_id = 11;
 }
 
 message CallHookResponse {
@@ -747,6 +753,7 @@ message CallHookResponse {
     EmptyResult empty_result = 4;
     string error_message = 5;
     OnToolErrorResult on_tool_error_result = 6;
+    StopResult stop_result = 7;
   }
   string request_id = 1;
 }
@@ -795,6 +802,14 @@ message OnCompactionArgs {
   string summary = 3;
 }
 
+message StopArgs {
+  string response_text = 1;
+  string trajectory_id = 2;
+  int32 continuation_count = 3;
+  string stop_reason = 4;
+  string error_message = 5;
+}
+
 message EmptyResult {
 }
 
@@ -815,6 +830,17 @@ message PreToolResult {
 }
 
 message PreTurnResult {
+  enum Decision {
+    DECISION_UNSPECIFIED = 0;
+    ALLOW = 1;
+    DENY = 2;
+  }
+
+  Decision decision = 1;
+  string reason = 2;
+}
+
+message StopResult {
   enum Decision {
     DECISION_UNSPECIFIED = 0;
     ALLOW = 1;

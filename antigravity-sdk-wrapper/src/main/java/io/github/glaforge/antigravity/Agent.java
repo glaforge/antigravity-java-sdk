@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.github.glaforge.antigravity.localharness.*;
 import static io.github.glaforge.antigravity.localharness.AgentBehavior.AGENT_BEHAVIOR_AUTONOMOUS;
 import static io.github.glaforge.antigravity.localharness.AgentBehavior.AGENT_BEHAVIOR_INTERACTIVE;
+import static io.github.glaforge.antigravity.localharness.AgentBehavior.AGENT_BEHAVIOR_MINIMAL;
 import static io.github.glaforge.antigravity.localharness.WorkspaceContainment.WORKSPACE_CONTAINMENT_ENABLED;
 import static io.github.glaforge.antigravity.localharness.WorkspaceContainment.WORKSPACE_CONTAINMENT_DISABLED;
 import static io.github.glaforge.antigravity.localharness.WorkspaceContainment.WORKSPACE_CONTAINMENT_UNSPECIFIED;
@@ -542,6 +543,10 @@ public class Agent implements AutoCloseable, TriggerContext {
 					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_POST_TOOL);
 				if (hook instanceof OnToolErrorHook)
 					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_ON_TOOL_ERROR);
+				if (hook instanceof OnCompactionHook)
+					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_ON_COMPACTION);
+				if (hook instanceof OnStopHook)
+					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_STOP);
 				if (hook instanceof OnInteractionHook)
 					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_UNSPECIFIED); // Will
 																								// use
@@ -593,6 +598,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 				switch (config.getAgentBehavior()) {
 					case AUTONOMOUS -> configBuilder.setAgentBehavior(AGENT_BEHAVIOR_AUTONOMOUS);
 					case INTERACTIVE -> configBuilder.setAgentBehavior(AGENT_BEHAVIOR_INTERACTIVE);
+					case MINIMAL -> configBuilder.setAgentBehavior(AGENT_BEHAVIOR_MINIMAL);
 				}
 			}
 
@@ -628,6 +634,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 					if (config.getCapabilities().runCommandConfig() != null) {
 						RunCommandConfig rcc = config.getCapabilities().runCommandConfig();
 						runCmdBuilder.setEnableDaemonCommands(rcc.enableDaemons());
+						runCmdBuilder.setEnableSandbox(rcc.enableSandbox());
 						if (rcc.timeoutSeconds() != null) {
 							runCmdBuilder.setMaxTimeoutMs((int) (rcc.timeoutSeconds() * 1000));
 						}
@@ -1024,6 +1031,16 @@ public class Agent implements AutoCloseable, TriggerContext {
 		return future;
 	}
 
+	private CompletableFuture<Void> triggerOnStop(StopArgs stopArgs) {
+		CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
+		for (AgentHook hook : config.getHooks()) {
+			if (hook instanceof OnStopHook osh) {
+				future = future.thenCompose(v -> osh.onStop(stopArgs, sessionContext));
+			}
+		}
+		return future;
+	}
+
 	private void handleIncomingMessage(WebSocket webSocket, String message) {
 		try {
 			JsonNode payload = jsonMapper.readTree(message);
@@ -1277,6 +1294,17 @@ public class Agent implements AutoCloseable, TriggerContext {
 						});
 					} catch (Exception e) {
 					}
+				} else if ("LIFECYCLE_HOOK_ON_COMPACTION".equals(typeStr) && req.has("onCompactionArgs")) {
+					JsonNode args = req.get("onCompactionArgs");
+					hookFuture = triggerOnCompaction(args).thenApply(v -> HookResult.allowed());
+				} else if ("LIFECYCLE_HOOK_STOP".equals(typeStr) && req.has("stopArgs")) {
+					JsonNode args = req.get("stopArgs");
+					StopArgs stopArgs = StopArgs.newBuilder().setResponseText(args.path("responseText").asText(""))
+							.setTrajectoryId(args.path("trajectoryId").asText(""))
+							.setContinuationCount(args.path("continuationCount").asInt(0))
+							.setStopReason(args.path("stopReason").asText(""))
+							.setErrorMessage(args.path("errorMessage").asText("")).build();
+					hookFuture = triggerOnStop(stopArgs).thenApply(v -> HookResult.allowed());
 				}
 
 				hookFuture.whenComplete((res, err) -> {
@@ -1319,6 +1347,18 @@ public class Agent implements AutoCloseable, TriggerContext {
 							} else {
 								respBuilder.setEmptyResult(EmptyResult.getDefaultInstance());
 							}
+						} else if ("LIFECYCLE_HOOK_STOP".equals(typeStr)) {
+							StopResult.Builder sr = StopResult.newBuilder();
+							if (!res.allow()) {
+								sr.setDecision(StopResult.Decision.DENY)
+										.setReason(res.reason() != null ? res.reason() : "Hook execution denied");
+							} else {
+								sr.setDecision(StopResult.Decision.ALLOW);
+								if (res.reason() != null) {
+									sr.setReason(res.reason());
+								}
+							}
+							respBuilder.setStopResult(sr.build());
 						} else {
 							respBuilder.setEmptyResult(EmptyResult.getDefaultInstance());
 						}

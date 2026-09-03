@@ -199,3 +199,19 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
+### Execution Stop Notifications (`OnStopHook`) — Inspect (v0.1.16)
+
+Triggered when the agent's execution is stopped or cancelled to enable cleanup and metric logging.
+
+```java
+AgentConfig config = AgentConfig.builder()
+    .addOnStopHook((stopArgs, ctx) -> {
+        System.out.println("Agent stopped on trajectory " + stopArgs.getTrajectoryId() 
+            + " reason: " + stopArgs.getStopReason() 
+            + " after " + stopArgs.getContinuationCount() + " continuations");
+        return CompletableFuture.completedFuture(null);
+    })
+    .build();
+```
+
+

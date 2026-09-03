@@ -23,8 +23,23 @@ package io.github.glaforge.antigravity;
  * @param timeoutSeconds
  *            optional maximum timeout in seconds for command execution (must be
  *            strictly positive when specified)
+ * @param enableSandbox
+ *            whether commands should execute within an isolated sandbox
+ *            environment
  */
-public record RunCommandConfig(boolean enableDaemons, Double timeoutSeconds) {
+public record RunCommandConfig(boolean enableDaemons, Double timeoutSeconds, boolean enableSandbox) {
+
+	/**
+	 * Secondary constructor for backward compatibility without sandbox setting.
+	 *
+	 * @param enableDaemons
+	 *            whether long-running daemon background tasks are permitted
+	 * @param timeoutSeconds
+	 *            optional maximum timeout in seconds for command execution
+	 */
+	public RunCommandConfig(boolean enableDaemons, Double timeoutSeconds) {
+		this(enableDaemons, timeoutSeconds, false);
+	}
 
 	/**
 	 * Compact constructor validating timeout parameters.
@@ -36,13 +51,13 @@ public record RunCommandConfig(boolean enableDaemons, Double timeoutSeconds) {
 	}
 
 	/**
-	 * Creates a default RunCommandConfig instance with daemons disabled and no
-	 * custom timeout override.
+	 * Creates a default RunCommandConfig instance with daemons and sandbox disabled
+	 * and no custom timeout override.
 	 *
 	 * @return default configuration
 	 */
 	public static RunCommandConfig defaults() {
-		return new RunCommandConfig(false, null);
+		return new RunCommandConfig(false, null, false);
 	}
 
 	/**
@@ -60,6 +75,7 @@ public record RunCommandConfig(boolean enableDaemons, Double timeoutSeconds) {
 	public static final class Builder {
 		private boolean enableDaemons = false;
 		private Double timeoutSeconds;
+		private boolean enableSandbox = false;
 
 		/**
 		 * Creates a new builder instance.
@@ -92,12 +108,24 @@ public record RunCommandConfig(boolean enableDaemons, Double timeoutSeconds) {
 		}
 
 		/**
+		 * Configures whether command execution runs in an isolated sandbox.
+		 *
+		 * @param enableSandbox
+		 *            {@code true} to enable command sandboxing, {@code false} otherwise
+		 * @return this builder
+		 */
+		public Builder enableSandbox(boolean enableSandbox) {
+			this.enableSandbox = enableSandbox;
+			return this;
+		}
+
+		/**
 		 * Builds a new immutable {@link RunCommandConfig} instance.
 		 *
 		 * @return new RunCommandConfig
 		 */
 		public RunCommandConfig build() {
-			return new RunCommandConfig(enableDaemons, timeoutSeconds);
+			return new RunCommandConfig(enableDaemons, timeoutSeconds, enableSandbox);
 		}
 	}
 }

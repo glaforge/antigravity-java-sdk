@@ -442,5 +442,28 @@ import io.github.glaforge.antigravity.localharness.OnCompactionArgs;
 // StopReason.STOP_REASON_QUOTA_EXHAUSTED
 ```
 
+### Lightweight Configuration & Shell Sandboxing (`AgentConfig.lightweight()`, `RunCommandConfig.enableSandbox`) (v0.1.16)
+
+```java
+import io.github.glaforge.antigravity.AgentConfig;
+import io.github.glaforge.antigravity.RunCommandConfig;
+import io.github.glaforge.antigravity.hooks.OnStopHook;
+
+// 1. Configure lightweight agent for local LiteRT models with sandboxed shell execution
+AgentConfig config = AgentConfig.builder()
+    .instructions("Lightweight agent with sandboxed command execution.")
+    .lightweight() // Applies minimal behavior mode and safe local tools
+    .capabilities(CapabilitiesConfig.builder()
+        .enableShell(true)
+        .runCommandConfig(RunCommandConfig.builder().enableSandbox(true).build())
+        .build())
+    .addOnStopHook((stopArgs, ctx) -> {
+        System.out.println("Stopped: " + stopArgs.getStopReason());
+        return CompletableFuture.completedFuture(null);
+    })
+    .build();
+```
+
+
 
 
