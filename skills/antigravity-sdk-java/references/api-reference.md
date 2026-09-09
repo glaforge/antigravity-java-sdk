@@ -4,20 +4,22 @@ This document details configuration options, agent skills, tool definitions, MCP
 
 ---
 
-## 1. Agent Configuration (`AgentConfig`)
+## 1. Agent Configuration (`AgentConfig` & `Agent.builder()`)
 
-`AgentConfig` is the primary configuration object passed to `new Agent(config)`.
+`AgentConfig` is the primary configuration object passed to `new Agent(config)`. Alternatively, you can use the fluent `Agent.builder()` directly.
 
 ```java
+import io.github.glaforge.antigravity.Agent;
 import io.github.glaforge.antigravity.AgentConfig;
 import io.github.glaforge.antigravity.CapabilitiesConfig;
 import io.github.glaforge.antigravity.GenerationConfig;
 import io.github.glaforge.antigravity.ThinkingLevel;
 import java.util.Map;
 
+// Option A: AgentConfig.builder()
 AgentConfig config = AgentConfig.builder()
     .instructions("System instructions for the agent model.")
-    .modelName("gemini-3.6-flash") // Default model selection
+    .modelName("gemini-3.8-flash") // Default model selection
     .conversationId("session-123") // Resume existing session context
     .environmentVariables(Map.of("CUSTOM_ENV_VAR", "value")) // Custom process environment
     .addSkillPath("/path/to/my-agent-skill") // Register file-based agent skill
@@ -28,14 +30,23 @@ AgentConfig config = AgentConfig.builder()
         .build())
     .capabilities(CapabilitiesConfig.builder()
         .enableWebSearch(true)
+        .enableUrlReading(true)
         .enableShell(true)
         .enableWriteFile(true)
         .enableFileEdit(true)
         .enableListDir(true)
         .enableGrepSearch(true)
         .enableGenerateImage(true) // Enable image generation capability
+        .allowUserQuestions(true)  // Enable asking clarifying questions
         .enableSubagents(true)
         .build())
+    .build();
+
+// Option B: Fluent Agent.builder() directly
+Agent agent = Agent.builder()
+    .instructions("System instructions for the agent model.")
+    .modelName("gemini-3.8-flash")
+    .addSkillPath("/path/to/my-agent-skill")
     .build();
 ```
 
@@ -147,9 +158,79 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
+### ToolContext Parameter Injection
+
+Any `@Tool` method can declare a `ToolContext` parameter. The SDK runtime automatically injects the context and excludes it from the tool's JSON schema sent to the model:
+
+```java
+import io.github.glaforge.antigravity.ToolContext;
+import io.github.glaforge.antigravity.tools.Tool;
+import io.github.glaforge.antigravity.tools.Param;
+
+public class UserSessionTools {
+    @Tool(name = "set_user_preference", description = "Store user theme and locale preferences.")
+    public String setPreference(
+        @Param(name = "theme", description = "Color theme (light or dark)") String theme,
+        ToolContext context // Injected automatically by SDK
+    ) {
+        // 1. Read or update session-scoped state
+        context.setState("theme", theme);
+
+        // 2. Access the active conversation ID
+        String conversationId = context.getConversationId();
+
+        // 3. Proactively push a message back into the conversation
+        context.send("Preference updated to " + theme);
+
+        return "Preference saved for conversation: " + conversationId;
+    }
+}
+```
+
 ---
 
-## 4. Multi-Threaded State Management (`SessionContext`)
+## 4. Built-in Capabilities Matrix (`CapabilitiesConfig`)
+
+Instead of defining custom tools, you can enable native built-in capabilities implemented directly by the underlying Go harness:
+
+```java
+import io.github.glaforge.antigravity.CapabilitiesConfig;
+import io.github.glaforge.antigravity.RunCommandConfig;
+
+CapabilitiesConfig capabilities = CapabilitiesConfig.builder()
+    .enableWebSearch(true)
+    .enableUrlReading(true)
+    .enableShell(true)
+    .runCommandConfig(RunCommandConfig.builder().enableDaemons(true).build())
+    .enableViewFile(true)
+    .enableWriteFile(true)
+    .enableFileEdit(true)
+    .enableListDir(true)
+    .enableGrepSearch(true)
+    .enableGenerateImage(true)
+    .imageModelName("gemini-3.1-flash-lite-image") // Default image model
+    .allowUserQuestions(true)
+    .enableSubagents(true)
+    .build();
+```
+
+| Builder Method | Built-in Tool | Description |
+| :--- | :--- | :--- |
+| `.enableWebSearch(true)` | `search_web` | Searches Google for real-time web results and citations. |
+| `.enableUrlReading(true)` | `read_url_content` | Fetches web page content via HTTP converted to markdown. |
+| `.enableShell(true)` | `run_command` | Executes shell commands in the terminal (configurable with `RunCommandConfig`). |
+| `.enableViewFile(true)` | `view_file` | Views local text, PDF, image, audio, or video files with slice offsets. |
+| `.enableWriteFile(true)` | `write_to_file` | Creates or replaces files in the workspace. |
+| `.enableFileEdit(true)` | `replace_file_content` | Applies surgical text replacements to existing files. |
+| `.enableListDir(true)` | `list_dir` | Recursively lists directory contents, file sizes, and children counts. |
+| `.enableGrepSearch(true)` | `grep_search` | Ripgrep pattern matching over files and directories. |
+| `.enableGenerateImage(true)` | `generate_image` | Generates images using Imagen/Gemini models (customizable with `.imageModelName()`). |
+| `.allowUserQuestions(true)` | `ask_question` | Allows the agent to ask the user clarifying multi-choice questions. |
+| `.enableSubagents(true)` | `invoke_subagent`, `define_subagent`, etc. | Allows the agent to define, spawn, and delegate tasks to subagents. |
+
+---
+
+## 5. Multi-Threaded State Management (`SessionContext`)
 
 `SessionContext` provides a thread-safe state store backed by `ConcurrentHashMap` with atomic update helper methods across concurrent tools and hooks.
 
@@ -168,7 +249,7 @@ context.merge("total_tokens", 150, (oldVal, newVal) -> ((Integer) oldVal) + ((In
 
 ---
 
-## 5. Structured Outputs
+## 6. Structured Outputs
 
 Force the agent to respond in a strict JSON schema format, deserializing directly into Java 21 `record`s.
 
@@ -200,7 +281,7 @@ try (Agent agent = new Agent(config)) {
 
 ---
 
-## 6. Model Context Protocol (MCP)
+## 7. Model Context Protocol (MCP)
 
 Connect to local or remote Model Context Protocol (MCP) servers to expose external tools to the agent dynamically.
 
@@ -230,7 +311,7 @@ AgentConfig config = AgentConfig.builder()
 
 ---
 
-## 7. Agent Skills
+## 8. Agent Skills
 
 Extend your agent with specialized domain knowledge, complex workflows, and contextual guidelines by loading file-based skills conforming to the open [Agent Skills specification](https://agentskills.io/specification).
 
@@ -284,7 +365,7 @@ The underlying Go `localharness` binary indexes the `SKILL.md` frontmatter at st
 
 ---
 
-## 8. Background Triggers
+## 9. Background Triggers
 
 Inject recurring context updates into active agent sessions without interrupting user turns.
 
@@ -305,24 +386,96 @@ AgentConfig config = AgentConfig.builder()
 
 ---
 
-## 9. Multimodal Inputs
+## 10. Multimodal & Slash Command Inputs (`AgentInput`)
 
-Pass text, images, audio, or video files to the agent using `AgentInput`.
+Pass text, PDF documents, video, audio, images, or CLI slash commands to the agent using strongly-typed `AgentInput` records:
+
+### Multimodal Inputs (`AgentInput.Media`)
 
 ```java
 import io.github.glaforge.antigravity.AgentInput;
 import java.nio.file.Path;
 
 AgentResponse response = agent.chat(
-    AgentInput.Text.of("Identify architectural flaws in this diagram and audio note."),
-    AgentInput.Image.fromFile(Path.of("architecture_diagram.png")),
-    AgentInput.Audio.fromFile(Path.of("voice_memo.mp3"))
+    AgentInput.Text.of("Analyze the financial chart in this PDF and compare it to the video recording."),
+    AgentInput.Document.fromFile(Path.of("q4_financials.pdf")), // Reads PDF as application/pdf
+    AgentInput.Video.fromFile(Path.of("presentation.mp4")),      // Reads MP4 video
+    AgentInput.Audio.fromFile(Path.of("voice_memo.mp3")),        // Reads MP3 audio
+    AgentInput.Image.fromFile(Path.of("architecture.png"))       // Reads PNG image
 ).get(120, TimeUnit.SECONDS);
+```
+
+### Slash Commands (`AgentInput.SlashCommand`)
+
+Execute CLI slash commands (e.g. `/help`, `/clear`) either directly via string shorthand or with `AgentInput.SlashCommand`:
+
+```java
+try (Agent agent = new Agent(config)) {
+    // String shorthand
+    AgentResponse helpResponse = agent.chat("/help").get(120, TimeUnit.SECONDS);
+    System.out.println(helpResponse.text());
+
+    // Strongly-typed SlashCommand record
+    agent.chat(AgentInput.SlashCommand.of("/clear")).get(120, TimeUnit.SECONDS);
+}
 ```
 
 ---
 
-## 10. Retry, Observability & Tool Error Configurations (v0.1.9)
+## 11. Multi-Turn Session Persistence & Turn Cancellation
+
+### Session Persistence (`conversationId`)
+
+To maintain conversation memory across application restarts or HTTP requests:
+
+```java
+String conversationId;
+
+// Session 1: Run turn and retrieve conversation ID
+try (Agent agent = new Agent(config)) {
+    agent.chat("Remember: My favorite database is Spanner.").get(120, TimeUnit.SECONDS);
+    conversationId = agent.getConversationId(); // Save ID in persistent database
+}
+
+// Session 2: Resume previous conversation context
+AgentConfig resumedConfig = AgentConfig.builder()
+    .instructions("Helpful assistant.")
+    .conversationId(conversationId)
+    .build();
+
+try (Agent agent = new Agent(resumedConfig)) {
+    AgentResponse response = agent.chat("What is my favorite database?").get(120, TimeUnit.SECONDS);
+    System.out.println(response.text()); // "Spanner"
+}
+```
+
+### Execution Cancellation (`agent.cancel()`)
+
+Cancel long-running turns from another thread or HTTP abort signal. The pending turn future completes exceptionally with `AgentCancelledException`:
+
+```java
+import io.github.glaforge.antigravity.AgentCancelledException;
+import java.util.concurrent.ExecutionException;
+
+try (Agent agent = new Agent(config)) {
+    CompletableFuture<AgentResponse> future = agent.chat("Generate an exhaustive report.");
+
+    // Trigger cancellation
+    agent.cancel();
+
+    try {
+        future.get(120, TimeUnit.SECONDS);
+    } catch (ExecutionException e) {
+        if (e.getCause() instanceof AgentCancelledException) {
+            System.out.println("Execution was successfully cancelled.");
+        }
+    }
+}
+```
+
+---
+
+## 12. Retry, Observability & Tool Error Configurations (v0.1.9)
 
 ### Model Retry Configuration (`RetryConfig`)
 
@@ -370,7 +523,7 @@ AgentConfig config = AgentConfig.builder()
 
 ---
 
-## 11. Session Budget, Behavior & Multimodal Usage Breakdown (v0.1.12)
+## 13. Session Budget, Behavior & Multimodal Usage Breakdown (v0.1.12)
 
 ### Session Budget Configuration (`BudgetConfig`)
 
@@ -413,7 +566,7 @@ if (usage != null) {
     System.out.println("Service tier: " + usage.serviceTier());
     System.out.println("Cached tokens: " + usage.cachedContentTokenCount());
     System.out.println("Thoughts tokens: " + usage.thoughtsTokenCount());
-    
+
     for (ModalityTokenCount detail : usage.promptTokensDetails()) {
         System.out.println("Prompt modality: " + detail.modality() + " -> " + detail.tokenCount() + " tokens");
     }
@@ -422,7 +575,7 @@ if (usage != null) {
 
 ---
 
-## 12. Run Command Options, Workspace Containment & Step Correlation (v0.1.13)
+## 14. Run Command Options, Workspace Containment & Step Correlation (v0.1.13)
 
 ### Run Command Tool Configuration (`RunCommandConfig`)
 

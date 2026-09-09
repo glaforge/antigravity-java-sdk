@@ -1,6 +1,6 @@
 ---
 name: antigravity-sdk-java
-description: Guidelines, API reference, patterns, and best practices for building, configuring, hosting, and executing AI agents in Java using the Antigravity SDK for Java (Java 21). Use when creating Java AI agents, configuring agent skills with addSkillPath, setting up custom tools with @Tool, configuring security policies, using reactive streams, handling MCP servers, setting up lifecycle hooks, or handling multimodal inputs.
+description: Guidelines, API reference, patterns, and best practices for building, configuring, hosting, and executing AI agents in Java using the Antigravity SDK for Java (Java 21). Use when creating Java AI agents, configuring agent skills with addSkillPath, setting up custom tools with @Tool and ToolContext, managing session persistence, handling turn cancellation, configuring security policies, using reactive streams, handling MCP servers, setting up lifecycle hooks, or handling multimodal inputs (documents/PDFs, audio, video, images).
 license: Apache-2.0
 ---
 
@@ -21,8 +21,8 @@ Before executing tasks with the Antigravity Java SDK, verify the environment:
 
 Use the following reference guide based on the user prompt:
 
-- **Core API, Skills & Multimodal**: For `AgentConfig`, Agent Skills (`addSkillPath`), MCP servers, multimodal inputs (`AgentInput.Audio`, `AgentInput.Image`), `RetryConfig`, `DebugConfig`, or `BuiltinTools`, read [API Reference](references/api-reference.md).
-- **Security & Hooks**: For policy rules (`allowTools`, `denyIf`, `askUser`), `PreTurnHook`, `PreToolCallDecideHook`, or `OnToolErrorHook` with `ToolExecutionError`, read [Security Policies & Lifecycle Hooks](references/security-and-hooks.md).
+- **Core API, Skills & Multimodal**: For `AgentConfig`, `Agent.builder()`, Agent Skills (`addSkillPath`), MCP servers, multimodal inputs (`AgentInput.Document`, `AgentInput.Audio`, `AgentInput.Video`, `AgentInput.Image`), `ToolContext`, `RetryConfig`, `DebugConfig`, or `BuiltinTools`, read [API Reference](references/api-reference.md).
+- **Security & Hooks**: For policy rules (`allowTools`, `denyIf`, `askUser`), `PreTurnHook`, `PostTurnHook`, `PreToolCallDecideHook`, `PostToolCallHook`, `OnSessionStartHook`, `OnSessionEndHook`, or `OnToolErrorHook` with `ToolExecutionError`, read [Security Policies & Lifecycle Hooks](references/security-and-hooks.md).
 - **Streaming & Reactive**: For `Flow.Publisher`, Spring WebFlux / RxJava 3 integration, or streaming internal thoughts via `AgentStream`, read [Streaming & Reactive Integration](references/streaming-and-reactive.md).
 
 ---
@@ -31,7 +31,7 @@ Use the following reference guide based on the user prompt:
 
 ### Basic Agent Execution
 
-Always use Java 21 `try-with-resources` to ensure the underlying `localharness` process is closed cleanly.
+Always use Java 21 `try-with-resources` to ensure the underlying `localharness` process is closed cleanly. Agents can be constructed via `AgentConfig` or directly via fluent `Agent.builder()`:
 
 ```java
 import io.github.glaforge.antigravity.Agent;
@@ -39,6 +39,7 @@ import io.github.glaforge.antigravity.AgentConfig;
 import io.github.glaforge.antigravity.AgentResponse;
 import java.util.concurrent.TimeUnit;
 
+// Option A: Explicit AgentConfig
 AgentConfig config = AgentConfig.builder()
     .instructions("You are a helpful software architecture assistant.")
     .build();
@@ -48,28 +49,40 @@ try (Agent agent = new Agent(config)) {
         .get(120, TimeUnit.SECONDS);
     System.out.println(response.text());
 }
+
+// Option B: Fluent Agent.builder()
+try (Agent agent = Agent.builder()
+        .instructions("You are a helpful software architecture assistant.")
+        .build()) {
+    AgentResponse response = agent.chat("Explain the repository pattern in Java.")
+        .get(120, TimeUnit.SECONDS);
+    System.out.println(response.text());
+}
 ```
 
 ## Core Workflows
 
-### 1. Tool Declaration
+### 1. Tool Declaration & Context Injection
 
-Prefer annotated tools (`@Tool` and `@Param`). The SDK auto-generates JSON Schemas from Java reflection.
+Prefer annotated tools (`@Tool` and `@Param`). The SDK auto-generates JSON Schemas from Java reflection. Inject [`ToolContext`](references/api-reference.md#toolcontext) to access session state or send messages without polluting the LLM's tool parameters schema.
 
 ```java
 import io.github.glaforge.antigravity.tools.Tool;
 import io.github.glaforge.antigravity.tools.Param;
+import io.github.glaforge.antigravity.ToolContext;
 
 public class DatabaseTools {
     @Tool(name = "query_user", description = "Fetch user record by email.")
     public String queryUser(
-        @Param(name = "email", description = "User's primary email address") String email
+        @Param(name = "email", description = "User's primary email address") String email,
+        ToolContext context // Automatically injected by SDK (excluded from tool schema)
     ) {
+        context.setState("last_queried_user", email);
         return "User record for " + email + ": [Role: Admin, Active: true]";
     }
 }
 
-// Register tool with AgentConfig
+// Register tool with AgentConfig (or Agent.builder().addTool(...))
 AgentConfig config = AgentConfig.builder()
     .instructions("Use database tools to fetch account details when asked.")
     .addTool(new DatabaseTools())
@@ -272,14 +285,94 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
+### 11. Multi-Turn Session Persistence
+
+Agents maintain conversation state in the underlying Go harness. To persist and resume conversations across application restarts, user requests, or microservice boundaries, capture the `conversationId` and provide it to the next agent:
+
+```java
+String conversationId;
+
+// Turn 1: Start conversation and capture ID
+try (Agent agent = new Agent(AgentConfig.builder().instructions("Helpful assistant.").build())) {
+    agent.chat("My name is Guillaume.").get(120, TimeUnit.SECONDS);
+    conversationId = agent.getConversationId(); // Persist this ID in database or session
+}
+
+// Turn 2: Resume previous conversation context
+AgentConfig resumeConfig = AgentConfig.builder()
+    .instructions("Helpful assistant.")
+    .conversationId(conversationId)
+    .build();
+
+try (Agent agent = new Agent(resumeConfig)) {
+    AgentResponse response = agent.chat("What is my name?").get(120, TimeUnit.SECONDS);
+    System.out.println(response.text()); // "Guillaume"
+}
+```
+
+### 12. Turn Cancellation & Abort
+
+Long-running agent turns can be cancelled asynchronously from another thread or via an HTTP cancellation signal. Invoking `agent.cancel()` interrupts the Go harness and throws an `AgentCancelledException`:
+
+```java
+try (Agent agent = new Agent(config)) {
+    CompletableFuture<AgentResponse> future = agent.chat("Write a comprehensive novel.");
+
+    // Trigger cancellation from another thread, shutdown hook, or HTTP abort
+    agent.cancel();
+
+    try {
+        future.get(120, TimeUnit.SECONDS);
+    } catch (ExecutionException e) {
+        if (e.getCause() instanceof AgentCancelledException) {
+            System.out.println("Agent turn cancelled successfully.");
+        }
+    }
+}
+```
+
+### 13. Multimodal Inputs (PDF Documents, Audio, Video & Images)
+
+The SDK supports multimodal parts using strongly-typed `AgentInput.Media` records. Pass documents (PDFs), video, audio, or images directly to `agent.chat()`:
+
+```java
+import io.github.glaforge.antigravity.AgentInput;
+import java.nio.file.Path;
+
+AgentResponse response = agent.chat(
+    AgentInput.Text.of("Analyze the financial chart in this PDF and compare it to the video presentation."),
+    AgentInput.Document.fromFile(Path.of("q4_financials.pdf")), // Reads PDF into application/pdf
+    AgentInput.Video.fromFile(Path.of("earnings_call.mp4")),      // Reads MP4 video
+    AgentInput.Audio.fromFile(Path.of("cfo_audio_memo.mp3")),     // Reads MP3 audio
+    AgentInput.Image.fromFile(Path.of("chart_snapshot.png"))      // Reads PNG image
+).get(120, TimeUnit.SECONDS);
+```
+
+### 14. Slash Commands
+
+The Antigravity SDK natively executes CLI slash commands (e.g. `/help`, `/clear`). You can pass slash command strings directly to `agent.chat()` or use `AgentInput.SlashCommand`:
+
+```java
+import io.github.glaforge.antigravity.AgentInput;
+
+try (Agent agent = new Agent(config)) {
+    // Via String shorthand
+    AgentResponse helpResponse = agent.chat("/help").get(120, TimeUnit.SECONDS);
+    System.out.println(helpResponse.text());
+
+    // Or via strongly-typed input
+    agent.chat(AgentInput.SlashCommand.of("/clear")).get(120, TimeUnit.SECONDS);
+}
+```
+
 ---
 
 ## Detailed References
 
 For specialized configurations and detailed API breakdowns:
 
-- [API Reference](references/api-reference.md) — `AgentConfig` options, Agent Skills (`addSkillPath`), MCP servers, background triggers, multimodal inputs (`AgentInput`), structured output `record`s, and `BudgetConfig` / `AgentBehavior`.
-- [Security Policies & Lifecycle Hooks](references/security-and-hooks.md) — Three-tier hook framework (`PreTurnHook`, `PreToolCallDecideHook`, `OnToolErrorHook`, `OnInteractionHook`) and security policy evaluation.
+- [API Reference](references/api-reference.md) — `AgentConfig`, `Agent.builder()`, Agent Skills (`addSkillPath`), `ToolContext`, MCP servers, background triggers, multimodal inputs (`AgentInput`), structured output `record`s, and `BudgetConfig` / `AgentBehavior`.
+- [Security Policies & Lifecycle Hooks](references/security-and-hooks.md) — Three-tier hook framework (`PreTurnHook`, `PostTurnHook`, `PreToolCallDecideHook`, `PostToolCallHook`, `OnSessionStartHook`, `OnSessionEndHook`, `OnToolErrorHook`, `OnInteractionHook`) and security policy evaluation.
 - [Streaming & Reactive Integration](references/streaming-and-reactive.md) — Reactive Streams (`Flow.Publisher`), Project Reactor/RxJava interop, and `AgentStream` internal thought channels.
 
 ---
@@ -288,6 +381,9 @@ For specialized configurations and detailed API breakdowns:
 
 - **Harness Process Lifecycle**: `Agent` implements `AutoCloseable`. Always wrap `Agent` in `try-with-resources` or explicitly invoke `agent.close()`. Leaving agents unclosed orphan background Go processes.
 - **Asynchronous Execution**: `agent.chat()` returns `CompletableFuture<AgentResponse>`. Always specify explicit timeouts when calling `.get(timeout, unit)` to avoid deadlocks.
+- **Session Resumption**: Always capture `agent.getConversationId()` if you need to persist conversation context across turns, HTTP sessions, or application restarts via `.conversationId(id)`.
+- **Cancellation Handling**: Calling `agent.cancel()` interrupts the Go harness and will cause pending `CompletableFuture` operations to complete exceptionally with `AgentCancelledException` (wrapped in `ExecutionException`).
+- **ToolContext Injection**: Never annotate `ToolContext` with `@Param`. The SDK automatically injects the active session's `ToolContext` when declared as a method parameter and omits it from the JSON schema sent to the model.
 - **Agent Skills Format**: Skill directories registered via `.addSkillPath(path)` must adhere to the open [Agent Skills specification](https://agentskills.io/specification), containing a valid `SKILL.md` file with frontmatter metadata (`name`, `description`). The native harness indexes and activates matching skills dynamically during agent turns.
 - **Testing Assertions**: In JUnit tests, **never use `Thread.sleep()`** to wait for asynchronous agent responses. Use `Awaitility`:
   ```java

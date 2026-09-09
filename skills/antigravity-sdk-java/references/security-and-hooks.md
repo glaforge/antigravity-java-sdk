@@ -123,6 +123,20 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
+### Post-Turn Inspection (`PostTurnHook`) — Inspect
+
+Audit the generated model response and read/update session state asynchronously:
+
+```java
+AgentConfig config = AgentConfig.builder()
+    .addPostTurnHook((response, context) -> {
+        System.out.println("Turn completed. Response length: " + response.length());
+        context.update("total_turns", (k, v) -> v == null ? 1 : ((Integer) v) + 1);
+        return CompletableFuture.completedFuture(null);
+    })
+    .build();
+```
+
 ### Pre-Tool Call Transformation (`PreToolCallDecideHook`) — Transform
 
 Sanitize or rewrite tool arguments before dispatch.
@@ -142,6 +156,19 @@ AgentConfig config = AgentConfig.builder()
             return CompletableFuture.completedFuture(modified);
         }
         return CompletableFuture.completedFuture(HookResult.allowed());
+    })
+    .build();
+```
+
+### Post-Tool Call Inspection (`PostToolCallHook`) — Inspect
+
+Observe tool results, measure latency, and emit telemetry:
+
+```java
+AgentConfig config = AgentConfig.builder()
+    .addPostToolCallHook((toolCall, result, context) -> {
+        System.out.println("Tool executed: " + toolCall.name() + " -> result: " + result);
+        return CompletableFuture.completedFuture(null);
     })
     .build();
 ```
@@ -209,6 +236,23 @@ AgentConfig config = AgentConfig.builder()
         System.out.println("Agent stopped on trajectory " + stopArgs.getTrajectoryId() 
             + " reason: " + stopArgs.getStopReason() 
             + " after " + stopArgs.getContinuationCount() + " continuations");
+        return CompletableFuture.completedFuture(null);
+    })
+    .build();
+```
+
+### Session Lifecycle (`OnSessionStartHook` & `OnSessionEndHook`) — Inspect
+
+Manage setup and teardown for the entire agent session lifecycle:
+
+```java
+AgentConfig config = AgentConfig.builder()
+    .addOnSessionStartHook(() -> {
+        System.out.println("Agent session starting: initializing resources.");
+        return CompletableFuture.completedFuture(null);
+    })
+    .addOnSessionEndHook(() -> {
+        System.out.println("Agent session ending: releasing resources.");
         return CompletableFuture.completedFuture(null);
     })
     .build();
