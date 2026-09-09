@@ -1,6 +1,6 @@
 # API Reference — Antigravity SDK for Java
 
-This document details the configuration options, tool definitions, MCP integration, local model configs, triggers, multimodal capabilities, and structured output patterns in the Antigravity SDK for Java.
+This document details configuration options, agent skills, tool definitions, MCP integration, local model configs, triggers, multimodal capabilities, and structured output patterns in the Antigravity SDK for Java.
 
 ---
 
@@ -20,6 +20,7 @@ AgentConfig config = AgentConfig.builder()
     .modelName("gemini-3.6-flash") // Default model selection
     .conversationId("session-123") // Resume existing session context
     .environmentVariables(Map.of("CUSTOM_ENV_VAR", "value")) // Custom process environment
+    .addSkillPath("/path/to/my-agent-skill") // Register file-based agent skill
     .generation(GenerationConfig.builder()
         .temperature(0.2)
         .maxOutputTokens(2048)
@@ -229,7 +230,61 @@ AgentConfig config = AgentConfig.builder()
 
 ---
 
-## 7. Background Triggers
+## 7. Agent Skills
+
+Extend your agent with specialized domain knowledge, complex workflows, and contextual guidelines by loading file-based skills conforming to the open [Agent Skills specification](https://agentskills.io/specification).
+
+### Registering Skills
+
+Skill directories can be registered via `AgentConfig.builder()` or directly on `Agent.builder()`:
+
+```java
+import io.github.glaforge.antigravity.Agent;
+import io.github.glaforge.antigravity.AgentConfig;
+import java.util.concurrent.TimeUnit;
+
+AgentConfig config = AgentConfig.builder()
+    .instructions("You are a specialized enterprise assistant.")
+    .addSkillPath("/path/to/my-agent-skill")
+    .addSkillPath("skills/antigravity-sdk-java") // Relative or absolute directory path
+    .build();
+
+try (Agent agent = new Agent(config)) {
+    agent.chat("How do I configure security policies in the Antigravity Java SDK?")
+        .get(120, TimeUnit.SECONDS);
+}
+```
+
+Or via `Agent.builder()`:
+
+```java
+Agent agent = Agent.builder()
+    .instructions("You are a specialized enterprise assistant.")
+    .addSkillPath("/path/to/my-agent-skill")
+    .build();
+```
+
+### Skill Directory Structure
+
+A valid skill directory must follow the open Agent Skills standard:
+
+```
+my-agent-skill/
+├── SKILL.md                 # Required: YAML frontmatter (name, description) + instructions
+├── references/              # Optional: Technical documentation, API specs, deep-dive docs
+├── scripts/                 # Optional: Automation scripts or helper utilities
+└── resources/               # Optional: Templates, configuration files, or asset files
+```
+
+The underlying Go `localharness` binary indexes the `SKILL.md` frontmatter at startup and dynamically routes to and reads skill content as relevant to the user query during conversation turns.
+
+> [!TIP]
+> **Bundled SDK Agent Skill**: This repository includes an official, open-specification [Agent Skill](skills/antigravity-sdk-java/SKILL.md) under [`skills/antigravity-sdk-java/`](skills/antigravity-sdk-java/SKILL.md).
+> You can load this skill into your agents (`.addSkillPath("skills/antigravity-sdk-java")`) or register it with AI coding tools (such as the Antigravity CLI, Cursor, Windsurf, or Claude Code) to provide your AI assistants with native expertise on configuring, hosting, and executing agents with this SDK!
+
+---
+
+## 8. Background Triggers
 
 Inject recurring context updates into active agent sessions without interrupting user turns.
 
@@ -250,7 +305,7 @@ AgentConfig config = AgentConfig.builder()
 
 ---
 
-## 8. Multimodal Inputs
+## 9. Multimodal Inputs
 
 Pass text, images, audio, or video files to the agent using `AgentInput`.
 
@@ -267,7 +322,7 @@ AgentResponse response = agent.chat(
 
 ---
 
-## 9. Retry, Observability & Tool Error Configurations (v0.1.9)
+## 10. Retry, Observability & Tool Error Configurations (v0.1.9)
 
 ### Model Retry Configuration (`RetryConfig`)
 
@@ -315,7 +370,7 @@ AgentConfig config = AgentConfig.builder()
 
 ---
 
-## 10. Session Budget, Behavior & Multimodal Usage Breakdown (v0.1.12)
+## 11. Session Budget, Behavior & Multimodal Usage Breakdown (v0.1.12)
 
 ### Session Budget Configuration (`BudgetConfig`)
 
@@ -367,7 +422,7 @@ if (usage != null) {
 
 ---
 
-## 11. Run Command Options, Workspace Containment & Step Correlation (v0.1.13)
+## 12. Run Command Options, Workspace Containment & Step Correlation (v0.1.13)
 
 ### Run Command Tool Configuration (`RunCommandConfig`)
 

@@ -1,12 +1,12 @@
 ---
 name: antigravity-sdk-java
-description: Guidelines, API reference, patterns, and best practices for building, configuring, hosting, and executing AI agents in Java using the Antigravity SDK for Java (Java 21). Use when creating Java AI agents, setting up custom tools with @Tool, configuring security policies, using reactive streams, handling MCP servers, setting up lifecycle hooks, or handling multimodal inputs.
+description: Guidelines, API reference, patterns, and best practices for building, configuring, hosting, and executing AI agents in Java using the Antigravity SDK for Java (Java 21). Use when creating Java AI agents, configuring agent skills with addSkillPath, setting up custom tools with @Tool, configuring security policies, using reactive streams, handling MCP servers, setting up lifecycle hooks, or handling multimodal inputs.
 license: Apache-2.0
 ---
 
 # Antigravity SDK for Java
 
-The **Antigravity SDK for Java** enables enterprise Java developers to build, configure, host, and execute AI agents natively in **Java 21**. It wraps the native `localharness` binary over WebSockets, supporting streaming, tool calling, Model Context Protocol (MCP), lifecycle hooks, security policies, and multimodal inputs.
+The **Antigravity SDK for Java** enables enterprise Java developers to build, configure, host, and execute AI agents natively in **Java 21**. It wraps the native `localharness` binary over WebSockets, supporting streaming, tool calling, Model Context Protocol (MCP), agent skills, lifecycle hooks, security policies, and multimodal inputs.
 
 ## Prerequisites & Authentication Setup
 
@@ -21,7 +21,7 @@ Before executing tasks with the Antigravity Java SDK, verify the environment:
 
 Use the following reference guide based on the user prompt:
 
-- **Core API & Multimodal**: For `AgentConfig`, MCP servers, multimodal inputs (`AgentInput.Audio`, `AgentInput.Image`), `RetryConfig`, `DebugConfig`, or `BuiltinTools`, read [API Reference](references/api-reference.md).
+- **Core API, Skills & Multimodal**: For `AgentConfig`, Agent Skills (`addSkillPath`), MCP servers, multimodal inputs (`AgentInput.Audio`, `AgentInput.Image`), `RetryConfig`, `DebugConfig`, or `BuiltinTools`, read [API Reference](references/api-reference.md).
 - **Security & Hooks**: For policy rules (`allowTools`, `denyIf`, `askUser`), `PreTurnHook`, `PreToolCallDecideHook`, or `OnToolErrorHook` with `ToolExecutionError`, read [Security Policies & Lifecycle Hooks](references/security-and-hooks.md).
 - **Streaming & Reactive**: For `Flow.Publisher`, Spring WebFlux / RxJava 3 integration, or streaming internal thoughts via `AgentStream`, read [Streaming & Reactive Integration](references/streaming-and-reactive.md).
 
@@ -113,7 +113,34 @@ try (Agent agent = new Agent(config)) {
 
 See [Streaming & Reactive Integration](references/streaming-and-reactive.md) for Spring WebFlux / RxJava 3 integration and `AgentStream` thought interception.
 
-### 4. Retry Configuration & Audio Input (v0.1.9)
+### 4. Agent Skills
+
+Extend agents with specialized domain knowledge, workflows, and reference materials by loading file-based skills conforming to the open [Agent Skills specification](https://agentskills.io/specification). Provide skill directory paths using `.addSkillPath()` on `AgentConfig.builder()` or `Agent.builder()`.
+
+```java
+import io.github.glaforge.antigravity.Agent;
+import io.github.glaforge.antigravity.AgentConfig;
+import io.github.glaforge.antigravity.AgentResponse;
+import java.util.concurrent.TimeUnit;
+
+AgentConfig config = AgentConfig.builder()
+    .instructions("You are a specialized enterprise developer.")
+    .addSkillPath("/path/to/my-agent-skill")
+    .addSkillPath("skills/antigravity-sdk-java") // E.g., the bundled SDK skill
+    .build();
+
+try (Agent agent = new Agent(config)) {
+    AgentResponse response = agent.chat("How do I configure security policies in the Antigravity Java SDK?")
+        .get(120, TimeUnit.SECONDS);
+    System.out.println(response.text());
+}
+```
+
+> [!TIP]
+> **Bundled SDK Agent Skill**: This repository includes an official, open-specification [Agent Skill](skills/antigravity-sdk-java/SKILL.md) under [`skills/antigravity-sdk-java/`](skills/antigravity-sdk-java/SKILL.md).
+> You can load this skill into your agents (`.addSkillPath("skills/antigravity-sdk-java")`) or register it with AI coding tools (such as the Antigravity CLI, Cursor, Windsurf, or Claude Code) to provide your AI assistants with native expertise on configuring, hosting, and executing agents with this SDK!
+
+### 5. Retry Configuration & Audio Input (v0.1.9)
 
 Configure exponential retries for transient API errors & model outputs using `RetryConfig`. Pass audio input directly to agents for meeting summary workflows.
 
@@ -137,7 +164,7 @@ try (Agent agent = new Agent(config)) {
 }
 ```
 
-### 5. Structured Tool Exception Handling & Recovery (v0.1.9)
+### 6. Structured Tool Exception Handling & Recovery (v0.1.9)
 
 Catch tool execution errors programmatically via `ToolExecutionError` in `OnToolErrorHook` to safely recover when a tool fails.
 
@@ -155,7 +182,7 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
-### 6. Session Budget Limits & Autonomous Behavior (v0.1.12)
+### 7. Session Budget Limits & Autonomous Behavior (v0.1.12)
 
 Enforce strict model call, tool call, and token caps using `BudgetConfig`, choose `AgentBehavior` mode, set inference `ServiceTier`, and inspect fine-grained token usage breakdown by `Modality`.
 
@@ -182,7 +209,7 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
-### 7. Run Command Options & Workspace Containment (v0.1.13)
+### 8. Run Command Options & Workspace Containment (v0.1.13)
 
 Configure daemon commands and timeouts via `RunCommandConfig`, enforce strict filesystem containment with `WorkspaceContainment`, correlate trajectory steps (`stepId`), and rewrite tool arguments in `PreToolCallDecideHook`.
 
@@ -207,10 +234,12 @@ AgentConfig config = AgentConfig.builder()
                 HookResult.allowedWithModifiedArguments("{\"command_line\": \"echo safe\"}")
             );
         }
+        return CompletableFuture.completedFuture(HookResult.allowed());
+    })
     .build();
 ```
 
-### 8. Compaction Hooks & Trajectory Trace Context (v0.1.14)
+### 9. Compaction Hooks & Trajectory Trace Context (v0.1.14)
 
 Intercept context compaction notifications with `OnCompactionHook`, inspect trajectory termination reasons (`StopReason`) and depth hierarchy (`parentTrajectoryId`, `depth`), and correlate call IDs and step indices across hook events.
 
@@ -224,7 +253,7 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
-### 9. Lightweight Mode, Command Sandboxing & Stop Hooks (v0.1.16)
+### 10. Lightweight Mode, Command Sandboxing & Stop Hooks (v0.1.16)
 
 Agents now default to `gemini-3.8-flash`. Configure lightweight agents for local/small models using `.lightweight()`, sandbox shell executions, and handle termination events with `OnStopHook`.
 
@@ -249,7 +278,7 @@ AgentConfig config = AgentConfig.builder()
 
 For specialized configurations and detailed API breakdowns:
 
-- [API Reference](references/api-reference.md) — `AgentConfig` options, MCP servers, background triggers, multimodal inputs (`AgentInput`), structured output `record`s, and `BudgetConfig` / `AgentBehavior`.
+- [API Reference](references/api-reference.md) — `AgentConfig` options, Agent Skills (`addSkillPath`), MCP servers, background triggers, multimodal inputs (`AgentInput`), structured output `record`s, and `BudgetConfig` / `AgentBehavior`.
 - [Security Policies & Lifecycle Hooks](references/security-and-hooks.md) — Three-tier hook framework (`PreTurnHook`, `PreToolCallDecideHook`, `OnToolErrorHook`, `OnInteractionHook`) and security policy evaluation.
 - [Streaming & Reactive Integration](references/streaming-and-reactive.md) — Reactive Streams (`Flow.Publisher`), Project Reactor/RxJava interop, and `AgentStream` internal thought channels.
 
@@ -259,6 +288,7 @@ For specialized configurations and detailed API breakdowns:
 
 - **Harness Process Lifecycle**: `Agent` implements `AutoCloseable`. Always wrap `Agent` in `try-with-resources` or explicitly invoke `agent.close()`. Leaving agents unclosed orphan background Go processes.
 - **Asynchronous Execution**: `agent.chat()` returns `CompletableFuture<AgentResponse>`. Always specify explicit timeouts when calling `.get(timeout, unit)` to avoid deadlocks.
+- **Agent Skills Format**: Skill directories registered via `.addSkillPath(path)` must adhere to the open [Agent Skills specification](https://agentskills.io/specification), containing a valid `SKILL.md` file with frontmatter metadata (`name`, `description`). The native harness indexes and activates matching skills dynamically during agent turns.
 - **Testing Assertions**: In JUnit tests, **never use `Thread.sleep()`** to wait for asynchronous agent responses. Use `Awaitility`:
   ```java
   await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
