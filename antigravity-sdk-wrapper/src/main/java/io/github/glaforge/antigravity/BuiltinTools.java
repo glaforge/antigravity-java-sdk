@@ -15,6 +15,7 @@
  */
 package io.github.glaforge.antigravity;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -104,6 +105,39 @@ public enum BuiltinTools {
 	 */
 	public static List<BuiltinTools> fileTools() {
 		return List.of(VIEW_FILE, CREATE_FILE, EDIT_FILE);
+	}
+
+	/**
+	 * Returns the minimal set of software engineering tools.
+	 *
+	 * Includes run_command, view_file, create_file, edit_file, list_directory, and
+	 * search_directory.
+	 *
+	 * @return a list of minimal BuiltinTools
+	 */
+	public static List<BuiltinTools> minimal() {
+		return List.of(RUN_COMMAND, VIEW_FILE, CREATE_FILE, EDIT_FILE, LIST_DIR, SEARCH_DIR);
+	}
+
+	/**
+	 * Returns the default set of builtin tools for autonomous agents.
+	 *
+	 * Excludes {@link #ASK_QUESTION} because autonomous agents cannot prompt the
+	 * user interactively.
+	 *
+	 * @return a list of default BuiltinTools
+	 */
+	public static List<BuiltinTools> defaultTools() {
+		return Arrays.stream(values()).filter(t -> t != ASK_QUESTION).toList();
+	}
+
+	/**
+	 * Alias for {@link #defaultTools()}.
+	 *
+	 * @return a list of default BuiltinTools
+	 */
+	public static List<BuiltinTools> defaults() {
+		return defaultTools();
 	}
 
 	/**

@@ -63,6 +63,7 @@ public class AgentConfig {
 	private final BudgetConfig budgetConfig;
 	private final AgentBehavior agentBehavior;
 	private final WorkspaceContainment workspaceContainment;
+	private final CompactionConfig compactionConfig;
 
 	private AgentConfig(Builder builder) {
 		this.instructions = builder.instructions;
@@ -87,6 +88,7 @@ public class AgentConfig {
 		this.budgetConfig = builder.budgetConfig;
 		this.agentBehavior = builder.agentBehavior;
 		this.workspaceContainment = builder.workspaceContainment;
+		this.compactionConfig = builder.compactionConfig;
 	}
 
 	/**
@@ -276,6 +278,15 @@ public class AgentConfig {
 	}
 
 	/**
+	 * Returns the conversation compaction configuration.
+	 *
+	 * @return compaction configuration, or null if not configured
+	 */
+	public CompactionConfig getCompactionConfig() {
+		return compactionConfig;
+	}
+
+	/**
 	 * Hydrates the GCP/Vertex project ID from explicit config or standard
 	 * GOOGLE_CLOUD_PROJECT environment variable.
 	 *
@@ -347,6 +358,7 @@ public class AgentConfig {
 		private BudgetConfig budgetConfig;
 		private AgentBehavior agentBehavior;
 		private WorkspaceContainment workspaceContainment;
+		private CompactionConfig compactionConfig;
 
 		/**
 		 * Sets the instructions.
@@ -767,6 +779,30 @@ public class AgentConfig {
 		 */
 		public Builder workspaceContainment(WorkspaceContainment workspaceContainment) {
 			this.workspaceContainment = workspaceContainment;
+			return this;
+		}
+
+		/**
+		 * Sets the conversation trajectory compaction configuration.
+		 *
+		 * @param compactionConfig
+		 *            the compaction configuration
+		 * @return this builder
+		 */
+		public Builder compactionConfig(CompactionConfig compactionConfig) {
+			this.compactionConfig = compactionConfig;
+			return this;
+		}
+
+		/**
+		 * Sets the conversation compaction threshold in tokens.
+		 *
+		 * @param tokenThreshold
+		 *            token threshold limit before compaction
+		 * @return this builder
+		 */
+		public Builder compactionThreshold(int tokenThreshold) {
+			this.compactionConfig = CompactionConfig.of(tokenThreshold);
 			return this;
 		}
 

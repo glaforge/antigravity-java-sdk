@@ -661,6 +661,48 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
+### 25. Forward-Looking Budgets, Consolidated Compaction, Token Arithmetic & Intel macOS (v0.1.17)
+
+- **Intel macOS Support**: Embedded binaries now support `macosx_11_0_x86_64` alongside ARM64, Linux (x86_64 and ARM64), and Windows (x86_64 and ARM64).
+- **Forward-Looking Budgets**: Use `BudgetScope.FORWARD_LOOKING` to evaluate token and model call caps against turns executed starting from configuration or resumption, rather than from step 0 (`BudgetScope.LIFETIME`).
+- **Consolidated Context Compaction**: Configure conversation trajectory compaction limits across backends using `CompactionConfig.tokenThreshold` (or `.compactionThreshold(...)`).
+- **Token Usage Arithmetic**: `UsageMetadata` supports `.add()` / `.plus()`, `.subtract()` / `.minus()`, and `.multiply()` / `.times()`, simplifying multi-turn accounting and scaling.
+- **Safe Headless Tool Defaults**: `BuiltinTools.defaultTools()` / `BuiltinTools.defaults()` automatically excludes interactive question tools (`ASK_QUESTION`) to prevent hanging autonomous pipelines, while `BuiltinTools.minimal()` provides core software engineering tools.
+- **OS Sandbox Verification**: `Agent.getSandboxStatus()` checks host sandbox isolation status and automatically logs a warning when `enableSandbox(true)` cannot be enforced by the environment.
+
+```java
+// 1. Configure agent with forward-looking budget and consolidated compaction
+AgentConfig config = AgentConfig.builder()
+    .instructions("Autonomous analyst with forward-looking budget and context compaction.")
+    .budgetConfig(BudgetConfig.builder()
+        .maxModelCalls(5)
+        .maxTotalTokens(20_000L)
+        .scope(BudgetScope.FORWARD_LOOKING) // Evaluates caps only on new turns
+        .build())
+    .compactionConfig(CompactionConfig.of(16_000)) // Compacts trajectory above 16,000 tokens
+    .capabilities(CapabilitiesConfig.builder()
+        .enableShell(true)
+        .runCommandConfig(RunCommandConfig.builder().enableSandbox(true).build())
+        .build())
+    .build();
+
+try (Agent agent = new Agent(config)) {
+    AgentResponse r1 = agent.chat("Analyze sales data.").get(60, TimeUnit.SECONDS);
+    AgentResponse r2 = agent.chat("Summarize findings.").get(60, TimeUnit.SECONDS);
+
+    // 2. Token usage arithmetic across turns
+    UsageMetadata cumulative = r1.usage().add(r2.usage());
+    UsageMetadata scaledProjection = cumulative.multiply(1.5);
+    System.out.println("Total net tokens: " + cumulative.totalTokenCount());
+
+    // 3. Inspect OS sandbox enforcement status
+    SandboxStatus sandbox = agent.getSandboxStatus();
+    if (sandbox != null && !sandbox.available()) {
+        System.out.println("Sandbox unavailable: " + sandbox.unavailableReason());
+    }
+}
+```
+
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](LICENSE).

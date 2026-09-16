@@ -365,6 +365,34 @@ try (Agent agent = new Agent(config)) {
 }
 ```
 
+### 15. Forward-Looking Budgets, Compaction Limits & Token Arithmetic (v0.1.17)
+
+- **Forward-Looking Budgets**: Use `BudgetScope.FORWARD_LOOKING` to evaluate invocation and token caps only on newly executed turns when resuming a conversation.
+- **Trajectory Compaction**: Configure context compaction limits with `CompactionConfig.of(tokenThreshold)`.
+- **Token Usage Arithmetic**: `UsageMetadata` records provide `.add()` / `.plus()`, `.subtract()` / `.minus()`, and `.multiply()` / `.times()` for multi-turn accounting.
+- **Safe Tool Defaults**: For autonomous agents, use `BuiltinTools.defaultTools()` (which omits `ASK_QUESTION`) or `BuiltinTools.minimal()` (for basic coding tools).
+- **OS Sandbox Verification**: Inspect `agent.getSandboxStatus()` to verify whether `enableSandbox` isolation is actually supported and active.
+
+```java
+import io.github.glaforge.antigravity.BudgetScope;
+import io.github.glaforge.antigravity.CompactionConfig;
+
+AgentConfig config = AgentConfig.builder()
+    .instructions("Autonomous analyst with forward-looking budget.")
+    .budgetConfig(BudgetConfig.builder()
+        .maxModelCalls(5)
+        .scope(BudgetScope.FORWARD_LOOKING)
+        .build())
+    .compactionConfig(CompactionConfig.of(16_000))
+    .build();
+
+try (Agent agent = new Agent(config)) {
+    AgentResponse r1 = agent.chat("Turn 1").get(60, TimeUnit.SECONDS);
+    AgentResponse r2 = agent.chat("Turn 2").get(60, TimeUnit.SECONDS);
+    UsageMetadata combined = r1.usage().add(r2.usage());
+}
+```
+
 ---
 
 ## Detailed References

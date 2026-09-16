@@ -672,6 +672,48 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
+### Forward-Looking Budgets, Compaction Limits & Token Arithmetic (v0.1.17)
+
+```java
+import io.github.glaforge.antigravity.BudgetConfig;
+import io.github.glaforge.antigravity.BudgetScope;
+import io.github.glaforge.antigravity.CompactionConfig;
+import io.github.glaforge.antigravity.BuiltinTools;
+import io.github.glaforge.antigravity.SandboxStatus;
+
+// 1. Configure forward-looking budget and context compaction
+AgentConfig config = AgentConfig.builder()
+    .instructions("Agent with forward-looking budget and context compaction.")
+    .budgetConfig(BudgetConfig.builder()
+        .maxModelCalls(10)
+        .maxTotalTokens(50_000L)
+        .scope(BudgetScope.FORWARD_LOOKING) // Evaluates caps only against newly executed turns
+        .build())
+    .compactionConfig(CompactionConfig.builder()
+        .tokenThreshold(16_000)
+        .checkpointIntervalTokens(4_000)
+        .maxContextTokens(32_000)
+        .build())
+    .build();
+
+// 2. Token usage arithmetic on UsageMetadata
+UsageMetadata combined = turn1.usage().add(turn2.usage()); // Or turn1.usage().plus(turn2.usage())
+UsageMetadata diff = combined.subtract(baseline.usage());   // Or minus(...)
+UsageMetadata projected = combined.multiply(1.2);          // Or times(...)
+
+// 3. Builtin tool convenience collections
+List<BuiltinTools> defaults = BuiltinTools.defaultTools(); // Excludes ASK_QUESTION for headless/autonomous agents
+List<BuiltinTools> minimal = BuiltinTools.minimal();       // Core software engineering tools
+
+// 4. OS Command Sandbox verification
+try (Agent agent = new Agent(config)) {
+    SandboxStatus sandbox = agent.getSandboxStatus();
+    if (sandbox != null && !sandbox.available()) {
+        System.err.println("Warning: Sandbox is not enforcing: " + sandbox.unavailableReason());
+    }
+}
+```
+
 
 
 

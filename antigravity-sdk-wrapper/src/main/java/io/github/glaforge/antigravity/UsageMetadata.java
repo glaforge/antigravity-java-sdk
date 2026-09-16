@@ -65,4 +65,103 @@ public record UsageMetadata(int promptTokenCount, int cachedContentTokenCount, i
 		this(promptTokenCount, cachedContentTokenCount, candidatesTokenCount, thoughtsTokenCount, totalTokenCount, null,
 				List.of(), List.of(), List.of(), List.of());
 	}
+
+	/**
+	 * Adds token counts from another UsageMetadata.
+	 *
+	 * @param other
+	 *            the other UsageMetadata to add
+	 * @return a new UsageMetadata with summed token counts and merged service tier
+	 */
+	public UsageMetadata add(UsageMetadata other) {
+		if (other == null) {
+			return this;
+		}
+		String mergedTier;
+		if (this.serviceTier == null) {
+			mergedTier = other.serviceTier();
+		} else if (other.serviceTier() == null || this.serviceTier.equalsIgnoreCase(other.serviceTier())) {
+			mergedTier = this.serviceTier;
+		} else {
+			mergedTier = "standard";
+		}
+		return new UsageMetadata(this.promptTokenCount + other.promptTokenCount(),
+				this.cachedContentTokenCount + other.cachedContentTokenCount(),
+				this.candidatesTokenCount + other.candidatesTokenCount(),
+				this.thoughtsTokenCount + other.thoughtsTokenCount(), this.totalTokenCount + other.totalTokenCount(),
+				mergedTier, List.of(), List.of(), List.of(), List.of());
+	}
+
+	/**
+	 * Alias for {@link #add(UsageMetadata)}.
+	 *
+	 * @param other
+	 *            the other UsageMetadata to add
+	 * @return the sum
+	 */
+	public UsageMetadata plus(UsageMetadata other) {
+		return add(other);
+	}
+
+	/**
+	 * Subtracts token counts of another UsageMetadata from this one.
+	 *
+	 * @param other
+	 *            the other UsageMetadata to subtract
+	 * @return a new UsageMetadata with subtracted token counts
+	 */
+	public UsageMetadata subtract(UsageMetadata other) {
+		if (other == null) {
+			return this;
+		}
+		String mergedTier = this.serviceTier != null ? this.serviceTier : other.serviceTier();
+		return new UsageMetadata(this.promptTokenCount - other.promptTokenCount(),
+				this.cachedContentTokenCount - other.cachedContentTokenCount(),
+				this.candidatesTokenCount - other.candidatesTokenCount(),
+				this.thoughtsTokenCount - other.thoughtsTokenCount(), this.totalTokenCount - other.totalTokenCount(),
+				mergedTier, List.of(), List.of(), List.of(), List.of());
+	}
+
+	/**
+	 * Alias for {@link #subtract(UsageMetadata)}.
+	 *
+	 * @param other
+	 *            the other UsageMetadata to subtract
+	 * @return the difference
+	 */
+	public UsageMetadata minus(UsageMetadata other) {
+		return subtract(other);
+	}
+
+	/**
+	 * Scales token counts by a non-negative, finite numeric factor.
+	 *
+	 * @param factor
+	 *            finite, non-negative scale factor
+	 * @return scaled UsageMetadata
+	 * @throws IllegalArgumentException
+	 *             if factor is negative, infinite, or NaN
+	 */
+	public UsageMetadata multiply(double factor) {
+		if (!Double.isFinite(factor) || factor < 0) {
+			throw new IllegalArgumentException(
+					"Multiplication factor must be a finite, non-negative number, got " + factor);
+		}
+		return new UsageMetadata((int) Math.round(this.promptTokenCount * factor),
+				(int) Math.round(this.cachedContentTokenCount * factor),
+				(int) Math.round(this.candidatesTokenCount * factor),
+				(int) Math.round(this.thoughtsTokenCount * factor), (int) Math.round(this.totalTokenCount * factor),
+				this.serviceTier, List.of(), List.of(), List.of(), List.of());
+	}
+
+	/**
+	 * Alias for {@link #multiply(double)}.
+	 *
+	 * @param factor
+	 *            scale factor
+	 * @return scaled UsageMetadata
+	 */
+	public UsageMetadata times(double factor) {
+		return multiply(factor);
+	}
 }

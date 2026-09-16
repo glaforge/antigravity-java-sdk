@@ -19,19 +19,54 @@ package io.github.glaforge.antigravity;
  * Configuration for session-level budget limits and caps.
  *
  * @param maxModelCalls
- *            maximum number of model invocations permitted across the session
+ *            maximum number of model invocations permitted within the
+ *            configured scope
  * @param maxToolCalls
- *            maximum number of tool invocations permitted across the session
+ *            maximum number of tool invocations permitted within the configured
+ *            scope
  * @param maxInputTokens
- *            maximum net uncached input tokens permitted across the session
+ *            maximum net uncached input tokens permitted within the configured
+ *            scope
  * @param maxOutputTokens
- *            maximum output tokens permitted across the session (candidates +
- *            thoughts)
+ *            maximum output tokens permitted within the configured scope
+ *            (candidates + thoughts)
  * @param maxTotalTokens
- *            maximum total net tokens permitted across the session
+ *            maximum total net tokens permitted within the configured scope
+ * @param scope
+ *            the evaluation scope for this budget configuration (defaults to
+ *            {@link BudgetScope#LIFETIME})
  */
 public record BudgetConfig(Integer maxModelCalls, Integer maxToolCalls, Long maxInputTokens, Long maxOutputTokens,
-		Long maxTotalTokens) {
+		Long maxTotalTokens, BudgetScope scope) {
+
+	/**
+	 * Compact constructor defaulting scope to {@link BudgetScope#LIFETIME}.
+	 */
+	public BudgetConfig {
+		if (scope == null) {
+			scope = BudgetScope.LIFETIME;
+		}
+	}
+
+	/**
+	 * Secondary constructor for backward compatibility with 5 parameters.
+	 *
+	 * @param maxModelCalls
+	 *            maximum number of model invocations permitted across the session
+	 * @param maxToolCalls
+	 *            maximum number of tool invocations permitted across the session
+	 * @param maxInputTokens
+	 *            maximum net uncached input tokens permitted across the session
+	 * @param maxOutputTokens
+	 *            maximum output tokens permitted across the session (candidates +
+	 *            thoughts)
+	 * @param maxTotalTokens
+	 *            maximum total net tokens permitted across the session
+	 */
+	public BudgetConfig(Integer maxModelCalls, Integer maxToolCalls, Long maxInputTokens, Long maxOutputTokens,
+			Long maxTotalTokens) {
+		this(maxModelCalls, maxToolCalls, maxInputTokens, maxOutputTokens, maxTotalTokens, BudgetScope.LIFETIME);
+	}
 
 	/**
 	 * Creates a new builder for {@link BudgetConfig}.
@@ -51,6 +86,7 @@ public record BudgetConfig(Integer maxModelCalls, Integer maxToolCalls, Long max
 		private Long maxInputTokens;
 		private Long maxOutputTokens;
 		private Long maxTotalTokens;
+		private BudgetScope scope = BudgetScope.LIFETIME;
 
 		/**
 		 * Default constructor.
@@ -59,7 +95,8 @@ public record BudgetConfig(Integer maxModelCalls, Integer maxToolCalls, Long max
 		}
 
 		/**
-		 * Sets the maximum number of model invocations permitted across the session.
+		 * Sets the maximum number of model invocations permitted within the configured
+		 * scope.
 		 *
 		 * @param maxModelCalls
 		 *            the maximum model calls
@@ -71,7 +108,8 @@ public record BudgetConfig(Integer maxModelCalls, Integer maxToolCalls, Long max
 		}
 
 		/**
-		 * Sets the maximum number of tool invocations permitted across the session.
+		 * Sets the maximum number of tool invocations permitted within the configured
+		 * scope.
 		 *
 		 * @param maxToolCalls
 		 *            the maximum tool calls
@@ -83,7 +121,8 @@ public record BudgetConfig(Integer maxModelCalls, Integer maxToolCalls, Long max
 		}
 
 		/**
-		 * Sets the maximum net uncached input tokens permitted across the session.
+		 * Sets the maximum net uncached input tokens permitted within the configured
+		 * scope.
 		 *
 		 * @param maxInputTokens
 		 *            the maximum input tokens
@@ -95,8 +134,8 @@ public record BudgetConfig(Integer maxModelCalls, Integer maxToolCalls, Long max
 		}
 
 		/**
-		 * Sets the maximum output tokens permitted across the session (candidates +
-		 * thoughts).
+		 * Sets the maximum output tokens permitted within the configured scope
+		 * (candidates + thoughts).
 		 *
 		 * @param maxOutputTokens
 		 *            the maximum output tokens
@@ -108,7 +147,7 @@ public record BudgetConfig(Integer maxModelCalls, Integer maxToolCalls, Long max
 		}
 
 		/**
-		 * Sets the maximum total net tokens permitted across the session.
+		 * Sets the maximum total net tokens permitted within the configured scope.
 		 *
 		 * @param maxTotalTokens
 		 *            the maximum total tokens
@@ -120,12 +159,25 @@ public record BudgetConfig(Integer maxModelCalls, Integer maxToolCalls, Long max
 		}
 
 		/**
+		 * Sets the evaluation scope for this budget configuration.
+		 *
+		 * @param scope
+		 *            the evaluation scope (LIFETIME or FORWARD_LOOKING)
+		 * @return this builder
+		 */
+		public Builder scope(BudgetScope scope) {
+			this.scope = scope;
+			return this;
+		}
+
+		/**
 		 * Builds the {@link BudgetConfig} instance.
 		 *
 		 * @return a new BudgetConfig
 		 */
 		public BudgetConfig build() {
-			return new BudgetConfig(maxModelCalls, maxToolCalls, maxInputTokens, maxOutputTokens, maxTotalTokens);
+			return new BudgetConfig(maxModelCalls, maxToolCalls, maxInputTokens, maxOutputTokens, maxTotalTokens,
+					scope);
 		}
 	}
 }

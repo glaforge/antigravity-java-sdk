@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-PLATFORMS=("manylinux" "macosx" "manylinux" "win" "win")
-ARCHS=("x86_64" "arm64" "aarch64" "amd64" "arm64")
-SLICES=("linux-x86_64" "osx-aarch64" "linux-aarch64" "windows-x86_64" "windows-aarch64")
+PLATFORMS=("manylinux" "macosx" "macosx" "manylinux" "win" "win")
+ARCHS=("x86_64" "arm64" "x86_64" "aarch64" "amd64" "arm64")
+SLICES=("linux-x86_64" "osx-aarch64" "osx-x86_64" "linux-aarch64" "windows-x86_64" "windows-aarch64")
 
 PACKAGE_INFO=$(curl -s https://pypi.org/pypi/google-antigravity/json)
 

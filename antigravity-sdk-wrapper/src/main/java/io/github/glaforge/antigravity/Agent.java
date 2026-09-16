@@ -26,6 +26,8 @@ import static io.github.glaforge.antigravity.localharness.AgentBehavior.AGENT_BE
 import static io.github.glaforge.antigravity.localharness.WorkspaceContainment.WORKSPACE_CONTAINMENT_ENABLED;
 import static io.github.glaforge.antigravity.localharness.WorkspaceContainment.WORKSPACE_CONTAINMENT_DISABLED;
 import static io.github.glaforge.antigravity.localharness.WorkspaceContainment.WORKSPACE_CONTAINMENT_UNSPECIFIED;
+import static io.github.glaforge.antigravity.localharness.BudgetConfig.BudgetScope.BUDGET_SCOPE_LIFETIME;
+import static io.github.glaforge.antigravity.localharness.BudgetConfig.BudgetScope.BUDGET_SCOPE_FORWARD_LOOKING;
 import io.github.glaforge.antigravity.hooks.*;
 import io.github.glaforge.antigravity.hooks.ToolCall;
 import io.github.glaforge.antigravity.tools.ToolRegistry;
@@ -94,6 +96,16 @@ public class Agent implements AutoCloseable, TriggerContext {
 	private final Set<String> handledQuestionRequests = ConcurrentHashMap.newKeySet();
 	private final Set<String> handledToolConfirmations = ConcurrentHashMap.newKeySet();
 	private final SessionContext sessionContext = new SessionContext();
+	private volatile SandboxStatus sandboxStatus;
+
+	/**
+	 * Returns the OS command sandbox status reported at handshake, if any.
+	 *
+	 * @return the sandbox status, or null if uninitialized
+	 */
+	public SandboxStatus getSandboxStatus() {
+		return sandboxStatus;
+	}
 
 	/**
 	 * Returns the usage metadata from the most recent turn.
@@ -371,6 +383,30 @@ public class Agent implements AutoCloseable, TriggerContext {
 		}
 
 		/**
+		 * Sets the conversation trajectory compaction configuration.
+		 *
+		 * @param compactionConfig
+		 *            the compaction configuration
+		 * @return this builder
+		 */
+		public Builder compactionConfig(CompactionConfig compactionConfig) {
+			configBuilder.compactionConfig(compactionConfig);
+			return this;
+		}
+
+		/**
+		 * Sets the conversation compaction threshold in tokens.
+		 *
+		 * @param tokenThreshold
+		 *            token threshold limit before compaction
+		 * @return this builder
+		 */
+		public Builder compactionThreshold(int tokenThreshold) {
+			configBuilder.compactionThreshold(tokenThreshold);
+			return this;
+		}
+
+		/**
 		 * Builds the Agent.
 		 *
 		 * @return the configured Agent
@@ -591,6 +627,27 @@ public class Agent implements AutoCloseable, TriggerContext {
 				}
 				if (b.maxTotalTokens() != null) {
 					budgetBuilder.setMaxTotalTokens(b.maxTotalTokens());
+				}
+				if (b.scope() != null) {
+					switch (b.scope()) {
+						case LIFETIME -> budgetBuilder.setScope(BUDGET_SCOPE_LIFETIME);
+						case FORWARD_LOOKING -> budgetBuilder.setScope(BUDGET_SCOPE_FORWARD_LOOKING);
+					}
+				}
+			}
+
+			if (config.getCompactionConfig() != null) {
+				CompactionConfig cc = config.getCompactionConfig();
+				var compactionBuilder = configBuilder.getCompactionConfigBuilder();
+				if (cc.tokenThreshold() != null) {
+					compactionBuilder.setTokenThreshold(cc.tokenThreshold());
+					configBuilder.setCompactionThreshold(cc.tokenThreshold());
+				}
+				if (cc.checkpointIntervalTokens() != null) {
+					compactionBuilder.setCheckpointIntervalTokens(cc.checkpointIntervalTokens());
+				}
+				if (cc.maxContextTokens() != null) {
+					compactionBuilder.setMaxContextTokens(cc.maxContextTokens());
 				}
 			}
 
@@ -1041,9 +1098,45 @@ public class Agent implements AutoCloseable, TriggerContext {
 		return future;
 	}
 
+	private void warnIfSandboxUnavailable(SandboxStatus status) {
+		if (config.getCapabilities() != null && config.getCapabilities().enableShell()
+				&& config.getCapabilities().runCommandConfig() != null
+				&& config.getCapabilities().runCommandConfig().enableSandbox()) {
+			if (status != null && !status.available()) {
+				log.warn(
+						"enable_sandbox=True but the OS sandbox is unavailable in this harness environment ({}); run_command will execute UNSANDBOXED.",
+						status.unavailableReason() != null ? status.unavailableReason() : "reason unknown");
+			}
+		}
+	}
+
 	private void handleIncomingMessage(WebSocket webSocket, String message) {
 		try {
 			JsonNode payload = jsonMapper.readTree(message);
+
+			if (payload.has("initializeConversationResponse") || payload.has("initialize_conversation_response")) {
+				JsonNode initResp = payload.has("initializeConversationResponse")
+						? payload.get("initializeConversationResponse")
+						: payload.get("initialize_conversation_response");
+
+				if (initResp.has("cascadeId")) {
+					this.conversationId = initResp.get("cascadeId").asText();
+				} else if (initResp.has("cascade_id")) {
+					this.conversationId = initResp.get("cascade_id").asText();
+				}
+
+				if (initResp.has("sandboxStatus") || initResp.has("sandbox_status")) {
+					JsonNode sbNode = initResp.has("sandboxStatus")
+							? initResp.get("sandboxStatus")
+							: initResp.get("sandbox_status");
+					boolean available = sbNode.path("available").asBoolean(false);
+					String reason = sbNode.has("unavailableReason")
+							? sbNode.get("unavailableReason").asText()
+							: (sbNode.has("unavailable_reason") ? sbNode.get("unavailable_reason").asText() : null);
+					this.sandboxStatus = new SandboxStatus(available, reason);
+					warnIfSandboxUnavailable(this.sandboxStatus);
+				}
+			}
 
 			if (payload.has("stepUpdate")) {
 				JsonNode stepUpdate = payload.get("stepUpdate");
