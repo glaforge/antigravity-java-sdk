@@ -2,14 +2,22 @@
 set -e
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-WRAPPER_DIR="${SCRIPT_DIR}/antigravity-sdk-wrapper"
-BIN_DIR="${WRAPPER_DIR}/src/main/resources/google/antigravity/bin"
+HARNESS_DIR="${SCRIPT_DIR}/antigravity-sdk-harness"
+BIN_DIR="${HARNESS_DIR}/src/main/resources/google/antigravity/bin"
 
 SLICES=("linux-x86_64" "osx-aarch64" "osx-x86_64" "linux-aarch64" "windows-x86_64" "windows-aarch64")
 
+# Check if binaries exist in legacy wrapper dir locally, copy them over
+LEGACY_WRAPPER_BIN="${SCRIPT_DIR}/antigravity-sdk-wrapper/src/main/resources/google/antigravity/bin"
+if [ -d "$LEGACY_WRAPPER_BIN" ] && [ -n "$(ls -A "$LEGACY_WRAPPER_BIN" 2>/dev/null)" ] && [ ! -d "$BIN_DIR" ]; then
+  echo "Migrating binaries from wrapper to harness module..."
+  mkdir -p "$BIN_DIR"
+  cp -R "$LEGACY_WRAPPER_BIN"/* "$BIN_DIR"/
+fi
+
 # If running inside a nested checkout (e.g. target/checkout during maven-release-plugin),
 # check if the parent project already downloaded the binaries
-PARENT_BIN_DIR="${SCRIPT_DIR}/../../antigravity-sdk-wrapper/src/main/resources/google/antigravity/bin"
+PARENT_BIN_DIR="${SCRIPT_DIR}/../../antigravity-sdk-harness/src/main/resources/google/antigravity/bin"
 
 if [ -d "$PARENT_BIN_DIR" ] && [ -n "$(ls -A "$PARENT_BIN_DIR" 2>/dev/null)" ]; then
   echo "Found pre-synced binaries in parent directory: $PARENT_BIN_DIR"

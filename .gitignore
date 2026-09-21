@@ -27,4 +27,5 @@ buildNumber.properties
 # Local Env
 .local.env
 
+antigravity-sdk-harness/src/main/resources/google/antigravity/bin/
 antigravity-sdk-wrapper/src/main/resources/google/antigravity/bin/

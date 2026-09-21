@@ -11,12 +11,18 @@ The **Antigravity SDK for Java** is an unofficial, community-driven Java port of
 This is a multi-module Maven project using **Java 21**:
 1. **`antigravity-sdk-parent`**: The root POM managing dependencies and plugin versions.
 2. **`antigravity-sdk-protocol`**: A generated artifact. It compiles the `.proto` files from the upstream Antigravity repository into Java classes using the `protobuf-maven-plugin`.
-3. **`antigravity-sdk-wrapper`**: The core SDK logic.
+3. **`antigravity-sdk-wrapper`**: The core SDK logic (~140KB).
    * **The Go Harness**: This SDK does not run an LLM directly. Instead, it wraps a pre-compiled native Go binary called `localharness`.
-   * **Platform Resolution**: The `PlatformResolver` class automatically extracts the correct binary for the user's OS/architecture from the JAR resources (`src/main/resources/google/antigravity/bin/`) at runtime, caching it in `~/.antigravity/bin/<slice>/localharness`. It also supports direct local overrides via the `ANTIGRAVITY_HARNESS_PATH` environment variable or `antigravity.harness.path` system property.
-   * **Release & Packaging**: The 6 native binaries (~750MB uncompressed) exceed GitHub's 100MB per-file limit and are gitignored. The Maven `deployment` profile automatically runs `sync-harness.sh` to ensure binaries are bundled into `antigravity-sdk-wrapper.jar` (~237MB) during releases (including inside `target/checkout`), and the CI workflow strictly verifies bundle integrity (>50MB and binary presence) before publishing to Maven Central.
+   * **Hybrid Platform Resolution**: `PlatformResolver` resolves the native binary in order:
+     1. Local override via `ANTIGRAVITY_HARNESS_PATH` environment variable or `antigravity.harness.path` system property.
+     2. Cached binary in `~/.antigravity/bin/<slice>/localharness` (verified against `.version` stamp).
+     3. Embedded classpath resource (if an offline classifier JAR from `antigravity-sdk-harness` is present).
+     4. On-demand lazy download via `HarnessDownloader` (direct streaming from PyPI wheels, enabled by default, controllable via `antigravity.harness.download=true|false`).
    * **Communication**: The Java SDK communicates with the Go harness via standard input/output (for initialization) and WebSockets (for active turn streaming and chunk aggregation).
    * **Data Modeling**: Pure data-carrying objects (e.g., `AgentResponse`, `InteractionRequest`, `AgentResponseChunk`) are implemented as modern Java 21 `record` classes for ergonomics and immutability.
+4. **`antigravity-sdk-harness`**: Dedicated artifact packaging native Go binaries (~37-43MB per platform classifier, ~236MB for `all`) for air-gapped or offline enterprise deployments:
+   * Classifiers: `linux-x86_64`, `linux-aarch64`, `osx-aarch64`, `osx-x86_64`, `windows-x86_64`, `windows-aarch64`, and `all`.
+   * The 6 native binaries (~750MB uncompressed) exceed GitHub's 100MB limit and are gitignored. The script `./sync-harness.sh` synchronizes binaries into `antigravity-sdk-harness/src/main/resources/google/antigravity/bin/`.
 
 ## 🤝 The Way We Work Together
 

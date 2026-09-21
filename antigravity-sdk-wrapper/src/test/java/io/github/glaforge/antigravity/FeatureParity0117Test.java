@@ -210,19 +210,14 @@ public class FeatureParity0117Test {
 	}
 
 	@Test
-	public void testAllPlatformsHarnessBinariesExist() {
+	public void testAllPlatformsHarnessBinariesExist() throws Exception {
 		String[] slices = {"linux-x86_64", "linux-aarch64", "osx-aarch64", "osx-x86_64", "windows-x86_64",
 				"windows-aarch64"};
-
+		HarnessDownloader downloader = new HarnessDownloader();
 		for (String slice : slices) {
-			boolean isWindows = slice.startsWith("windows");
-			String binaryName = isWindows ? "localharness.exe" : "localharness";
-			String resourcePath = "/google/antigravity/bin/" + slice + "/" + binaryName;
-			try (InputStream is = getClass().getResourceAsStream(resourcePath)) {
-				assertNotNull(is, "Binary missing for platform slice: " + slice);
-			} catch (Exception e) {
-				fail("Failed reading resource: " + resourcePath + ": " + e.getMessage());
-			}
+			String url = downloader.resolveWheelUrl(slice);
+			assertNotNull(url, "Upstream wheel URL should be resolvable for platform slice: " + slice);
+			assertTrue(url.contains(slice.contains("win") ? "win" : (slice.contains("osx") ? "macosx" : "manylinux")));
 		}
 	}
 }

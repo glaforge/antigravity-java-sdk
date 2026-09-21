@@ -27,7 +27,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Resolves the underlying OS and architecture platform and manages native
- * binary extraction.
+ * binary resolution via local path overrides, local cache, classpath assets
+ * (from optional classifier artifacts), or pure Java on-demand downloading.
  */
 public class PlatformResolver {
 
@@ -70,13 +71,23 @@ public class PlatformResolver {
 	}
 
 	/**
-	 * Resolves and extracts the native localharness binary for the current platform
-	 * into a cached directory. If the binary is already extracted and valid, it is
-	 * reused.
+	 * Resolves the native localharness binary for the current platform following
+	 * this resolution hierarchy:
+	 * <ol>
+	 * <li>Explicit path override via system property
+	 * {@code antigravity.harness.path} or environment variable
+	 * {@code ANTIGRAVITY_HARNESS_PATH}.</li>
+	 * <li>Cached binary in {@code ~/.antigravity/bin/<slice>/localharness} matching
+	 * the expected upstream version.</li>
+	 * <li>Classpath resource in {@code /google/antigravity/bin/<slice>/} (from
+	 * optional platform classifier JARs).</li>
+	 * <li>On-demand download from PyPI directly into the cache using pure Java HTTP
+	 * and streaming ZIP extraction.</li>
+	 * </ol>
 	 *
 	 * @return the File handle to the executable binary
 	 * @throws IOException
-	 *             if extraction fails or asset is missing
+	 *             if resolution or download fails
 	 */
 	public static synchronized File resolveBinary() throws IOException {
 		// 1. Check for explicit path override via system property or environment
@@ -114,43 +125,71 @@ public class PlatformResolver {
 		}
 
 		File targetBinary = new File(baseDir, binaryFileName);
+		File versionFile = new File(baseDir, ".version");
 
+		// 2. Check if cached binary already exists and matches expected version
+		if (targetBinary.exists() && targetBinary.canExecute()) {
+			if (versionFile.exists()) {
+				try {
+					String cachedVersion = Files.readString(versionFile.toPath()).trim();
+					if (HarnessDownloader.DEFAULT_UPSTREAM_VERSION.equals(cachedVersion)) {
+						return targetBinary;
+					}
+				} catch (Exception ignored) {
+				}
+			} else {
+				// Cached binary exists without version stamp; reuse it
+				return targetBinary;
+			}
+		}
+
+		// 3. Check for bundled classpath resource (from optional classifier artifact)
 		try (InputStream binaryStream = PlatformResolver.class.getResourceAsStream(resourcePath)) {
-			if (binaryStream == null) {
-				// If embedded resource is missing from classpath, check if an existing cached
-				// binary is present
-				if (targetBinary.exists() && targetBinary.canExecute()) {
-					log.warn(
-							"Embedded Go harness asset missing for slice: {}, but found existing cached binary at: {}. Reusing cached binary.",
-							platformSlice, targetBinary.getAbsolutePath());
+			if (binaryStream != null) {
+				byte[] resourceBytes = binaryStream.readAllBytes();
+				if (!targetBinary.exists() || targetBinary.length() != resourceBytes.length) {
+					File tempFile = File.createTempFile("localharness-extract-", ext, baseDir);
+					Files.write(tempFile.toPath(), resourceBytes);
+					if (!tempFile.setExecutable(true)) {
+						throw new IllegalStateException(
+								"Failed to grant execution rights to binary: " + tempFile.getAbsolutePath());
+					}
+					try {
+						Files.move(tempFile.toPath(), targetBinary.toPath(), StandardCopyOption.REPLACE_EXISTING,
+								StandardCopyOption.ATOMIC_MOVE);
+					} catch (AtomicMoveNotSupportedException e) {
+						Files.move(tempFile.toPath(), targetBinary.toPath(), StandardCopyOption.REPLACE_EXISTING);
+					}
+					Files.writeString(versionFile.toPath(), HarnessDownloader.DEFAULT_UPSTREAM_VERSION);
+				}
+				if (targetBinary.canExecute() || targetBinary.setExecutable(true)) {
 					return targetBinary;
 				}
-				throw new FileNotFoundException("Embedded Go harness engine asset missing for slice: " + platformSlice
-						+ ". Please ensure antigravity-sdk-wrapper was packaged with native binaries, or set the ANTIGRAVITY_HARNESS_PATH environment variable (or 'antigravity.harness.path' system property).");
-			}
-
-			byte[] resourceBytes = binaryStream.readAllBytes();
-			if (!targetBinary.exists() || targetBinary.length() != resourceBytes.length) {
-				File tempFile = File.createTempFile("localharness-extract-", ext, baseDir);
-				Files.write(tempFile.toPath(), resourceBytes);
-				if (!tempFile.setExecutable(true)) {
-					throw new IllegalStateException(
-							"Failed to grant execution rights to binary: " + tempFile.getAbsolutePath());
-				}
-				try {
-					Files.move(tempFile.toPath(), targetBinary.toPath(), StandardCopyOption.REPLACE_EXISTING,
-							StandardCopyOption.ATOMIC_MOVE);
-				} catch (AtomicMoveNotSupportedException e) {
-					Files.move(tempFile.toPath(), targetBinary.toPath(), StandardCopyOption.REPLACE_EXISTING);
-				}
 			}
 		}
 
-		if (!targetBinary.setExecutable(true)) {
-			throw new IllegalStateException(
-					"Failed to grant execution rights to binary: " + targetBinary.getAbsolutePath());
+		// 4. Fallback to existing binary if one is present
+		if (targetBinary.exists() && targetBinary.canExecute()) {
+			return targetBinary;
 		}
 
-		return targetBinary;
+		// 5. On-demand lazy download via HarnessDownloader
+		boolean allowDownload = Boolean.parseBoolean(System.getProperty("antigravity.harness.download", "true"));
+		if (allowDownload) {
+			try {
+				HarnessDownloader downloader = new HarnessDownloader();
+				downloader.downloadAndExtract(platformSlice, targetBinary, baseDir);
+				if (targetBinary.exists() && targetBinary.canExecute()) {
+					return targetBinary;
+				}
+			} catch (Exception e) {
+				log.warn("Failed to download localharness on-demand for {}: {}", platformSlice, e.getMessage());
+			}
+		}
+
+		throw new FileNotFoundException("Localharness Go binary not found for platform slice: " + platformSlice
+				+ ". Ensure an internet connection is available to download it automatically, "
+				+ "or set the ANTIGRAVITY_HARNESS_PATH environment variable (or 'antigravity.harness.path' system property), "
+				+ "or include the 'antigravity-sdk-harness' platform classifier dependency.");
 	}
 }

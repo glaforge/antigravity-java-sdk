@@ -9,14 +9,64 @@ This library allows you to build, configure, host, and execute powerful AI agent
 > under the guidance of a human developer (me!).
 
 ## How it works
-
+ 
 The official Antigravity SDK (currently available in Python) operates by wrapping a core, pre-compiled Go binary (`localharness`) that manages the underlying agent interactions, state, and websocket communications. 
 
-The **Antigravity SDK for Java** embeds the pre-compiled `localharness` Go binaries for all major platforms (Linux x86_64/ARM64, macOS Apple Silicon/Intel, and Windows x86_64/ARM64) directly within `antigravity-sdk-wrapper.jar`:
-* **Zero-Configuration Execution**: At runtime, `PlatformResolver` automatically detects the host OS and architecture, extracts the native binary to `~/.antigravity/bin/<slice>/localharness`, grants execution permissions, and reuses it for subsequent runs.
-* **Custom Binary Override**: For custom container environments or local development, you can point directly to an existing binary by setting the `ANTIGRAVITY_HARNESS_PATH` environment variable or the `antigravity.harness.path` system property.
+The **Antigravity SDK for Java** adopts a **hybrid architecture** for delivering the native engine:
+* **Lightweight Core (~140 KB)**: The main `antigravity-sdk-wrapper` artifact contains only pure Java logic, keeping your build lightweight and fast.
+* **Automatic On-Demand Download**: When the agent initializes, `PlatformResolver` checks `~/.antigravity/bin/<slice>/localharness`. If not cached, `HarnessDownloader` automatically streams the platform-specific native binary (~35-43 MB compressed) directly from upstream PyPI wheels into the local cache in ~1-2 seconds.
+* **Offline / Air-Gapped Deployments**: For production CI/CD or restricted network environments, you can include the `antigravity-sdk-harness` artifact with your platform classifier (`linux-x86_64`, `linux-aarch64`, `osx-aarch64`, `osx-x86_64`, `windows-x86_64`, `windows-aarch64`, or `all`). When present on the classpath, the SDK extracts the embedded binary locally without internet access.
+* **Custom Binary Override**: Point to an existing local harness binary using the `ANTIGRAVITY_HARNESS_PATH` environment variable or the `antigravity.harness.path` system property.
+* **Disable Automatic Download**: Set `-Dantigravity.harness.download=false` to prevent any remote network downloads.
 
 To build this Java SDK, I reverse-engineered the Python implementation's internal gRPC and WebSocket protocol layer. I spawn the native harness as a subprocess, communicate via standard I/O for initial handshake, and seamlessly orchestrate the exact same agent capabilities in native Java over WebSockets.
+
+## Installation
+
+### Maven
+
+#### Standard (Automatic On-Demand Download)
+Add the core wrapper dependency. The native binary is downloaded automatically on first run and cached locally:
+
+```xml
+<dependency>
+    <groupId>io.github.glaforge.antigravity</groupId>
+    <artifactId>antigravity-sdk-wrapper</artifactId>
+    <version>0.2.13</version>
+</dependency>
+```
+
+#### Offline / Air-Gapped (Pre-bundled Native Binary)
+For offline environments, add the `antigravity-sdk-harness` dependency with the classifier matching your platform (using `os-maven-plugin` or an explicit classifier):
+
+```xml
+<!-- Core SDK -->
+<dependency>
+    <groupId>io.github.glaforge.antigravity</groupId>
+    <artifactId>antigravity-sdk-wrapper</artifactId>
+    <version>0.2.13</version>
+</dependency>
+
+<!-- Platform-specific harness binary (e.g. osx-aarch64, linux-x86_64, windows-x86_64) -->
+<dependency>
+    <groupId>io.github.glaforge.antigravity</groupId>
+    <artifactId>antigravity-sdk-harness</artifactId>
+    <version>0.2.13</version>
+    <classifier>${os.detected.classifier}</classifier>
+</dependency>
+```
+
+*(Or use classifier `all` to bundle all 6 OS/architecture binaries in one artifact).*
+
+### Gradle
+
+```groovy
+// Standard
+implementation 'io.github.glaforge.antigravity:antigravity-sdk-wrapper:0.2.13'
+
+// Offline (macOS Apple Silicon example)
+runtimeOnly 'io.github.glaforge.antigravity:antigravity-sdk-harness:0.2.13:osx-aarch64'
+```
 
 ## Features & Usage
 

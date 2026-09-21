@@ -51,13 +51,16 @@ Agent agent = Agent.builder()
 ```
 
 ### Platform Resolution & Harness Binary Configuration
-
-The SDK bundles the native `localharness` Go binaries for Linux (x86_64 and ARM64), macOS (Apple Silicon and Intel), and Windows (x86_64 and ARM64) inside `antigravity-sdk-wrapper.jar`.
-
-* **Automatic Extraction**: On agent initialization, `PlatformResolver` extracts the binary for the host OS/architecture to `~/.antigravity/bin/<slice>/localharness`, marks it executable, and caches it for future executions.
-* **Custom Binary Override**: For custom container environments or local development with an external binary, you can override resolution via:
-  - Environment variable: `export ANTIGRAVITY_HARNESS_PATH=/path/to/localharness`
-  - System property: `-Dantigravity.harness.path=/path/to/localharness`
+ 
+The SDK uses a **hybrid architecture** to manage the native Go `localharness` binary across Linux (x86_64 and ARM64), macOS (Apple Silicon and Intel), and Windows (x86_64 and ARM64):
+ 
+* **1. Custom Binary Override**: Checks `ANTIGRAVITY_HARNESS_PATH` environment variable or `-Dantigravity.harness.path=/path/to/localharness`.
+* **2. Local Cache**: Checks `~/.antigravity/bin/<slice>/localharness` and its `.version` stamp.
+* **3. Embedded Classpath (Offline / Air-Gapped)**: If `antigravity-sdk-harness` (matching the platform classifier) is on the classpath, extracts the embedded binary directly without network access.
+* **4. Automatic On-Demand Download**: If not cached or bundled, `HarnessDownloader` streams the platform-specific native binary (~35-43 MB compressed) directly from upstream PyPI wheels into `~/.antigravity/bin/<slice>/` in ~1-2 seconds.
+* **Control Flags**:
+  - `antigravity.harness.download=false`: Disables remote downloads entirely (throws `FileNotFoundException` if binary is missing from cache and classpath).
+  - `antigravity.harness.path`: Direct path to native binary override.
 
 ---
 

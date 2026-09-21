@@ -46,23 +46,31 @@ jobs:
 
       - name: Verify Bundle Integrity
         run: |
-          JAR_FILE=$(find target/checkout/target/staging-deploy -name "antigravity-sdk-wrapper-*.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" | head -n 1)
-          echo "Checking wrapper JAR: $JAR_FILE"
-          if [ -z "$JAR_FILE" ] || [ ! -f "$JAR_FILE" ]; then
+          WRAPPER_JAR=$(find target/checkout/target/staging-deploy -name "antigravity-sdk-wrapper-*.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" | head -n 1)
+          echo "Checking wrapper JAR: $WRAPPER_JAR"
+          if [ -z "$WRAPPER_JAR" ] || [ ! -f "$WRAPPER_JAR" ]; then
             echo "ERROR: Wrapper JAR not found in target/checkout/target/staging-deploy!"
             exit 1
           fi
-          JAR_SIZE=$(wc -c < "$JAR_FILE" | tr -d ' ')
-          echo "JAR size: $JAR_SIZE bytes"
-          if [ "$JAR_SIZE" -lt 50000000 ]; then
-            echo "ERROR: antigravity-sdk-wrapper JAR is smaller than 50MB ($JAR_SIZE bytes). Embedded Go harness binaries appear to be missing!"
+
+          HARNESS_ALL_JAR=$(find target/checkout/target/staging-deploy -name "antigravity-sdk-harness-*-all.jar" | head -n 1)
+          echo "Checking harness all JAR: $HARNESS_ALL_JAR"
+          if [ -z "$HARNESS_ALL_JAR" ] || [ ! -f "$HARNESS_ALL_JAR" ]; then
+            echo "ERROR: Harness all JAR not found in target/checkout/target/staging-deploy!"
             exit 1
           fi
-          jar tf "$JAR_FILE" | grep "google/antigravity/bin/" || {
-            echo "ERROR: google/antigravity/bin/ missing from wrapper JAR!"
+
+          HARNESS_SIZE=$(wc -c < "$HARNESS_ALL_JAR" | tr -d ' ')
+          echo "Harness all JAR size: $HARNESS_SIZE bytes"
+          if [ "$HARNESS_SIZE" -lt 50000000 ]; then
+            echo "ERROR: antigravity-sdk-harness all JAR is smaller than 50MB ($HARNESS_SIZE bytes). Embedded Go harness binaries appear to be missing!"
+            exit 1
+          fi
+          jar tf "$HARNESS_ALL_JAR" | grep "google/antigravity/bin/" || {
+            echo "ERROR: google/antigravity/bin/ missing from harness all JAR!"
             exit 1
           }
-          echo "Verified: Go harness binaries are present in wrapper JAR."
+          echo "Verified: Wrapper and platform harness deliverables are intact."
 
       - name: Publish with JReleaser
         env:

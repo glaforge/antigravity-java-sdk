@@ -30,6 +30,7 @@
     <modules>
         <module>antigravity-sdk-protocol</module>
         <module>antigravity-sdk-wrapper</module>
+        <module>antigravity-sdk-harness</module>
     </modules>
 
     <properties>
@@ -166,6 +167,11 @@
             <dependency>
                 <groupId>io.github.glaforge.antigravity</groupId>
                 <artifactId>antigravity-sdk-wrapper</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.glaforge.antigravity</groupId>
+                <artifactId>antigravity-sdk-harness</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
