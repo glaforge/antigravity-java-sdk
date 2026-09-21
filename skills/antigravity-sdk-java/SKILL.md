@@ -15,6 +15,8 @@ Before executing tasks with the Antigravity Java SDK, verify the environment:
 - **Check Dependencies**:
   - Standard (default): `io.github.glaforge:antigravity-sdk-wrapper` (lightweight ~140 KB, on-demand automatic harness download into `~/.antigravity/bin/`).
   - Offline / Air-Gapped (optional): `io.github.glaforge:antigravity-sdk-harness` with matching platform classifier (e.g. `osx-aarch64`, `linux-x86_64`, or `all`).
+- **Java 24+ / GraalVM Runtimes**: When using Java 24+ or GraalVM (JEP 471), silence Protobuf `sun.misc.Unsafe` deprecation warnings by adding `--sun-misc-unsafe-memory-access=allow` to `.mvn/jvm.config`.
+- **Harness Logging**: The native Go harness stdout/stderr streams are piped to SLF4J (`DEBUG` for info/stdout, `WARN` for warnings, `ERROR` for errors), keeping the console clean by default. Enable `DEBUG` on `io.github.glaforge.antigravity.Agent` to inspect harness internals.
 - **API Key Setup**: A valid `GEMINI_API_KEY` environment variable is required to access Gemini models.
   - If credentials are missing, actively help the user get set up by providing the Google AI Studio link: `https://aistudio.google.com/app/api-keys`.
 - **Vertex AI (Gemini Enterprise Agent Platform)**: Uses Application Default Credentials (ADC). Instruct the user to run `gcloud auth application-default login` and set environment variables `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION`.

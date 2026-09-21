@@ -726,6 +726,23 @@ try (Agent agent = new Agent(config)) {
 }
 ```
 
+---
 
+## 15. Harness Process Logging & Java 24+ Runtimes
 
+### SLF4J Harness Diagnostics
+The embedded `localharness` stdout and stderr are consumed line-by-line and routed through SLF4J:
+- Informational output (`glog` INFO, CDP discovery, permission checks) -> `log.debug(...)`
+- Warnings -> `log.warn(...)`
+- Fatal errors -> `log.error(...)`
 
+To view raw harness diagnostics, configure `io.github.glaforge.antigravity.Agent` logger level to `DEBUG`:
+```properties
+org.slf4j.simpleLogger.log.io.github.glaforge.antigravity.Agent=debug
+```
+
+### Java 24+ / GraalVM Deprecation Flag
+Under Java 24+ (JEP 471), protobuf memory-access via `sun.misc.Unsafe` produces a deprecation warning. Silence it by creating `.mvn/jvm.config`:
+```text
+--sun-misc-unsafe-memory-access=allow
+```

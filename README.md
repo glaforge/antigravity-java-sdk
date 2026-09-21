@@ -757,6 +757,27 @@ try (Agent agent = new Agent(config)) {
 }
 ```
 
+### 22. Harness Process Logging & Diagnostics
+
+The SDK embeds and manages the native Go harness (`localharness`) behind the scenes. Harness standard output and standard error streams are routed cleanly through **SLF4J**:
+- Informational logs (such as CDP discovery and internal harness checks) are logged at `DEBUG` level.
+- Warnings are logged at `WARN` level.
+- Errors and fatal messages are logged at `ERROR` level.
+
+By default, your application console remains clean and free of harness startup output. To inspect internal Go harness communications, set `DEBUG` level for `io.github.glaforge.antigravity.Agent` in your logging configuration (e.g. `logback.xml` or `simplelogger.properties`):
+
+```properties
+org.slf4j.simpleLogger.log.io.github.glaforge.antigravity.Agent=debug
+```
+
+### 23. Running on Java 24+ / GraalVM
+
+Starting in Java 24 (JEP 471), the JVM prints a terminally deprecated warning when libraries perform memory-access via `sun.misc.Unsafe` (used internally by Protobuf). To silence this warning in Maven projects or standalone runtimes, add the following flag to `.mvn/jvm.config` or pass it to `java`:
+
+```text
+--sun-misc-unsafe-memory-access=allow
+```
+
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](LICENSE).
