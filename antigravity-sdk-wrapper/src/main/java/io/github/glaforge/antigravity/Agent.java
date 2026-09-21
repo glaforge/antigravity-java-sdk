@@ -42,9 +42,12 @@ import java.io.OutputStream;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentHashMap;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.concurrent.TimeUnit;
@@ -427,10 +430,19 @@ public class Agent implements AutoCloseable, TriggerContext {
 	 *             if an error occurs during initialization
 	 */
 	public Agent(AgentConfig config) throws Exception {
+		this(config, true);
+	}
+
+	Agent(AgentConfig config, boolean startProcess) throws Exception {
 		this.config = config;
 		this.policies = config.getPolicies();
 		for (Object tool : config.getToolInstances()) {
 			this.registerTools(tool);
+		}
+
+		if (!startProcess) {
+			this.goProcess = null;
+			return;
 		}
 
 		// 1. Resolve and extract (or reuse cached) localharness binary
@@ -438,7 +450,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 		// 2. Spawn process
 		ProcessBuilder pb = new ProcessBuilder(binaryFile.getAbsolutePath())
-				.redirectError(ProcessBuilder.Redirect.INHERIT);
+				.redirectError(ProcessBuilder.Redirect.PIPE);
 		if (config.getEnvironmentVariables() != null && !config.getEnvironmentVariables().isEmpty()) {
 			pb.environment().putAll(config.getEnvironmentVariables());
 		}
@@ -498,20 +510,37 @@ public class Agent implements AutoCloseable, TriggerContext {
 			String apiKey = resolvedApiKey != null ? resolvedApiKey : "placeholder";
 
 			Thread stdoutConsumer = new Thread(() -> {
-				try {
-					is.transferTo(System.err);
+				try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+					String line;
+					while ((line = reader.readLine()) != null) {
+						log.debug("[localharness stdout] {}", line);
+					}
 				} catch (Exception e) {
 				}
-			});
+			}, "antigravity-harness-stdout");
 			stdoutConsumer.setDaemon(true);
 			stdoutConsumer.start();
 
 			Thread stderrConsumer = new Thread(() -> {
-				try {
-					this.goProcess.getErrorStream().transferTo(System.err);
+				try (BufferedReader reader = new BufferedReader(
+						new InputStreamReader(this.goProcess.getErrorStream(), StandardCharsets.UTF_8))) {
+					String line;
+					while ((line = reader.readLine()) != null) {
+						if (line.contains("ERROR: logging before google.Init: I") || line.contains("[CDP Discovery]")
+								|| line.contains("permissions: skipping check")) {
+							log.debug("[localharness] {}", line);
+						} else if (line.contains("ERROR: logging before google.Init: W")) {
+							log.warn("[localharness] {}", line);
+						} else if (line.contains("ERROR: logging before google.Init: E")
+								|| line.contains("ERROR: logging before google.Init: F")) {
+							log.error("[localharness] {}", line);
+						} else {
+							log.debug("[localharness stderr] {}", line);
+						}
+					}
 				} catch (Exception e) {
 				}
-			});
+			}, "antigravity-harness-stderr");
 			stderrConsumer.setDaemon(true);
 			stderrConsumer.start();
 
@@ -1110,7 +1139,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 		}
 	}
 
-	private void handleIncomingMessage(WebSocket webSocket, String message) {
+	void handleIncomingMessage(WebSocket webSocket, String message) {
 		try {
 			JsonNode payload = jsonMapper.readTree(message);
 
@@ -1157,16 +1186,40 @@ public class Agent implements AutoCloseable, TriggerContext {
 				}
 
 				if (stepUpdate.has("textDelta") || stepUpdate.has("thinkingDelta")) {
-					String textDelta = stepUpdate.path("textDelta").asText("");
-					String thinkingDelta = stepUpdate.path("thinkingDelta").asText("");
+					String source = stepUpdate.path("source").asText("");
+					if (!"SOURCE_USER".equals(source) && !"SOURCE_SYSTEM".equals(source)) {
+						String target = stepUpdate.path("target").asText("");
+						String textDelta = stepUpdate.path("textDelta").asText("");
+						String thinkingDelta = stepUpdate.path("thinkingDelta").asText("");
 
-					if (currentText != null && !hasStructuredOutput)
-						currentText.append(textDelta);
-					if (currentThoughts != null)
-						currentThoughts.append(thinkingDelta);
+						if ("TARGET_ENVIRONMENT".equals(target)) {
+							if (currentThoughts != null && !textDelta.isEmpty()) {
+								if (currentThoughts.length() > 0 && !currentThoughts.toString().endsWith("\n")) {
+									currentThoughts.append("\n");
+								}
+								currentThoughts.append(textDelta);
+							}
+							if (currentThoughtsPublisher != null && !textDelta.isEmpty()) {
+								currentThoughtsPublisher.submit(textDelta);
+							}
+							if (currentChunkConsumer != null && !textDelta.isEmpty()) {
+								currentChunkConsumer.accept(new AgentResponseChunk("", textDelta));
+							}
+						} else {
+							if (currentText != null && !hasStructuredOutput)
+								currentText.append(textDelta);
 
-					if (currentChunkConsumer != null && (!textDelta.isEmpty() || !thinkingDelta.isEmpty())) {
-						currentChunkConsumer.accept(new AgentResponseChunk(textDelta, thinkingDelta));
+							if (currentChunkConsumer != null && (!textDelta.isEmpty() || !thinkingDelta.isEmpty())) {
+								currentChunkConsumer.accept(new AgentResponseChunk(textDelta, thinkingDelta));
+							}
+						}
+
+						if (currentThoughts != null && !thinkingDelta.isEmpty()) {
+							currentThoughts.append(thinkingDelta);
+						}
+						if (currentThoughtsPublisher != null && !thinkingDelta.isEmpty()) {
+							currentThoughtsPublisher.submit(thinkingDelta);
+						}
 					}
 				}
 
@@ -1650,6 +1703,20 @@ public class Agent implements AutoCloseable, TriggerContext {
 			toolExecutor.shutdownNow();
 			Thread.currentThread().interrupt();
 		}
+	}
+
+	void initTurnForTest(Consumer<AgentResponseChunk> chunkConsumer) {
+		this.currentText = new StringBuilder();
+		this.currentThoughts = new StringBuilder();
+		this.currentChunkConsumer = chunkConsumer;
+	}
+
+	String getCurrentTextForTest() {
+		return this.currentText != null ? this.currentText.toString() : "";
+	}
+
+	String getCurrentThoughtsForTest() {
+		return this.currentThoughts != null ? this.currentThoughts.toString() : "";
 	}
 
 	private static String resolveGeminiApiKey() {
