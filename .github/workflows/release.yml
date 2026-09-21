@@ -44,6 +44,26 @@ jobs:
           git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "git@github.com:"
           ./mvnw -ntp -B -Prelease release:prepare release:perform
 
+      - name: Verify Bundle Integrity
+        run: |
+          JAR_FILE=$(find target/checkout/target/staging-deploy -name "antigravity-sdk-wrapper-*.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" | head -n 1)
+          echo "Checking wrapper JAR: $JAR_FILE"
+          if [ -z "$JAR_FILE" ] || [ ! -f "$JAR_FILE" ]; then
+            echo "ERROR: Wrapper JAR not found in target/checkout/target/staging-deploy!"
+            exit 1
+          fi
+          JAR_SIZE=$(wc -c < "$JAR_FILE" | tr -d ' ')
+          echo "JAR size: $JAR_SIZE bytes"
+          if [ "$JAR_SIZE" -lt 50000000 ]; then
+            echo "ERROR: antigravity-sdk-wrapper JAR is smaller than 50MB ($JAR_SIZE bytes). Embedded Go harness binaries appear to be missing!"
+            exit 1
+          fi
+          jar tf "$JAR_FILE" | grep "google/antigravity/bin/" || {
+            echo "ERROR: google/antigravity/bin/ missing from wrapper JAR!"
+            exit 1
+          }
+          echo "Verified: Go harness binaries are present in wrapper JAR."
+
       - name: Publish with JReleaser
         env:
           JRELEASER_MAVENCENTRAL_USERNAME: ${{ secrets.JRELEASER_MAVENCENTRAL_USERNAME }}

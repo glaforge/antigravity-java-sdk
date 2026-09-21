@@ -1,9 +1,47 @@
 #!/usr/bin/env bash
 set -e
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+WRAPPER_DIR="${SCRIPT_DIR}/antigravity-sdk-wrapper"
+BIN_DIR="${WRAPPER_DIR}/src/main/resources/google/antigravity/bin"
+
+SLICES=("linux-x86_64" "osx-aarch64" "osx-x86_64" "linux-aarch64" "windows-x86_64" "windows-aarch64")
+
+# If running inside a nested checkout (e.g. target/checkout during maven-release-plugin),
+# check if the parent project already downloaded the binaries
+PARENT_BIN_DIR="${SCRIPT_DIR}/../../antigravity-sdk-wrapper/src/main/resources/google/antigravity/bin"
+
+if [ -d "$PARENT_BIN_DIR" ] && [ -n "$(ls -A "$PARENT_BIN_DIR" 2>/dev/null)" ]; then
+  echo "Found pre-synced binaries in parent directory: $PARENT_BIN_DIR"
+  echo "Copying binaries from parent..."
+  mkdir -p "$BIN_DIR"
+  cp -R "$PARENT_BIN_DIR"/* "$BIN_DIR"/
+  echo "Binaries successfully copied from parent."
+  exit 0
+fi
+
+# Check if all slices already exist locally and are non-empty
+ALL_EXIST=true
+for SLICE in "${SLICES[@]}"; do
+  BINARY_PATH="$BIN_DIR/$SLICE/localharness"
+  if [[ "$SLICE" == windows* ]]; then
+    BINARY_PATH="$BIN_DIR/$SLICE/localharness.exe"
+  fi
+  if [ ! -f "$BINARY_PATH" ] || [ ! -s "$BINARY_PATH" ]; then
+    ALL_EXIST=false
+    break
+  fi
+done
+
+if [ "$ALL_EXIST" = true ] && [ "${FORCE_SYNC:-false}" != "true" ]; then
+  echo "All Go harness binaries are already present in $BIN_DIR. (Set FORCE_SYNC=true to re-download)"
+  exit 0
+fi
+
+echo "Syncing Go harness binaries from upstream PyPI wheels..."
+
 PLATFORMS=("manylinux" "macosx" "macosx" "manylinux" "win" "win")
 ARCHS=("x86_64" "arm64" "x86_64" "aarch64" "amd64" "arm64")
-SLICES=("linux-x86_64" "osx-aarch64" "osx-x86_64" "linux-aarch64" "windows-x86_64" "windows-aarch64")
 
 PACKAGE_INFO=$(curl -s https://pypi.org/pypi/google-antigravity/json)
 
@@ -21,7 +59,7 @@ for i in "${!PLATFORMS[@]}"; do
     echo "Downloading $SLICE from $WHEEL_URL"
     curl -sL -o "$WHEEL_FILE" "$WHEEL_URL"
     
-    TARGET_DIR="./antigravity-sdk-wrapper/src/main/resources/google/antigravity/bin/$SLICE"
+    TARGET_DIR="$BIN_DIR/$SLICE"
     mkdir -p "$TARGET_DIR"
     
     if [[ "$PLATFORM" == "win" ]]; then
@@ -37,3 +75,5 @@ for i in "${!PLATFORMS[@]}"; do
     echo "Warning: No matching upstream wheel found for platform slice: $SLICE"
   fi
 done
+
+echo "Go harness synchronization complete."

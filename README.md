@@ -12,7 +12,11 @@ This library allows you to build, configure, host, and execute powerful AI agent
 
 The official Antigravity SDK (currently available in Python) operates by wrapping a core, pre-compiled Go binary (`localharness`) that manages the underlying agent interactions, state, and websocket communications. 
 
-To build this Java SDK, I reverse-engineered the Python implementation's internal gRPC and WebSocket protocol layer. I extract the appropriate native Go binary from the upstream Python wheels at build time, spawn it as a subprocess, and seamlessly orchestrate the exact same agent capabilities in native Java.
+The **Antigravity SDK for Java** embeds the pre-compiled `localharness` Go binaries for all major platforms (Linux x86_64/ARM64, macOS Apple Silicon/Intel, and Windows x86_64/ARM64) directly within `antigravity-sdk-wrapper.jar`:
+* **Zero-Configuration Execution**: At runtime, `PlatformResolver` automatically detects the host OS and architecture, extracts the native binary to `~/.antigravity/bin/<slice>/localharness`, grants execution permissions, and reuses it for subsequent runs.
+* **Custom Binary Override**: For custom container environments or local development, you can point directly to an existing binary by setting the `ANTIGRAVITY_HARNESS_PATH` environment variable or the `antigravity.harness.path` system property.
+
+To build this Java SDK, I reverse-engineered the Python implementation's internal gRPC and WebSocket protocol layer. I spawn the native harness as a subprocess, communicate via standard I/O for initial handshake, and seamlessly orchestrate the exact same agent capabilities in native Java over WebSockets.
 
 ## Features & Usage
 

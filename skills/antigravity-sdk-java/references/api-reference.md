@@ -50,6 +50,15 @@ Agent agent = Agent.builder()
     .build();
 ```
 
+### Platform Resolution & Harness Binary Configuration
+
+The SDK bundles the native `localharness` Go binaries for Linux (x86_64 and ARM64), macOS (Apple Silicon and Intel), and Windows (x86_64 and ARM64) inside `antigravity-sdk-wrapper.jar`.
+
+* **Automatic Extraction**: On agent initialization, `PlatformResolver` extracts the binary for the host OS/architecture to `~/.antigravity/bin/<slice>/localharness`, marks it executable, and caches it for future executions.
+* **Custom Binary Override**: For custom container environments or local development with an external binary, you can override resolution via:
+  - Environment variable: `export ANTIGRAVITY_HARNESS_PATH=/path/to/localharness`
+  - System property: `-Dantigravity.harness.path=/path/to/localharness`
+
 ---
 
 ## 2. Local Models & Custom Backends

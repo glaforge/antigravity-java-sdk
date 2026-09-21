@@ -13,7 +13,8 @@ This is a multi-module Maven project using **Java 21**:
 2. **`antigravity-sdk-protocol`**: A generated artifact. It compiles the `.proto` files from the upstream Antigravity repository into Java classes using the `protobuf-maven-plugin`.
 3. **`antigravity-sdk-wrapper`**: The core SDK logic.
    * **The Go Harness**: This SDK does not run an LLM directly. Instead, it wraps a pre-compiled native Go binary called `localharness`.
-   * **Platform Resolution**: The `PlatformResolver` class extracts the correct binary for the user's OS/architecture from the JAR resources (`src/main/resources/google/antigravity/bin/`) at runtime.
+   * **Platform Resolution**: The `PlatformResolver` class automatically extracts the correct binary for the user's OS/architecture from the JAR resources (`src/main/resources/google/antigravity/bin/`) at runtime, caching it in `~/.antigravity/bin/<slice>/localharness`. It also supports direct local overrides via the `ANTIGRAVITY_HARNESS_PATH` environment variable or `antigravity.harness.path` system property.
+   * **Release & Packaging**: The 6 native binaries (~750MB uncompressed) exceed GitHub's 100MB per-file limit and are gitignored. The Maven `deployment` profile automatically runs `sync-harness.sh` to ensure binaries are bundled into `antigravity-sdk-wrapper.jar` (~237MB) during releases (including inside `target/checkout`), and the CI workflow strictly verifies bundle integrity (>50MB and binary presence) before publishing to Maven Central.
    * **Communication**: The Java SDK communicates with the Go harness via standard input/output (for initialization) and WebSockets (for active turn streaming and chunk aggregation).
    * **Data Modeling**: Pure data-carrying objects (e.g., `AgentResponse`, `InteractionRequest`, `AgentResponseChunk`) are implemented as modern Java 21 `record` classes for ergonomics and immutability.
 

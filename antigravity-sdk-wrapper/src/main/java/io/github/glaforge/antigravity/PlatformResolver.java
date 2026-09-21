@@ -22,12 +22,17 @@ import java.io.InputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Resolves the underlying OS and architecture platform and manages native
  * binary extraction.
  */
 public class PlatformResolver {
+
+	private static final Logger log = LoggerFactory.getLogger(PlatformResolver.class);
+
 	/**
 	 * Default constructor.
 	 */
@@ -74,6 +79,22 @@ public class PlatformResolver {
 	 *             if extraction fails or asset is missing
 	 */
 	public static synchronized File resolveBinary() throws IOException {
+		// 1. Check for explicit path override via system property or environment
+		// variable
+		String customPath = System.getProperty("antigravity.harness.path");
+		if (customPath == null || customPath.isBlank()) {
+			customPath = System.getenv("ANTIGRAVITY_HARNESS_PATH");
+		}
+		if (customPath != null && !customPath.isBlank()) {
+			File customBinary = new File(customPath);
+			if (customBinary.exists() && customBinary.canExecute()) {
+				log.debug("Using custom localharness binary from: {}", customBinary.getAbsolutePath());
+				return customBinary;
+			}
+			throw new FileNotFoundException(
+					"Configured localharness binary not found or not executable at: " + customPath);
+		}
+
 		String platformSlice = getPlatformSlice();
 		boolean isWindows = platformSlice.startsWith("windows");
 		String ext = isWindows ? ".exe" : "";
@@ -96,7 +117,16 @@ public class PlatformResolver {
 
 		try (InputStream binaryStream = PlatformResolver.class.getResourceAsStream(resourcePath)) {
 			if (binaryStream == null) {
-				throw new FileNotFoundException("Embedded Go harness engine asset missing for slice: " + platformSlice);
+				// If embedded resource is missing from classpath, check if an existing cached
+				// binary is present
+				if (targetBinary.exists() && targetBinary.canExecute()) {
+					log.warn(
+							"Embedded Go harness asset missing for slice: {}, but found existing cached binary at: {}. Reusing cached binary.",
+							platformSlice, targetBinary.getAbsolutePath());
+					return targetBinary;
+				}
+				throw new FileNotFoundException("Embedded Go harness engine asset missing for slice: " + platformSlice
+						+ ". Please ensure antigravity-sdk-wrapper was packaged with native binaries, or set the ANTIGRAVITY_HARNESS_PATH environment variable (or 'antigravity.harness.path' system property).");
 			}
 
 			byte[] resourceBytes = binaryStream.readAllBytes();
