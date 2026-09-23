@@ -583,6 +583,10 @@ if (usage != null) {
         System.out.println("Prompt modality: " + detail.modality() + " -> " + detail.tokenCount() + " tokens");
     }
 }
+
+// Session cumulative usage and per-trajectory usage (for subagents)
+UsageMetadata totalUsage = agent.getTotalUsage();
+Map<String, UsageMetadata> trajectoryUsages = agent.getTrajectoryUsages();
 ```
 
 ---

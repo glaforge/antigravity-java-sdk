@@ -64,6 +64,8 @@ import java.util.concurrent.SubmissionPublisher;
 import java.util.function.Consumer;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.nio.file.Path;
@@ -92,6 +94,9 @@ public class Agent implements AutoCloseable, TriggerContext {
 	private StringBuilder currentText;
 	private StringBuilder currentThoughts;
 	private UsageMetadata currentUsage;
+	private UsageMetadata cumulativeUsage = new UsageMetadata(0, 0, 0, 0, 0);
+	private UsageMetadata turnStartUsage;
+	private final ConcurrentMap<String, UsageMetadata> trajectoryUsages = new ConcurrentHashMap<>();
 	private final List<Policy> policies;
 	private boolean hasStructuredOutput;
 	private StringBuilder wsBuffer = new StringBuilder();
@@ -116,7 +121,35 @@ public class Agent implements AutoCloseable, TriggerContext {
 	 * @return the usage metadata
 	 */
 	public UsageMetadata getUsageMetadata() {
-		return currentUsage;
+		if (currentUsage != null) {
+			return currentUsage;
+		}
+		if (cumulativeUsage != null && turnStartUsage != null) {
+			UsageMetadata diff = cumulativeUsage.subtract(turnStartUsage);
+			if (diff.totalTokenCount() > 0) {
+				return diff;
+			}
+		}
+		return cumulativeUsage;
+	}
+
+	/**
+	 * Returns the cumulative token usage across all turns in this session.
+	 *
+	 * @return the total cumulative usage metadata
+	 */
+	public UsageMetadata getTotalUsage() {
+		return cumulativeUsage;
+	}
+
+	/**
+	 * Returns a map of trajectory ID to cumulative token usage for subagents and
+	 * main agent.
+	 *
+	 * @return an unmodifiable map of trajectory usage metadata
+	 */
+	public Map<String, UsageMetadata> getTrajectoryUsages() {
+		return Collections.unmodifiableMap(new LinkedHashMap<>(trajectoryUsages));
 	}
 
 	/**
@@ -982,6 +1015,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 		this.currentText = new StringBuilder();
 		this.currentThoughts = new StringBuilder();
 		this.hasStructuredOutput = false;
+		this.turnStartUsage = this.cumulativeUsage;
 		this.currentUsage = null;
 
 		StringBuilder combinedText = new StringBuilder();
@@ -1165,6 +1199,76 @@ public class Agent implements AutoCloseable, TriggerContext {
 					this.sandboxStatus = new SandboxStatus(available, reason);
 					warnIfSandboxUnavailable(this.sandboxStatus);
 				}
+
+				if (initResp.has("cumulativeUsage") || initResp.has("cumulative_usage")) {
+					JsonNode cumNode = initResp.has("cumulativeUsage")
+							? initResp.get("cumulativeUsage")
+							: initResp.get("cumulative_usage");
+					UsageMetadata parsed = parseUsageMetadata(cumNode);
+					if (parsed != null) {
+						this.cumulativeUsage = parsed;
+						this.turnStartUsage = parsed;
+					}
+				}
+
+				JsonNode trajUsageNode = initResp.has("trajectoryUsage")
+						? initResp.get("trajectoryUsage")
+						: initResp.get("trajectory_usage");
+				if (trajUsageNode != null && trajUsageNode.isArray()) {
+					for (JsonNode entry : trajUsageNode) {
+						String trajId = entry.has("trajectoryId")
+								? entry.get("trajectoryId").asText()
+								: entry.path("trajectory_id").asText();
+						JsonNode uNode = entry.has("usage") ? entry.get("usage") : null;
+						if (trajId != null && !trajId.isEmpty() && uNode != null) {
+							UsageMetadata parsed = parseUsageMetadata(uNode);
+							if (parsed != null) {
+								trajectoryUsages.put(trajId, parsed);
+							}
+						}
+					}
+				}
+			}
+
+			if (payload.has("usageUpdate") || payload.has("usage_update")) {
+				JsonNode usageUpdate = payload.has("usageUpdate")
+						? payload.get("usageUpdate")
+						: payload.get("usage_update");
+
+				if (usageUpdate.has("total")) {
+					UsageMetadata newTotal = parseUsageMetadata(usageUpdate.get("total"));
+					if (newTotal != null) {
+						this.cumulativeUsage = newTotal;
+						this.currentUsage = (turnStartUsage != null) ? newTotal.subtract(turnStartUsage) : newTotal;
+					}
+				}
+
+				JsonNode agentsNode = usageUpdate.has("agents") ? usageUpdate.get("agents") : null;
+				if (agentsNode != null && agentsNode.isArray()) {
+					for (JsonNode entry : agentsNode) {
+						String trajId = entry.has("trajectoryId")
+								? entry.get("trajectoryId").asText()
+								: entry.path("trajectory_id").asText();
+						JsonNode uNode = entry.has("usage") ? entry.get("usage") : null;
+						if (trajId != null && !trajId.isEmpty() && uNode != null) {
+							UsageMetadata parsed = parseUsageMetadata(uNode);
+							if (parsed != null) {
+								trajectoryUsages.put(trajId, parsed);
+							}
+						}
+					}
+				}
+			}
+
+			if (payload.has("usageMetadata") || payload.has("usage_metadata")) {
+				JsonNode topUsage = payload.has("usageMetadata")
+						? payload.get("usageMetadata")
+						: payload.get("usage_metadata");
+				UsageMetadata parsed = parseUsageMetadata(topUsage);
+				if (parsed != null) {
+					this.cumulativeUsage = parsed;
+					this.currentUsage = (turnStartUsage != null) ? parsed.subtract(turnStartUsage) : parsed;
+				}
 			}
 
 			if (payload.has("stepUpdate")) {
@@ -1223,20 +1327,14 @@ public class Agent implements AutoCloseable, TriggerContext {
 					}
 				}
 
-				if (stepUpdate.has("usageMetadata")) {
-					JsonNode usage = stepUpdate.get("usageMetadata");
-					List<ModalityTokenCount> promptDetails = parseModalityDetails(usage.path("promptTokensDetails"));
-					List<ModalityTokenCount> cacheDetails = parseModalityDetails(usage.path("cacheTokensDetails"));
-					List<ModalityTokenCount> candidateDetails = parseModalityDetails(
-							usage.path("candidatesTokensDetails"));
-					List<ModalityTokenCount> toolUseDetails = parseModalityDetails(
-							usage.path("toolUsePromptTokensDetails"));
-					String serviceTier = usage.has("serviceTier") ? usage.get("serviceTier").asText() : null;
-
-					currentUsage = new UsageMetadata(usage.path("promptTokenCount").asInt(),
-							usage.path("cachedContentTokenCount").asInt(), usage.path("candidatesTokenCount").asInt(),
-							usage.path("thoughtsTokenCount").asInt(), usage.path("totalTokenCount").asInt(),
-							serviceTier, promptDetails, cacheDetails, candidateDetails, toolUseDetails);
+				if (stepUpdate.has("usageMetadata") || stepUpdate.has("usage_metadata")) {
+					JsonNode usage = stepUpdate.has("usageMetadata")
+							? stepUpdate.get("usageMetadata")
+							: stepUpdate.get("usage_metadata");
+					UsageMetadata parsed = parseUsageMetadata(usage);
+					if (parsed != null) {
+						this.currentUsage = parsed;
+					}
 				}
 
 				if (stepUpdate.has("state") && "STATE_ERROR".equals(stepUpdate.path("state").asText())) {
@@ -1532,9 +1630,18 @@ public class Agent implements AutoCloseable, TriggerContext {
 								currentToolCallsPublisher.closeExceptionally(new AgentCancelledException());
 							}
 						} else {
+							UsageMetadata finalUsage = currentUsage;
+							if (finalUsage == null && cumulativeUsage != null) {
+								UsageMetadata diff = (turnStartUsage != null)
+										? cumulativeUsage.subtract(turnStartUsage)
+										: cumulativeUsage;
+								if (diff.totalTokenCount() > 0) {
+									finalUsage = diff;
+								}
+							}
 							currentChatFuture
 									.complete(new AgentResponse(currentText != null ? currentText.toString() : "",
-											currentThoughts != null ? currentThoughts.toString() : "", currentUsage));
+											currentThoughts != null ? currentThoughts.toString() : "", finalUsage));
 							if (currentThoughtsPublisher != null) {
 								currentThoughtsPublisher.close();
 							}
@@ -1742,6 +1849,62 @@ public class Agent implements AutoCloseable, TriggerContext {
 	}
 
 	/**
+	 * Parses a {@link UsageMetadata} object from a Jackson {@link JsonNode},
+	 * supporting both camelCase and snake_case field variants.
+	 *
+	 * @param usage
+	 *            the JSON node representing UsageMetadata
+	 * @return the parsed UsageMetadata record, or null if node is null/missing
+	 */
+	static UsageMetadata parseUsageMetadata(JsonNode usage) {
+		if (usage == null || usage.isMissingNode() || usage.isNull()) {
+			return null;
+		}
+		int promptTokenCount = getIntField(usage, "promptTokenCount", "prompt_token_count");
+		int cachedContentTokenCount = getIntField(usage, "cachedContentTokenCount", "cached_content_token_count");
+		int candidatesTokenCount = getIntField(usage, "candidatesTokenCount", "candidates_token_count");
+		int thoughtsTokenCount = getIntField(usage, "thoughtsTokenCount", "thoughts_token_count");
+		int totalTokenCount = getIntField(usage, "totalTokenCount", "total_token_count");
+
+		String serviceTier = null;
+		if (usage.has("serviceTier")) {
+			serviceTier = usage.get("serviceTier").asText();
+		} else if (usage.has("service_tier")) {
+			serviceTier = usage.get("service_tier").asText();
+		}
+
+		JsonNode promptDetailsNode = usage.has("promptTokensDetails")
+				? usage.get("promptTokensDetails")
+				: usage.get("prompt_tokens_details");
+		JsonNode cacheDetailsNode = usage.has("cacheTokensDetails")
+				? usage.get("cacheTokensDetails")
+				: usage.get("cache_tokens_details");
+		JsonNode candidateDetailsNode = usage.has("candidatesTokensDetails")
+				? usage.get("candidatesTokensDetails")
+				: usage.get("candidates_tokens_details");
+		JsonNode toolUseDetailsNode = usage.has("toolUsePromptTokensDetails")
+				? usage.get("toolUsePromptTokensDetails")
+				: usage.get("tool_use_prompt_tokens_details");
+
+		List<ModalityTokenCount> promptDetails = parseModalityDetails(promptDetailsNode);
+		List<ModalityTokenCount> cacheDetails = parseModalityDetails(cacheDetailsNode);
+		List<ModalityTokenCount> candidateDetails = parseModalityDetails(candidateDetailsNode);
+		List<ModalityTokenCount> toolUseDetails = parseModalityDetails(toolUseDetailsNode);
+
+		return new UsageMetadata(promptTokenCount, cachedContentTokenCount, candidatesTokenCount, thoughtsTokenCount,
+				totalTokenCount, serviceTier, promptDetails, cacheDetails, candidateDetails, toolUseDetails);
+	}
+
+	private static int getIntField(JsonNode node, String camelCaseName, String snakeCaseName) {
+		if (node.has(camelCaseName)) {
+			return node.get(camelCaseName).asInt(0);
+		} else if (node.has(snakeCaseName)) {
+			return node.get(snakeCaseName).asInt(0);
+		}
+		return 0;
+	}
+
+	/**
 	 * Parses a JSON array of modality token details into a list of
 	 * {@link ModalityTokenCount} records.
 	 *
@@ -1749,14 +1912,14 @@ public class Agent implements AutoCloseable, TriggerContext {
 	 *            the JSON node containing the modality details array
 	 * @return an unmodifiable list of ModalityTokenCount records
 	 */
-	private static List<ModalityTokenCount> parseModalityDetails(JsonNode node) {
+	static List<ModalityTokenCount> parseModalityDetails(JsonNode node) {
 		if (node == null || !node.isArray()) {
 			return List.of();
 		}
 		List<ModalityTokenCount> list = new ArrayList<>();
 		for (JsonNode item : node) {
 			String modStr = item.path("modality").asText("");
-			long count = item.path("tokenCount").asLong();
+			long count = item.has("tokenCount") ? item.get("tokenCount").asLong(0) : item.path("token_count").asLong(0);
 			Modality mod = Modality.fromString(modStr);
 			list.add(new ModalityTokenCount(mod, count));
 		}

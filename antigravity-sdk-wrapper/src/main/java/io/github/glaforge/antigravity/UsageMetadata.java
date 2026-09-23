@@ -74,8 +74,11 @@ public record UsageMetadata(int promptTokenCount, int cachedContentTokenCount, i
 	 * @return a new UsageMetadata with summed token counts and merged service tier
 	 */
 	public UsageMetadata add(UsageMetadata other) {
-		if (other == null) {
+		if (other == null || other.totalTokenCount() == 0) {
 			return this;
+		}
+		if (this.totalTokenCount == 0) {
+			return other;
 		}
 		String mergedTier;
 		if (this.serviceTier == null) {
@@ -111,7 +114,7 @@ public record UsageMetadata(int promptTokenCount, int cachedContentTokenCount, i
 	 * @return a new UsageMetadata with subtracted token counts
 	 */
 	public UsageMetadata subtract(UsageMetadata other) {
-		if (other == null) {
+		if (other == null || other.totalTokenCount() == 0) {
 			return this;
 		}
 		String mergedTier = this.serviceTier != null ? this.serviceTier : other.serviceTier();

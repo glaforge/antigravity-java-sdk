@@ -38,14 +38,17 @@ public class ObservabilityTest {
 				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
 				AgentResponse response = future.get();
 
-				// Verify usage metadata is populated if available
+				// Verify usage metadata is populated
 				UsageMetadata usage = response.usageMetadata();
-				if (usage != null) {
-					System.out.println("Metadata: " + usage);
-					assertTrue(usage.promptTokenCount() >= 0, "Prompt tokens should be >= 0");
-				} else {
-					System.out.println("Metadata was not returned by the harness in this test run.");
-				}
+				assertNotNull(usage, "UsageMetadata should not be null in response");
+				assertEquals(usage, response.usage(), "response.usage() should match response.usageMetadata()");
+				assertTrue(usage.promptTokenCount() > 0, "Prompt tokens should be > 0");
+				assertTrue(usage.totalTokenCount() > 0, "Total tokens should be > 0");
+
+				// Verify Agent getters
+				assertNotNull(agent.getUsageMetadata(), "agent.getUsageMetadata() should not be null");
+				assertNotNull(agent.getTotalUsage(), "agent.getTotalUsage() should not be null");
+				assertTrue(agent.getTotalUsage().totalTokenCount() > 0, "Cumulative total tokens should be > 0");
 			}
 		});
 	}
