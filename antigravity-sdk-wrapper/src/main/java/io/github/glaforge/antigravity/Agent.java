@@ -65,6 +65,7 @@ import java.util.function.Consumer;
 import java.util.List;
 import java.util.Set;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -359,6 +360,42 @@ public class Agent implements AutoCloseable, TriggerContext {
 		}
 
 		/**
+		 * Sets security policies.
+		 *
+		 * @param policies
+		 *            list of policies
+		 * @return this builder
+		 */
+		public Builder policies(List<Policy> policies) {
+			configBuilder.policies(policies);
+			return this;
+		}
+
+		/**
+		 * Sets workspaces paths.
+		 *
+		 * @param workspaces
+		 *            list of workspace paths
+		 * @return this builder
+		 */
+		public Builder workspaces(List<String> workspaces) {
+			configBuilder.workspaces(workspaces);
+			return this;
+		}
+
+		/**
+		 * Adds a workspace path.
+		 *
+		 * @param workspace
+		 *            workspace directory path
+		 * @return this builder
+		 */
+		public Builder addWorkspace(String workspace) {
+			configBuilder.addWorkspace(workspace);
+			return this;
+		}
+
+		/**
 		 * Sets finish tool schema JSON.
 		 *
 		 * @param finishToolSchemaJson
@@ -466,6 +503,30 @@ public class Agent implements AutoCloseable, TriggerContext {
 		this(config, true);
 	}
 
+	/**
+	 * Creates a new Agent configured for local LiteRT execution.
+	 *
+	 * @param config
+	 *            the LiteRTAgentConfig configuration
+	 * @throws Exception
+	 *             if an error occurs during initialization
+	 */
+	public Agent(LiteRTAgentConfig config) throws Exception {
+		this(config.getAgentConfig());
+	}
+
+	/**
+	 * Creates a new Agent configured for local OpenAI-compatible execution.
+	 *
+	 * @param config
+	 *            the LocalOpenAIAgentConfig configuration
+	 * @throws Exception
+	 *             if an error occurs during initialization
+	 */
+	public Agent(LocalOpenAIAgentConfig config) throws Exception {
+		this(config.getAgentConfig());
+	}
+
 	Agent(AgentConfig config, boolean startProcess) throws Exception {
 		this.config = config;
 		this.policies = config.getPolicies();
@@ -484,6 +545,11 @@ public class Agent implements AutoCloseable, TriggerContext {
 		// 2. Spawn process
 		ProcessBuilder pb = new ProcessBuilder(binaryFile.getAbsolutePath())
 				.redirectError(ProcessBuilder.Redirect.PIPE);
+		if (config.getWorkspaceDir() != null) {
+			pb.directory(config.getWorkspaceDir().toFile());
+		} else if (config.getWorkspaces() != null && !config.getWorkspaces().isEmpty()) {
+			pb.directory(new File(config.getWorkspaces().get(0)));
+		}
 		if (config.getEnvironmentVariables() != null && !config.getEnvironmentVariables().isEmpty()) {
 			pb.environment().putAll(config.getEnvironmentVariables());
 		}
@@ -730,11 +796,42 @@ public class Agent implements AutoCloseable, TriggerContext {
 				}
 			}
 
-			if (config.getCapabilities().enableSubagents() || config.getCapabilities().allowUserQuestions()
-					|| config.getCapabilities().enableWebSearch() || config.getCapabilities().enableUrlReading()
-					|| config.getCapabilities().enableShell() || config.getCapabilities().enableViewFile()
-					|| config.getCapabilities().enableWriteFile() || config.getCapabilities().enableFileEdit()
-					|| config.getCapabilities().enableListDir() || config.getCapabilities().enableGrepSearch()) {
+			if (config.getSubagents() != null && !config.getSubagents().isEmpty()) {
+				for (SubagentConfig subagent : config.getSubagents()) {
+					CustomAgent.Builder subBuilder = CustomAgent.newBuilder().setName(subagent.name())
+							.setDescription(subagent.description());
+					if (subagent.instructions() != null && !subagent.instructions().isBlank()) {
+						subBuilder.setSystemInstructions(
+								SystemInstructions.newBuilder().setAppended(AppendedSystemInstructions.newBuilder()
+										.setCustomIdentity(subagent.instructions()).build()).build());
+					}
+					if (subagent.model() != null && !subagent.model().isBlank()) {
+						subBuilder.setModel(ModelConfig.newBuilder().setName(subagent.model()).build());
+					}
+					if (subagent.agentBehavior() != null) {
+						switch (subagent.agentBehavior()) {
+							case AUTONOMOUS -> subBuilder.setAgentBehavior(AGENT_BEHAVIOR_AUTONOMOUS);
+							case INTERACTIVE -> subBuilder.setAgentBehavior(AGENT_BEHAVIOR_INTERACTIVE);
+							case MINIMAL -> subBuilder.setAgentBehavior(AGENT_BEHAVIOR_MINIMAL);
+						}
+					}
+					if (subagent.tools() != null) {
+						for (String toolName : subagent.tools()) {
+							subBuilder.addTools(Tool.newBuilder().setName(toolName).build());
+						}
+					}
+					configBuilder.addCustomSubagents(subBuilder.build());
+				}
+			}
+
+			if (config.getWorkspaces() != null && !config.getWorkspaces().isEmpty()) {
+				for (String ws : config.getWorkspaces()) {
+					configBuilder.addWorkspaces(Workspace.newBuilder()
+							.setFilesystemWorkspace(FilesystemWorkspace.newBuilder().setDirectory(ws).build()).build());
+				}
+			}
+
+			if (config.getCapabilities() != null) {
 				HarnessSideTools.Builder capBuilder = HarnessSideTools.newBuilder();
 				if (config.getCapabilities().enableSubagents()) {
 					capBuilder.setSubagents(SubagentsConfig.newBuilder().setEnabled(true).build());
@@ -748,7 +845,8 @@ public class Agent implements AutoCloseable, TriggerContext {
 				if (config.getCapabilities().enableUrlReading()) {
 					capBuilder.setReadUrlContent(ReadUrlContentToolConfig.newBuilder().setEnabled(true).build());
 				}
-				if (config.getCapabilities().enableShell()) {
+				boolean runCommandActive = config.getCapabilities().enableShell();
+				if (runCommandActive) {
 					var runCmdBuilder = RunCommandToolConfig.newBuilder().setEnabled(true);
 					if (config.getCapabilities().runCommandConfig() != null) {
 						RunCommandConfig rcc = config.getCapabilities().runCommandConfig();
@@ -777,6 +875,13 @@ public class Agent implements AutoCloseable, TriggerContext {
 				}
 				if (config.getCapabilities().enableGenerateImage()) {
 					capBuilder.setGenerateImage(GenerateImageToolConfig.newBuilder().setEnabled(true).build());
+				}
+				boolean scheduleActive = config.getCapabilities().enableSchedule();
+				if (scheduleActive) {
+					capBuilder.setSchedule(ScheduleToolConfig.newBuilder().setEnabled(true).build());
+				}
+				if (runCommandActive || scheduleActive) {
+					capBuilder.setManageTask(ManageTaskToolConfig.newBuilder().setEnabled(true).build());
 				}
 				configBuilder.setHarnessSideTools(capBuilder.build());
 			}
@@ -1579,8 +1684,18 @@ public class Agent implements AutoCloseable, TriggerContext {
 								if (res.reason() != null) {
 									ptr.setReason(res.reason());
 								}
-								if (res.modifiedArgumentsJson() != null) {
-									ptr.setModifiedArgumentsJson(res.modifiedArgumentsJson());
+								if (res.modifiedArgs() != null) {
+									ptr.setModifiedArgs(toStruct(res.modifiedArgs()));
+								} else if (res.modifiedArgumentsJson() != null) {
+									try {
+										@SuppressWarnings("unchecked")
+										Map<String, Object> map = jsonMapper.readValue(res.modifiedArgumentsJson(),
+												Map.class);
+										ptr.setModifiedArgs(toStruct(map));
+									} catch (Exception e) {
+										log.warn("Failed to parse modifiedArgumentsJson as JSON map: {}",
+												res.modifiedArgumentsJson(), e);
+									}
 								}
 							}
 							respBuilder.setPreToolResult(ptr.build());
@@ -1924,5 +2039,44 @@ public class Agent implements AutoCloseable, TriggerContext {
 			list.add(new ModalityTokenCount(mod, count));
 		}
 		return Collections.unmodifiableList(list);
+	}
+
+	private static Struct toStruct(Map<String, Object> map) {
+		Struct.Builder structBuilder = Struct.newBuilder();
+		if (map != null) {
+			for (Map.Entry<String, Object> entry : map.entrySet()) {
+				structBuilder.addFields(
+						Field.newBuilder().setName(entry.getKey()).setValue(toValue(entry.getValue())).build());
+			}
+		}
+		return structBuilder.build();
+	}
+
+	private static Value toValue(Object obj) {
+		Value.Builder valueBuilder = Value.newBuilder();
+		if (obj == null) {
+			valueBuilder.setNullValue(NullValue.NULL_VALUE);
+		} else if (obj instanceof Boolean b) {
+			valueBuilder.setBoolValue(b);
+		} else if (obj instanceof Number n) {
+			valueBuilder.setNumberValue(n.doubleValue());
+		} else if (obj instanceof String s) {
+			valueBuilder.setStringValue(s);
+		} else if (obj instanceof Map<?, ?> m) {
+			Map<String, Object> strMap = new HashMap<>();
+			for (Map.Entry<?, ?> e : m.entrySet()) {
+				strMap.put(String.valueOf(e.getKey()), e.getValue());
+			}
+			valueBuilder.setStructValue(toStruct(strMap));
+		} else if (obj instanceof Iterable<?> iter) {
+			ListValue.Builder listBuilder = ListValue.newBuilder();
+			for (Object item : iter) {
+				listBuilder.addValues(toValue(item));
+			}
+			valueBuilder.setListValue(listBuilder.build());
+		} else {
+			valueBuilder.setStringValue(String.valueOf(obj));
+		}
+		return valueBuilder.build();
 	}
 }

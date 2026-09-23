@@ -750,3 +750,66 @@ Under Java 24+ (JEP 471), protobuf memory-access via `sun.misc.Unsafe` produces 
 ```text
 --sun-misc-unsafe-memory-access=allow
 ```
+
+---
+
+## 16. Evaluation Preset, Custom Subagent Models & Schedule Tool (v0.1.18)
+
+### Evaluation Preset (`.eval()`)
+Configures standardized settings for benchmarking Gemini agent coding capabilities:
+- Sets `Policies.allowAll()` for autonomous tool permissions.
+- Sets unbounded API retries via `RetryConfig.benchmark()` (`Integer.MAX_VALUE` attempts, 1000ms initial sleep).
+- Enables daemon command execution in `RunCommandConfig`.
+- Disables subagents and image generation capabilities.
+
+```java
+AgentConfig benchmarkConfig = AgentConfig.builder()
+    .instructions("Benchmark runner executing coding evaluation problems.")
+    .eval()
+    .build();
+```
+
+### Custom Subagent Model Targeting
+Subagents can be configured with specific model targets:
+
+```java
+SubagentConfig reviewer = SubagentConfig.builder()
+    .name("code_reviewer")
+    .description("Reviews pull requests for quality and security.")
+    .instructions("Focus on race conditions and memory safety.")
+    .model("gemini-2.5-pro")
+    .agentBehavior(AgentBehavior.AUTONOMOUS)
+    .build();
+
+AgentConfig orchestrator = AgentConfig.builder()
+    .instructions("Software engineering orchestrator.")
+    .addSubagent(reviewer)
+    .capabilities(CapabilitiesConfig.builder()
+        .enableSubagents(true)
+        .build())
+    .build();
+```
+
+### Built-in Task Scheduling (`schedule` & `manage_task`)
+Automated one-shot timers and recurring cron schedules:
+
+```java
+CapabilitiesConfig caps = CapabilitiesConfig.builder()
+    .enableSchedule(true)
+    .build();
+
+// BuiltinTools enums
+BuiltinTools scheduleTool = BuiltinTools.SCHEDULE;       // "schedule"
+BuiltinTools manageTaskTool = BuiltinTools.MANAGE_TASK; // "manage_task"
+```
+
+### Universal Schema Normalization
+Converts JSON Schema definitions to strict OpenAPI format:
+
+```java
+import com.fasterxml.jackson.databind.JsonNode;
+import io.github.glaforge.antigravity.tools.SchemaGenerator;
+
+JsonNode normalized = SchemaGenerator.normalizeSchema(rawSchemaNode);
+```
+

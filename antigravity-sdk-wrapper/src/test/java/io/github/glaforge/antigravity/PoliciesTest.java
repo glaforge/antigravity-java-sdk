@@ -15,6 +15,9 @@
  */
 package io.github.glaforge.antigravity;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.glaforge.antigravity.localharness.HarnessConfig;
 import io.github.glaforge.antigravity.localharness.InputEvent;
 import io.github.glaforge.antigravity.localharness.OutputEvent;
@@ -24,6 +27,7 @@ import io.github.glaforge.antigravity.localharness.PolicyDecisionRequest;
 import io.github.glaforge.antigravity.localharness.PolicyDecisionResponse;
 import io.github.glaforge.antigravity.localharness.PolicyEvaluationOutcome;
 import io.github.glaforge.antigravity.localharness.PolicyRule;
+import java.lang.reflect.Method;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -100,8 +104,8 @@ public class PoliciesTest {
 
 	@Test
 	public void testDenyIfWithArguments() throws Exception {
-		com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-		com.fasterxml.jackson.databind.node.ObjectNode argsNode = mapper.createObjectNode();
+		ObjectMapper mapper = new ObjectMapper();
+		ObjectNode argsNode = mapper.createObjectNode();
 		argsNode.put("command_line", "rm -rf /");
 
 		Policy policy = Policies.denyIf((toolName, args) -> {
@@ -120,8 +124,8 @@ public class PoliciesTest {
 
 	@Test
 	public void testAskUserWithArguments() throws Exception {
-		com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-		com.fasterxml.jackson.databind.node.ObjectNode argsNode = mapper.createObjectNode();
+		ObjectMapper mapper = new ObjectMapper();
+		ObjectNode argsNode = mapper.createObjectNode();
 		argsNode.put("path", "config/production.key");
 
 		// Simulate the user saying 'no'
@@ -146,8 +150,7 @@ public class PoliciesTest {
 		AgentConfig config = AgentConfig.builder().addPolicy(Policies.allowTools("list_dir"))
 				.addPolicy(Policies.denyAll()).build();
 
-		java.lang.reflect.Method evalMethod = Agent.class.getDeclaredMethod("evaluatePolicies", String.class,
-				com.fasterxml.jackson.databind.JsonNode.class);
+		Method evalMethod = Agent.class.getDeclaredMethod("evaluatePolicies", String.class, JsonNode.class);
 		evalMethod.setAccessible(true);
 
 		try (Agent agent = new Agent(config)) {

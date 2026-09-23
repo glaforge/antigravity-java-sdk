@@ -47,6 +47,10 @@ public enum BuiltinTools {
 	SEARCH_WEB("search_web"),
 	/** Read content from a URL. */
 	READ_URL_CONTENT("read_url_content"),
+	/** Schedule a one-shot timer or recurring cron job. */
+	SCHEDULE("schedule"),
+	/** Manage background tasks. */
+	MANAGE_TASK("manage_task"),
 	/** Finish the conversation and return structured output. */
 	FINISH("finish");
 
@@ -86,7 +90,7 @@ public enum BuiltinTools {
 	 */
 	public static List<BuiltinTools> nondestructive() {
 		return List.of(LIST_DIR, SEARCH_DIR, FIND_FILE, VIEW_FILE, CREATE_FILE, EDIT_FILE, ASK_QUESTION, START_SUBAGENT,
-				GENERATE_IMAGE, SEARCH_WEB, READ_URL_CONTENT, FINISH);
+				GENERATE_IMAGE, SEARCH_WEB, READ_URL_CONTENT, SCHEDULE, MANAGE_TASK, FINISH);
 	}
 
 	/**

@@ -47,7 +47,7 @@ public class HarnessDownloader {
 	/**
 	 * Default upstream package version matching current protocol definitions.
 	 */
-	public static final String DEFAULT_UPSTREAM_VERSION = "0.1.17";
+	public static final String DEFAULT_UPSTREAM_VERSION = "0.1.18";
 
 	private final HttpClient httpClient;
 	private final String upstreamVersion;

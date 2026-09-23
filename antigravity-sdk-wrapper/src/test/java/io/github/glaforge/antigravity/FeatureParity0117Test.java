@@ -16,6 +16,8 @@
 package io.github.glaforge.antigravity;
 
 import io.github.glaforge.antigravity.localharness.HarnessConfig;
+import io.github.glaforge.antigravity.localharness.InitializeConversationResponse;
+import static io.github.glaforge.antigravity.localharness.BudgetConfig.BudgetScope.BUDGET_SCOPE_FORWARD_LOOKING;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -46,14 +48,13 @@ public class FeatureParity0117Test {
 		assertEquals(BudgetScope.FORWARD_LOOKING, forwardBudget.scope());
 
 		// Wire conversion to protobuf
-		var protoBuilder = io.github.glaforge.antigravity.localharness.BudgetConfig.newBuilder()
-				.setMaxModelCalls(forwardBudget.maxModelCalls()).setScope(
-						io.github.glaforge.antigravity.localharness.BudgetConfig.BudgetScope.BUDGET_SCOPE_FORWARD_LOOKING);
+		HarnessConfig.Builder harnessBuilder = HarnessConfig.newBuilder();
+		harnessBuilder.getBudgetConfigBuilder().setMaxModelCalls(forwardBudget.maxModelCalls())
+				.setScope(BUDGET_SCOPE_FORWARD_LOOKING);
 
-		io.github.glaforge.antigravity.localharness.BudgetConfig proto = protoBuilder.build();
-		assertEquals(io.github.glaforge.antigravity.localharness.BudgetConfig.BudgetScope.BUDGET_SCOPE_FORWARD_LOOKING,
-				proto.getScope());
-		assertEquals(5, proto.getMaxModelCalls());
+		HarnessConfig protoHarness = harnessBuilder.build();
+		assertEquals(BUDGET_SCOPE_FORWARD_LOOKING, protoHarness.getBudgetConfig().getScope());
+		assertEquals(5, protoHarness.getBudgetConfig().getMaxModelCalls());
 	}
 
 	@Test
@@ -71,12 +72,12 @@ public class FeatureParity0117Test {
 		assertEquals(32000, full.maxContextTokens());
 
 		// Protobuf conversion
-		var protoCompaction = io.github.glaforge.antigravity.localharness.CompactionConfig.newBuilder()
-				.setTokenThreshold(full.tokenThreshold()).setCheckpointIntervalTokens(full.checkpointIntervalTokens())
-				.setMaxContextTokens(full.maxContextTokens()).build();
-
-		HarnessConfig harnessConfig = HarnessConfig.newBuilder().setCompactionConfig(protoCompaction)
-				.setCompactionThreshold(full.tokenThreshold()).build();
+		HarnessConfig.Builder harnessCompactionBuilder = HarnessConfig.newBuilder();
+		harnessCompactionBuilder.getCompactionConfigBuilder().setTokenThreshold(full.tokenThreshold())
+				.setCheckpointIntervalTokens(full.checkpointIntervalTokens())
+				.setMaxContextTokens(full.maxContextTokens());
+		harnessCompactionBuilder.setCompactionThreshold(full.tokenThreshold());
+		HarnessConfig harnessConfig = harnessCompactionBuilder.build();
 
 		assertTrue(harnessConfig.hasCompactionConfig());
 		assertEquals(20000, harnessConfig.getCompactionConfig().getTokenThreshold());
@@ -202,11 +203,13 @@ public class FeatureParity0117Test {
 		assertEquals("exebox sandbox driver unavailable", unavailable.unavailableReason());
 
 		// Protobuf wire compatibility
-		var protoStatus = io.github.glaforge.antigravity.localharness.SandboxStatus.newBuilder().setAvailable(false)
-				.setUnavailableReason("unsupported platform").build();
+		InitializeConversationResponse resp = InitializeConversationResponse.newBuilder()
+				.setSandboxStatus(InitializeConversationResponse.newBuilder().getSandboxStatusBuilder()
+						.setAvailable(false).setUnavailableReason("unsupported platform").build())
+				.build();
 
-		assertFalse(protoStatus.getAvailable());
-		assertEquals("unsupported platform", protoStatus.getUnavailableReason());
+		assertFalse(resp.getSandboxStatus().getAvailable());
+		assertEquals("unsupported platform", resp.getSandboxStatus().getUnavailableReason());
 	}
 
 	@Test

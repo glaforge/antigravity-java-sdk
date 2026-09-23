@@ -94,7 +94,10 @@ public record CompactionConfig(Integer tokenThreshold, Integer checkpointInterva
 		 * @param checkpointIntervalTokens
 		 *            checkpoint interval tokens
 		 * @return this builder
+		 * @deprecated Upstream v0.1.18 simplified CompactionConfig to a single
+		 *             tokenThreshold dial.
 		 */
+		@Deprecated
 		public Builder checkpointIntervalTokens(int checkpointIntervalTokens) {
 			this.checkpointIntervalTokens = checkpointIntervalTokens;
 			return this;
@@ -106,7 +109,10 @@ public record CompactionConfig(Integer tokenThreshold, Integer checkpointInterva
 		 * @param maxContextTokens
 		 *            max context tokens
 		 * @return this builder
+		 * @deprecated Upstream v0.1.18 simplified CompactionConfig to a single
+		 *             tokenThreshold dial.
 		 */
+		@Deprecated
 		public Builder maxContextTokens(int maxContextTokens) {
 			this.maxContextTokens = maxContextTokens;
 			return this;

@@ -15,6 +15,7 @@
  */
 package io.github.glaforge.antigravity.tools;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -24,6 +25,8 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Utility class for generating JSON schemas from Java types.
@@ -97,6 +100,67 @@ public class SchemaGenerator {
 			}
 		}
 
+		return schema;
+	}
+
+	private static final Map<String, String> SCHEMA_KEYWORD_MAP = Map.ofEntries(Map.entry("any_of", "anyOf"),
+			Map.entry("one_of", "oneOf"), Map.entry("all_of", "allOf"),
+			Map.entry("additional_properties", "additionalProperties"),
+			Map.entry("pattern_properties", "patternProperties"), Map.entry("min_items", "minItems"),
+			Map.entry("max_items", "maxItems"), Map.entry("min_length", "minLength"),
+			Map.entry("max_length", "maxLength"), Map.entry("min_properties", "minProperties"),
+			Map.entry("max_properties", "maxProperties"), Map.entry("unique_items", "uniqueItems"),
+			Map.entry("multiple_of", "multipleOf"), Map.entry("exclusive_minimum", "exclusiveMinimum"),
+			Map.entry("exclusive_maximum", "exclusiveMaximum"), Map.entry("prefix_items", "prefixItems"),
+			Map.entry("property_names", "propertyNames"), Map.entry("dependent_required", "dependentRequired"),
+			Map.entry("dependent_schemas", "dependentSchemas"),
+			Map.entry("unevaluated_properties", "unevaluatedProperties"),
+			Map.entry("unevaluated_items", "unevaluatedItems"));
+
+	private static final Set<String> LITERAL_KEYWORDS = Set.of("enum", "const", "default", "example", "examples",
+			"dependentRequired");
+
+	/**
+	 * Recursively normalizes JSON Schema dictionaries for universal model
+	 * compatibility.
+	 *
+	 * Converts uppercase type names to lowercase strings, converts snake_case JSON
+	 * Schema keywords to camelCase (e.g. multiple_of -&gt; multipleOf), and
+	 * preserves literal values.
+	 *
+	 * @param schema
+	 *            the JSON schema node
+	 * @return a normalized JSON Schema node
+	 */
+	public static JsonNode normalizeSchema(JsonNode schema) {
+		if (schema == null) {
+			return null;
+		}
+		if (schema instanceof ObjectNode obj) {
+			ObjectNode normalized = mapper.createObjectNode();
+			var fields = obj.fields();
+			while (fields.hasNext()) {
+				var entry = fields.next();
+				String rawKey = entry.getKey();
+				String key = SCHEMA_KEYWORD_MAP.getOrDefault(rawKey, rawKey);
+				JsonNode val = entry.getValue();
+
+				if ("type".equals(key) && val.isTextual()) {
+					normalized.put(key, val.asText().toLowerCase());
+				} else if (LITERAL_KEYWORDS.contains(key)) {
+					normalized.set(key, val);
+				} else {
+					normalized.set(key, normalizeSchema(val));
+				}
+			}
+			return normalized;
+		} else if (schema instanceof ArrayNode arr) {
+			ArrayNode normalized = mapper.createArrayNode();
+			for (JsonNode item : arr) {
+				normalized.add(normalizeSchema(item));
+			}
+			return normalized;
+		}
 		return schema;
 	}
 

@@ -25,8 +25,8 @@ Before executing tasks with the Antigravity Java SDK, verify the environment:
 
 Use the following reference guide based on the user prompt:
 
-- **Core API, Skills & Multimodal**: For `AgentConfig`, `Agent.builder()`, Agent Skills (`addSkillPath`), MCP servers, multimodal inputs (`AgentInput.Document`, `AgentInput.Audio`, `AgentInput.Video`, `AgentInput.Image`), `ToolContext`, `RetryConfig`, `DebugConfig`, or `BuiltinTools`, read [API Reference](references/api-reference.md).
-- **Security & Hooks**: For policy rules (`allowTools`, `denyIf`, `askUser`), `PreTurnHook`, `PostTurnHook`, `PreToolCallDecideHook`, `PostToolCallHook`, `OnSessionStartHook`, `OnSessionEndHook`, or `OnToolErrorHook` with `ToolExecutionError`, read [Security Policies & Lifecycle Hooks](references/security-and-hooks.md).
+- **Core API, Skills & Multimodal**: For `AgentConfig`, `Agent.builder()`, `.eval()` benchmark preset, custom subagent model targeting (`SubagentConfig`), Agent Skills (`addSkillPath`), MCP servers, multimodal inputs (`AgentInput.Document`, `AgentInput.Audio`, `AgentInput.Video`, `AgentInput.Image`), `ToolContext`, `RetryConfig`, `DebugConfig`, or `BuiltinTools` (including `SCHEDULE` and `MANAGE_TASK`), read [API Reference](references/api-reference.md).
+- **Security & Hooks**: For policy rules (`allowTools`, `denyIf`, `askUser`), `PreTurnHook`, `PostTurnHook`, `PreToolCallDecideHook` (with structured `HookResult.allowedWithModifiedArgs`), `PostToolCallHook`, `OnSessionStartHook`, `OnSessionEndHook`, or `OnToolErrorHook` with `ToolExecutionError`, read [Security Policies & Lifecycle Hooks](references/security-and-hooks.md).
 - **Streaming & Reactive**: For `Flow.Publisher`, Spring WebFlux / RxJava 3 integration, or streaming internal thoughts via `AgentStream`, read [Streaming & Reactive Integration](references/streaming-and-reactive.md).
 
 ---

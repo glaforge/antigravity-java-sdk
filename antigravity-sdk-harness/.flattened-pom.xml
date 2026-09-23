@@ -5,10 +5,10 @@
   <parent>
     <groupId>io.github.glaforge.antigravity</groupId>
     <artifactId>antigravity-sdk-parent</artifactId>
-    <version>0.2.16-SNAPSHOT</version>
+    <version>0.2.17-SNAPSHOT</version>
   </parent>
   <artifactId>antigravity-sdk-harness</artifactId>
-  <version>0.2.16-SNAPSHOT</version>
+  <version>0.2.17-SNAPSHOT</version>
   <name>Antigravity Java SDK - Harness Binaries</name>
   <description>Platform-specific native localharness Go binaries for offline deployment.</description>
   <url>https://github.com/glaforge/antigravity-java-sdk</url>

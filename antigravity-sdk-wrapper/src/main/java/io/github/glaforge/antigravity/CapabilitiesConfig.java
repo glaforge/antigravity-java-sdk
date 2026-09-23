@@ -49,7 +49,46 @@ package io.github.glaforge.antigravity;
 public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuestions, boolean enableWebSearch,
 		boolean enableUrlReading, boolean enableShell, boolean enableViewFile, boolean enableWriteFile,
 		boolean enableFileEdit, boolean enableListDir, boolean enableGrepSearch, boolean enableGenerateImage,
-		String imageModelName, RunCommandConfig runCommandConfig) {
+		String imageModelName, RunCommandConfig runCommandConfig, boolean enableSchedule) {
+
+	/**
+	 * Secondary constructor for backward compatibility with 13 parameters.
+	 *
+	 * @param enableSubagents
+	 *            true if subagents are enabled
+	 * @param allowUserQuestions
+	 *            true if user questions are allowed
+	 * @param enableWebSearch
+	 *            true if web search is enabled
+	 * @param enableUrlReading
+	 *            true if URL reading is enabled
+	 * @param enableShell
+	 *            true if shell execution is enabled
+	 * @param enableViewFile
+	 *            true if file viewing is enabled
+	 * @param enableWriteFile
+	 *            true if file writing is enabled
+	 * @param enableFileEdit
+	 *            true if file editing is enabled
+	 * @param enableListDir
+	 *            true if list directory is enabled
+	 * @param enableGrepSearch
+	 *            true if grep search is enabled
+	 * @param enableGenerateImage
+	 *            true if image generation capability is enabled
+	 * @param imageModelName
+	 *            the image generation model name
+	 * @param runCommandConfig
+	 *            the run command configuration
+	 */
+	public CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuestions, boolean enableWebSearch,
+			boolean enableUrlReading, boolean enableShell, boolean enableViewFile, boolean enableWriteFile,
+			boolean enableFileEdit, boolean enableListDir, boolean enableGrepSearch, boolean enableGenerateImage,
+			String imageModelName, RunCommandConfig runCommandConfig) {
+		this(enableSubagents, allowUserQuestions, enableWebSearch, enableUrlReading, enableShell, enableViewFile,
+				enableWriteFile, enableFileEdit, enableListDir, enableGrepSearch, enableGenerateImage, imageModelName,
+				runCommandConfig, false);
+	}
 
 	/**
 	 * Secondary constructor for backward compatibility with 12 parameters.
@@ -152,6 +191,7 @@ public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuest
 		private boolean enableGenerateImage = false;
 		private String imageModelName = AgentConfig.DEFAULT_IMAGE_GENERATION_MODEL;
 		private RunCommandConfig runCommandConfig;
+		private boolean enableSchedule = true;
 
 		/**
 		 * Enables or disables subagents.
@@ -310,6 +350,18 @@ public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuest
 		}
 
 		/**
+		 * Enables or disables the schedule tool.
+		 *
+		 * @param enableSchedule
+		 *            true to enable
+		 * @return this builder
+		 */
+		public Builder enableSchedule(boolean enableSchedule) {
+			this.enableSchedule = enableSchedule;
+			return this;
+		}
+
+		/**
 		 * Builds the CapabilitiesConfig.
 		 *
 		 * @return the config
@@ -317,7 +369,7 @@ public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuest
 		public CapabilitiesConfig build() {
 			return new CapabilitiesConfig(enableSubagents, allowUserQuestions, enableWebSearch, enableUrlReading,
 					enableShell, enableViewFile, enableWriteFile, enableFileEdit, enableListDir, enableGrepSearch,
-					enableGenerateImage, imageModelName, runCommandConfig);
+					enableGenerateImage, imageModelName, runCommandConfig, enableSchedule);
 		}
 	}
 }

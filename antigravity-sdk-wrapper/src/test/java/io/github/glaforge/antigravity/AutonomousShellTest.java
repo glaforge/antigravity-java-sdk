@@ -15,6 +15,7 @@
  */
 package io.github.glaforge.antigravity;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -37,7 +38,7 @@ public class AutonomousShellTest {
 			AgentConfig config = AgentConfig.builder().modelName("gemini-3.6-flash").capabilities(capabilities)
 					.addPolicy(new Policy() {
 						@Override
-						public Decision evaluate(String toolName, com.fasterxml.jackson.databind.JsonNode arguments) {
+						public Decision evaluate(String toolName, JsonNode arguments) {
 							return Decision.ALLOW;
 						}
 					}).build();

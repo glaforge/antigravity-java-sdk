@@ -15,6 +15,7 @@
  */
 package io.github.glaforge.antigravity;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import io.github.glaforge.antigravity.tools.ToolRegistry;
@@ -38,7 +39,7 @@ public class FeatureParity019Test {
 		assertFalse(BuiltinTools.nondestructive().contains(BuiltinTools.RUN_COMMAND));
 
 		assertTrue(BuiltinTools.fileTools().contains(BuiltinTools.EDIT_FILE));
-		assertEquals(13, BuiltinTools.allTools().size());
+		assertEquals(15, BuiltinTools.allTools().size());
 		assertTrue(BuiltinTools.none().isEmpty());
 	}
 
@@ -46,17 +47,19 @@ public class FeatureParity019Test {
 	public void testRetryConfigAndPresets() {
 		RetryConfig benchmarkCfg = RetryConfig.benchmark();
 		assertNotNull(benchmarkCfg.apiRetry());
-		assertEquals(5, benchmarkCfg.apiRetry().maxRetries());
+		assertEquals(Integer.MAX_VALUE, benchmarkCfg.apiRetry().maxRetries());
 		assertEquals(1000, benchmarkCfg.apiRetry().initialSleepDurationMs());
 		assertEquals(2.0, benchmarkCfg.apiRetry().exponentialMultiplier());
 		assertEquals(0.2, benchmarkCfg.apiRetry().jitterRange());
 
-		assertNotNull(benchmarkCfg.modelOutputRetry());
-		assertEquals(3, benchmarkCfg.modelOutputRetry().maxRetries());
+		assertNull(benchmarkCfg.modelOutputRetry());
 
 		var apiProto = benchmarkCfg.apiRetry().toProtobuf();
-		var outputProto = benchmarkCfg.modelOutputRetry().toProtobuf();
-		assertEquals(5, apiProto.getMaxRetries());
+		assertEquals(Integer.MAX_VALUE, apiProto.getMaxRetries());
+
+		var outputCfg = new RetryConfig.ModelOutputRetryConfigRecord(3);
+		assertEquals(3, outputCfg.maxRetries());
+		var outputProto = outputCfg.toProtobuf();
 		assertEquals(3, outputProto.getMaxRetries());
 	}
 
@@ -105,8 +108,9 @@ public class FeatureParity019Test {
 		registry.registerToolsFromObject(summarizer);
 
 		assertDoesNotThrow(() -> {
-			String result = registry.execute("summarize", com.fasterxml.jackson.databind.json.JsonMapper.builder()
-					.build().createObjectNode().put("meetingNotes", "Discussed v0.1.9 release"), null);
+			String result = registry.execute("summarize",
+					JsonMapper.builder().build().createObjectNode().put("meetingNotes", "Discussed v0.1.9 release"),
+					null);
 			assertTrue(result.contains("Discussed v0.1.9 release"));
 		});
 	}
@@ -118,7 +122,7 @@ public class FeatureParity019Test {
 				.retryConfig(RetryConfig.benchmark()).debugConfig(DebugConfig.defaults()).build();
 
 		assertNotNull(config.getRetryConfig());
-		assertEquals(5, config.getRetryConfig().apiRetry().maxRetries());
+		assertEquals(Integer.MAX_VALUE, config.getRetryConfig().apiRetry().maxRetries());
 		assertNotNull(config.getDebugConfig());
 		assertTrue(config.getDebugConfig().enableServerSideTracing());
 	}

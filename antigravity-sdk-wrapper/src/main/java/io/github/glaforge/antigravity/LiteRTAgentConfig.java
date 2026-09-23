@@ -15,6 +15,8 @@
  */
 package io.github.glaforge.antigravity;
 
+import java.util.List;
+
 /**
  * Configuration helper for executing local Gemma models via the LiteRT backend.
  */
@@ -49,13 +51,21 @@ public class LiteRTAgentConfig {
 	private final String modelPath;
 	private final Backend backend;
 	private final int port;
+	private final String baseUrl;
 	private final AgentConfig agentConfig;
 
 	private LiteRTAgentConfig(Builder builder) {
 		this.modelPath = builder.modelPath;
 		this.backend = builder.backend;
 		this.port = builder.port;
-		this.agentConfig = builder.agentConfigBuilder.modelName("gemma-local").build();
+		int effectivePort = builder.port > 0 ? builder.port : 9379;
+		this.baseUrl = (builder.baseUrl != null && !builder.baseUrl.isEmpty())
+				? builder.baseUrl
+				: "http://127.0.0.1:" + effectivePort + "/v1";
+		this.agentConfig = builder.agentConfigBuilder
+				.modelName(
+						builder.modelName != null && !builder.modelName.isEmpty() ? builder.modelName : "gemma-local")
+				.baseUrl(this.baseUrl).build();
 	}
 
 	/**
@@ -86,6 +96,15 @@ public class LiteRTAgentConfig {
 	}
 
 	/**
+	 * Returns the base URL of the local LiteRT OpenAI-compatible endpoint.
+	 *
+	 * @return base URL
+	 */
+	public String getBaseUrl() {
+		return baseUrl;
+	}
+
+	/**
 	 * Returns the underlying AgentConfig.
 	 *
 	 * @return agent config
@@ -110,12 +129,15 @@ public class LiteRTAgentConfig {
 		private String modelPath = "";
 		private Backend backend = Backend.GPU;
 		private int port = 0;
+		private String baseUrl = "";
+		private String modelName = "gemma-local";
 		private final AgentConfig.Builder agentConfigBuilder = AgentConfig.builder();
 
 		/**
-		 * Default constructor.
+		 * Default constructor applying lightweight presets.
 		 */
 		public Builder() {
+			this.agentConfigBuilder.lightweight();
 		}
 
 		/**
@@ -151,6 +173,30 @@ public class LiteRTAgentConfig {
 		 */
 		public Builder port(int port) {
 			this.port = port;
+			return this;
+		}
+
+		/**
+		 * Sets the base URL of the LiteRT server endpoint.
+		 *
+		 * @param baseUrl
+		 *            base URL string
+		 * @return this builder
+		 */
+		public Builder baseUrl(String baseUrl) {
+			this.baseUrl = baseUrl;
+			return this;
+		}
+
+		/**
+		 * Sets the model name.
+		 *
+		 * @param modelName
+		 *            model name string
+		 * @return this builder
+		 */
+		public Builder modelName(String modelName) {
+			this.modelName = modelName;
 			return this;
 		}
 
@@ -199,6 +245,64 @@ public class LiteRTAgentConfig {
 		 */
 		public Builder addMcpServer(McpServerConfig mcpServerConfig) {
 			this.agentConfigBuilder.addMcpServer(mcpServerConfig);
+			return this;
+		}
+
+		/**
+		 * Sets workspaces paths.
+		 *
+		 * @param workspaces
+		 *            list of workspace paths
+		 * @return this builder
+		 */
+		public Builder workspaces(List<String> workspaces) {
+			this.agentConfigBuilder.workspaces(workspaces);
+			return this;
+		}
+
+		/**
+		 * Adds a workspace path.
+		 *
+		 * @param workspace
+		 *            workspace directory path
+		 * @return this builder
+		 */
+		public Builder addWorkspace(String workspace) {
+			this.agentConfigBuilder.addWorkspace(workspace);
+			return this;
+		}
+
+		/**
+		 * Sets security policies.
+		 *
+		 * @param policies
+		 *            list of policies
+		 * @return this builder
+		 */
+		public Builder policies(List<Policy> policies) {
+			this.agentConfigBuilder.policies(policies);
+			return this;
+		}
+
+		/**
+		 * Adds a security policy.
+		 *
+		 * @param policy
+		 *            policy instance
+		 * @return this builder
+		 */
+		public Builder addPolicy(Policy policy) {
+			this.agentConfigBuilder.addPolicy(policy);
+			return this;
+		}
+
+		/**
+		 * Applies lightweight presets for local execution.
+		 *
+		 * @return this builder
+		 */
+		public Builder lightweight() {
+			this.agentConfigBuilder.lightweight();
 			return this;
 		}
 

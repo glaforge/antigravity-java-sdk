@@ -48,6 +48,7 @@ public class AgentConfig {
 	private final CapabilitiesConfig capabilities;
 	private final GenerationConfig generation;
 	private final Path workspaceDir;
+	private final List<String> workspaces;
 	private final List<AgentHook> hooks;
 	private final List<AgentTrigger> triggers;
 	private final String saveDir;
@@ -64,6 +65,7 @@ public class AgentConfig {
 	private final AgentBehavior agentBehavior;
 	private final WorkspaceContainment workspaceContainment;
 	private final CompactionConfig compactionConfig;
+	private final List<SubagentConfig> subagents;
 
 	private AgentConfig(Builder builder) {
 		this.instructions = builder.instructions;
@@ -73,6 +75,7 @@ public class AgentConfig {
 		this.capabilities = builder.capabilities != null ? builder.capabilities : CapabilitiesConfig.builder().build();
 		this.generation = builder.generation;
 		this.workspaceDir = builder.workspaceDir;
+		this.workspaces = new ArrayList<>(builder.workspaces);
 		this.hooks = new ArrayList<>(builder.hooks);
 		this.triggers = new ArrayList<>(builder.triggers);
 		this.saveDir = builder.saveDir;
@@ -89,6 +92,7 @@ public class AgentConfig {
 		this.agentBehavior = builder.agentBehavior;
 		this.workspaceContainment = builder.workspaceContainment;
 		this.compactionConfig = builder.compactionConfig;
+		this.subagents = new ArrayList<>(builder.subagents);
 	}
 
 	/**
@@ -146,6 +150,15 @@ public class AgentConfig {
 	 */
 	public Path getWorkspaceDir() {
 		return workspaceDir;
+	}
+
+	/**
+	 * Returns the workspace directories.
+	 *
+	 * @return list of workspace directory paths
+	 */
+	public List<String> getWorkspaces() {
+		return Collections.unmodifiableList(workspaces);
 	}
 
 	/**
@@ -287,6 +300,24 @@ public class AgentConfig {
 	}
 
 	/**
+	 * Returns the list of configured custom subagents.
+	 *
+	 * @return unmodifiable list of custom subagents
+	 */
+	public List<SubagentConfig> getSubagents() {
+		return Collections.unmodifiableList(subagents);
+	}
+
+	/**
+	 * Creates a new AgentConfig with standardized evaluation presets applied.
+	 *
+	 * @return a new AgentConfig configured for evaluations and benchmarks
+	 */
+	public static AgentConfig eval() {
+		return builder().eval().build();
+	}
+
+	/**
 	 * Hydrates the GCP/Vertex project ID from explicit config or standard
 	 * GOOGLE_CLOUD_PROJECT environment variable.
 	 *
@@ -343,6 +374,7 @@ public class AgentConfig {
 		private CapabilitiesConfig capabilities = CapabilitiesConfig.builder().build();
 		private GenerationConfig generation = null;
 		private Path workspaceDir = Path.of(System.getProperty("user.dir"));
+		private List<String> workspaces = new ArrayList<>();
 		private List<AgentHook> hooks = new ArrayList<>();
 		private List<AgentTrigger> triggers = new ArrayList<>();
 		private String saveDir = System.getProperty("java.io.tmpdir") + "/antigravity-java";
@@ -359,6 +391,7 @@ public class AgentConfig {
 		private AgentBehavior agentBehavior;
 		private WorkspaceContainment workspaceContainment;
 		private CompactionConfig compactionConfig;
+		private List<SubagentConfig> subagents = new ArrayList<>();
 
 		/**
 		 * Sets the instructions.
@@ -605,6 +638,56 @@ public class AgentConfig {
 		}
 
 		/**
+		 * Configures the agent with standardized evaluation presets intended to
+		 * represent Gemini's core coding ability on benchmarks and evaluation suites.
+		 *
+		 * Disables image generation, disables subagents, enables daemon commands in
+		 * {@link RunCommandConfig}, sets {@link Policies#allowAll()} for autonomous
+		 * tool execution, and sets resilient API retry behavior via
+		 * {@link RetryConfig#benchmark()}.
+		 *
+		 * @return this builder
+		 */
+		public Builder eval() {
+			RunCommandConfig runCmd = RunCommandConfig.builder().enableDaemons(true).build();
+			this.capabilities = CapabilitiesConfig.builder().enableGenerateImage(false).enableSubagents(false)
+					.runCommandConfig(runCmd).build();
+			this.policies.clear();
+			this.policies.add(Policies.allowAll());
+			this.retryConfig = RetryConfig.benchmark();
+			return this;
+		}
+
+		/**
+		 * Adds a custom subagent configuration.
+		 *
+		 * @param subagent
+		 *            the subagent configuration
+		 * @return this builder
+		 */
+		public Builder addSubagent(SubagentConfig subagent) {
+			if (subagent != null) {
+				this.subagents.add(subagent);
+			}
+			return this;
+		}
+
+		/**
+		 * Sets the list of custom subagents.
+		 *
+		 * @param subagents
+		 *            list of subagents
+		 * @return this builder
+		 */
+		public Builder subagents(List<SubagentConfig> subagents) {
+			this.subagents.clear();
+			if (subagents != null) {
+				this.subagents.addAll(subagents);
+			}
+			return this;
+		}
+
+		/**
 		 * Sets the save directory.
 		 *
 		 * @param saveDir
@@ -649,6 +732,42 @@ public class AgentConfig {
 		 */
 		public Builder addPolicy(Policy policy) {
 			this.policies.add(policy);
+			return this;
+		}
+
+		/**
+		 * Sets security policies.
+		 *
+		 * @param policies
+		 *            list of policies
+		 * @return this builder
+		 */
+		public Builder policies(List<Policy> policies) {
+			this.policies = new ArrayList<>(policies);
+			return this;
+		}
+
+		/**
+		 * Sets workspaces paths.
+		 *
+		 * @param workspaces
+		 *            list of workspace paths
+		 * @return this builder
+		 */
+		public Builder workspaces(List<String> workspaces) {
+			this.workspaces = new ArrayList<>(workspaces);
+			return this;
+		}
+
+		/**
+		 * Adds a workspace path.
+		 *
+		 * @param workspace
+		 *            workspace directory path
+		 * @return this builder
+		 */
+		public Builder addWorkspace(String workspace) {
+			this.workspaces.add(workspace);
 			return this;
 		}
 

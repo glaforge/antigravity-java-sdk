@@ -143,16 +143,16 @@ Sanitize or rewrite tool arguments before dispatch.
 
 ```java
 import io.github.glaforge.antigravity.hooks.HookResult;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 AgentConfig config = AgentConfig.builder()
     .addPreToolCallDecideHook((toolCall, context) -> {
         if ("query_user".equals(toolCall.name())) {
-            // Rewrite arguments to enforce normalized email formats
-            HookResult modified = HookResult.builder()
-                .allow(true)
-                .modifiedArgumentsJson("{\"email\":\"sanitized@example.com\"}")
-                .build();
+            // Rewrite arguments using structured Map (preferred)
+            HookResult modified = HookResult.allowedWithModifiedArgs(
+                Map.of("email", "sanitized@example.com")
+            );
             return CompletableFuture.completedFuture(modified);
         }
         return CompletableFuture.completedFuture(HookResult.allowed());

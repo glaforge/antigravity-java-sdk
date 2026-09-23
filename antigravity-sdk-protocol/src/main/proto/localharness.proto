@@ -847,7 +847,6 @@ message PreToolResult {
 
   Decision decision = 1;
   string reason = 2;
-  string modified_arguments_json = 3;
   Struct modified_args = 4;
 }
 
@@ -900,6 +899,7 @@ message CustomAgent {
   repeated Tool tools = 5;
   SubagentSkillsConfig skills_config = 6;
   AgentBehavior agent_behavior = 7;
+  ModelConfig model = 10;
 }
 
 message ToolOutputTruncation {

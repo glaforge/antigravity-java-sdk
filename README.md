@@ -778,6 +778,53 @@ Starting in Java 24 (JEP 471), the JVM prints a terminally deprecated warning wh
 --sun-misc-unsafe-memory-access=allow
 ```
 
+### 24. Evaluation Preset, Custom Subagent Models & Schedule Tool (v0.1.18)
+
+- **Standardized Evaluation Preset (`.eval()`)**: Use `AgentConfig.builder().eval()` to configure agents with standardized benchmark defaults: disables image generation and subagents, enables background daemons in `RunCommandConfig`, permits autonomous execution via `Policies.allowAll()`, and uses unbounded API retries via `RetryConfig.benchmark()`.
+- **Target Models for Subagents**: Assign dedicated model targets per subagent using `SubagentConfig.builder().model("gemini-2.5-pro")` to route specialized tasks to heavier or lighter models.
+- **Task Scheduling & Cron Tool (`schedule`)**: Full support for one-shot timers and recurring cron jobs via `BuiltinTools.SCHEDULE` (`"schedule"`), automatically pairing with `BuiltinTools.MANAGE_TASK` (`"manage_task"`).
+- **Structured Hook Argument Modification**: Intercept and rewrite tool arguments cleanly with `HookResult.allowedWithModifiedArgs(Map<String, Object>)`, converting directly to Protobuf Struct on the wire.
+- **OpenAPI / JSON Schema Normalization**: Automatic recursive normalization via `SchemaGenerator.normalizeSchema` translates snake_case schema keywords to standard camelCase (`minItems`, `maxItems`, `uniqueItems`, `additionalProperties`) and standardizes GenAI uppercase types.
+
+```java
+// 1. Configure an agent with the standardized evaluation preset
+AgentConfig benchmarkAgent = AgentConfig.builder()
+    .instructions("Benchmark runner evaluating coding ability.")
+    .eval() // Autonomous, allows all tools, unbounded API retries, background daemons enabled
+    .build();
+
+// 2. Configure custom subagents with specialized models
+SubagentConfig reviewer = SubagentConfig.builder()
+    .name("code_reviewer")
+    .description("Reviews pull requests for security and style.")
+    .instructions("Focus on memory safety and API consistency.")
+    .model("gemini-2.5-pro") // Dedicated model target for this subagent
+    .build();
+
+AgentConfig agentWithSubagents = AgentConfig.builder()
+    .instructions("Lead orchestrator delegating reviews to specialists.")
+    .addSubagent(reviewer)
+    .capabilities(CapabilitiesConfig.builder()
+        .enableSubagents(true)
+        .enableSchedule(true) // Enable one-shot timers and recurring crons
+        .build())
+    .build();
+
+// 3. Structured tool argument modification in lifecycle hooks
+AgentConfig secureAgent = AgentConfig.builder()
+    .instructions("Data processor")
+    .addPreToolCallDecideHook((toolCall, ctx) -> {
+        if ("query_records".equals(toolCall.name())) {
+            // Rewrite arguments with type-safe Map
+            return CompletableFuture.completedFuture(
+                HookResult.allowedWithModifiedArgs(Map.of("limit", 50, "tenant", "prod"))
+            );
+        }
+        return CompletableFuture.completedFuture(HookResult.allowed());
+    })
+    .build();
+```
+
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](LICENSE).

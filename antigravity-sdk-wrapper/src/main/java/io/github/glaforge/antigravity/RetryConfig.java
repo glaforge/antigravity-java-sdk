@@ -80,6 +80,6 @@ public record RetryConfig(ModelAPIRetryConfigRecord apiRetry, ModelOutputRetryCo
 	 * @return benchmark RetryConfig preset
 	 */
 	public static RetryConfig benchmark() {
-		return new RetryConfig(new ModelAPIRetryConfigRecord(5, 1000, 2.0, 0.2), new ModelOutputRetryConfigRecord(3));
+		return new RetryConfig(new ModelAPIRetryConfigRecord(Integer.MAX_VALUE, 1000, 2.0, 0.2), null);
 	}
 }

@@ -16,6 +16,7 @@
 package io.github.glaforge.antigravity;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -202,6 +203,64 @@ public class LocalOpenAIAgentConfig {
 		 */
 		public Builder addMcpServer(McpServerConfig mcpServerConfig) {
 			this.agentConfigBuilder.addMcpServer(mcpServerConfig);
+			return this;
+		}
+
+		/**
+		 * Sets workspaces paths.
+		 *
+		 * @param workspaces
+		 *            list of workspace paths
+		 * @return this builder
+		 */
+		public Builder workspaces(List<String> workspaces) {
+			this.agentConfigBuilder.workspaces(workspaces);
+			return this;
+		}
+
+		/**
+		 * Adds a workspace path.
+		 *
+		 * @param workspace
+		 *            workspace directory path
+		 * @return this builder
+		 */
+		public Builder addWorkspace(String workspace) {
+			this.agentConfigBuilder.addWorkspace(workspace);
+			return this;
+		}
+
+		/**
+		 * Sets security policies.
+		 *
+		 * @param policies
+		 *            list of policies
+		 * @return this builder
+		 */
+		public Builder policies(List<Policy> policies) {
+			this.agentConfigBuilder.policies(policies);
+			return this;
+		}
+
+		/**
+		 * Adds a security policy.
+		 *
+		 * @param policy
+		 *            policy instance
+		 * @return this builder
+		 */
+		public Builder addPolicy(Policy policy) {
+			this.agentConfigBuilder.addPolicy(policy);
+			return this;
+		}
+
+		/**
+		 * Applies lightweight presets for local execution.
+		 *
+		 * @return this builder
+		 */
+		public Builder lightweight() {
+			this.agentConfigBuilder.lightweight();
 			return this;
 		}
 
