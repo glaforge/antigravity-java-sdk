@@ -38,6 +38,15 @@ public record AgentResponse(String text, String thoughts, UsageMetadata usageMet
 	}
 
 	/**
+	 * Convenience alias for {@link #usageMetadata()}.
+	 *
+	 * @return the usage metadata
+	 */
+	public UsageMetadata usage() {
+		return usageMetadata;
+	}
+
+	/**
 	 * Parses the text response as JSON and maps it to the specified class.
 	 *
 	 * @param <T>
