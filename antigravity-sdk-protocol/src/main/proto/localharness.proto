@@ -57,6 +57,12 @@ enum PolicyEvaluationOutcome {
   POLICY_EVALUATION_OUTCOME_NO_MATCH = 3;
 }
 
+enum ToolExecutionMode {
+  TOOL_EXECUTION_MODE_UNSPECIFIED = 0;
+  TOOL_EXECUTION_MODE_SYNC = 1;
+  TOOL_EXECUTION_MODE_ASYNC = 2;
+}
+
 message InputConfig {
   string storage_directory = 1;
   uint32 port = 2;
@@ -107,6 +113,12 @@ message HarnessConfig {
   AgentBehavior agent_behavior = 22;
   BudgetConfig budget_config = 23;
   CompactionConfig compaction_config = 24;
+  SkillsConfig skills_config = 27;
+  RulesConfig rules_config = 28;
+}
+
+message RulesConfig {
+  repeated string filenames = 1;
 }
 
 message ModelAPIRetryConfig {
@@ -271,6 +283,7 @@ message RunCommandToolConfig {
   uint32 max_timeout_ms = 2;
   bool enable_daemon_commands = 3;
   bool enable_sandbox = 4;
+  ToolExecutionMode execution_mode = 5;
 }
 
 message SubagentsConfig {
@@ -317,6 +330,16 @@ message ReadUrlContentToolConfig {
 
 message ToolSearchConfig {
   bool enabled = 1;
+}
+
+message SkillSource {
+  reserved 1;
+  string directory_path = 2;
+}
+
+message SkillsConfig {
+  bool enabled = 1;
+  repeated SkillSource skills = 2;
 }
 
 message ManageTaskToolConfig {
@@ -426,6 +449,7 @@ message StepUpdate {
   ActionSearchWeb search_web = 34;
   ActionReadUrlContent read_url_content = 35;
   ActionCustomTool custom_tool = 36;
+  ActionSkillLookup skill_lookup = 37;
   string request_text = 50;
   ToolConfirmationRequest tool_confirmation_request = 51;
   UserQuestionsRequest questions_request = 52;
@@ -434,6 +458,19 @@ message StepUpdate {
 message ActionCustomTool {
   ToolCall tool_call = 1;
   ToolResponse tool_response = 2;
+}
+
+message ActionSkillLookup {
+  enum Operation {
+    OPERATION_UNSPECIFIED = 0;
+    OPERATION_LIST_SKILLS = 1;
+    OPERATION_LOOKUP_SKILLS = 2;
+    OPERATION_GET_SKILL_RESOURCES = 3;
+  }
+  Operation operation = 1;
+  repeated string requested_skill_names = 2;
+  repeated string resolved_skill_names = 3;
+  string error_message = 4;
 }
 
 message ActionGenerateImage {
@@ -626,6 +663,7 @@ message TrajectoryStateUpdate {
   State state = 3;
   string error = 4;
   StopReason stop_reason = 5;
+  string error_code = 8;
 }
 
 message Struct {
@@ -924,9 +962,15 @@ enum WorkspaceContainment {
   WORKSPACE_CONTAINMENT_DISABLED = 2;
 }
 
+message AutoPolicyConfig {
+  bool enabled = 1;
+  string model = 2;
+}
+
 message PolicyConfig {
   repeated PolicyRule rules = 1;
   WorkspaceContainment workspace_containment = 2;
+  AutoPolicyConfig auto_config = 3;
 }
 
 message PolicyRule {

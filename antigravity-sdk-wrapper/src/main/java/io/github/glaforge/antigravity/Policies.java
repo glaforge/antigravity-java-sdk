@@ -38,7 +38,17 @@ public final class Policies {
 	 * @return a policy that allows all tool calls
 	 */
 	public static Policy allowAll() {
-		return (toolName, arguments) -> Policy.Decision.ALLOW;
+		return new Policy() {
+			@Override
+			public Decision evaluate(String toolName, JsonNode arguments) {
+				return Decision.ALLOW;
+			}
+
+			@Override
+			public boolean isAllowAll() {
+				return true;
+			}
+		};
 	}
 
 	/**
@@ -47,7 +57,29 @@ public final class Policies {
 	 * @return a policy that denies all tool calls
 	 */
 	public static Policy denyAll() {
-		return (toolName, arguments) -> Policy.Decision.DENY;
+		return denyAll(null);
+	}
+
+	/**
+	 * A policy that unconditionally denies all tool calls with a custom
+	 * explanation.
+	 *
+	 * @param reason
+	 *            the custom denial reason
+	 * @return a policy that denies all tool calls
+	 */
+	public static Policy denyAll(String reason) {
+		return new Policy() {
+			@Override
+			public Decision evaluate(String toolName, JsonNode arguments) {
+				return Decision.DENY;
+			}
+
+			@Override
+			public String reason() {
+				return reason;
+			}
+		};
 	}
 
 	/**
@@ -78,7 +110,50 @@ public final class Policies {
 	 * @return a policy denying the specified tool
 	 */
 	public static Policy denyTool(String targetToolName) {
-		return (toolName, arguments) -> targetToolName.equals(toolName) ? Policy.Decision.DENY : Policy.Decision.PASS;
+		return denyTool(targetToolName, null);
+	}
+
+	/**
+	 * Creates a policy that denies a specific tool with a custom explanation.
+	 * 
+	 * @param targetToolName
+	 *            the name of the tool to deny (e.g. "run_command")
+	 * @param reason
+	 *            the custom denial reason
+	 * @return a policy denying the specified tool
+	 */
+	public static Policy denyTool(String targetToolName, String reason) {
+		return new Policy() {
+			@Override
+			public Decision evaluate(String toolName, JsonNode arguments) {
+				return targetToolName.equals(toolName) ? Decision.DENY : Decision.PASS;
+			}
+
+			@Override
+			public String reason() {
+				return reason;
+			}
+		};
+	}
+
+	/**
+	 * Creates a policy that restricts tool file operations to configured
+	 * workspaces.
+	 *
+	 * @return a workspace containment policy
+	 */
+	public static Policy workspaceOnly() {
+		return new Policy() {
+			@Override
+			public Decision evaluate(String toolName, JsonNode arguments) {
+				return Decision.PASS;
+			}
+
+			@Override
+			public boolean isWorkspaceOnly() {
+				return true;
+			}
+		};
 	}
 
 	/**

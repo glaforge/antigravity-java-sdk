@@ -205,6 +205,16 @@ public class Agent implements AutoCloseable, TriggerContext {
 		return Policy.Decision.PASS;
 	}
 
+	private String getPolicyDenialReason(String toolName, JsonNode arguments) {
+		for (Policy policy : policies) {
+			Policy.Decision d = policy.evaluate(toolName, arguments);
+			if (d == Policy.Decision.DENY) {
+				return policy.reason() != null ? policy.reason() : "Execution denied by policy";
+			}
+		}
+		return "Execution denied by policy";
+	}
+
 	private final AgentConfig config;
 
 	/**
@@ -793,6 +803,30 @@ public class Agent implements AutoCloseable, TriggerContext {
 					case ENABLED -> policyBuilder.setWorkspaceContainment(WORKSPACE_CONTAINMENT_ENABLED);
 					case DISABLED -> policyBuilder.setWorkspaceContainment(WORKSPACE_CONTAINMENT_DISABLED);
 					case UNSPECIFIED -> policyBuilder.setWorkspaceContainment(WORKSPACE_CONTAINMENT_UNSPECIFIED);
+				}
+			} else {
+				boolean hasAllowAll = false;
+				boolean hasWorkspaceOnly = false;
+				for (Policy policy : policies) {
+					if (policy.isAllowAll()) {
+						hasAllowAll = true;
+					}
+					if (policy.isWorkspaceOnly()) {
+						hasWorkspaceOnly = true;
+					}
+				}
+				if (hasAllowAll && !hasWorkspaceOnly) {
+					configBuilder.getPolicyConfigBuilder().setWorkspaceContainment(WORKSPACE_CONTAINMENT_DISABLED);
+				}
+			}
+
+			if (config.getSkillsConfig() != null) {
+				SkillsConfig sc = config.getSkillsConfig();
+				var skillsProto = configBuilder.getSkillsConfigBuilder();
+				skillsProto.setEnabled(sc.enabled());
+				for (SkillSource source : sc.skills()) {
+					skillsProto.addSkillsBuilder().setDirectoryPath(source.directoryPath());
+					configBuilder.addSkillsPaths(source.directoryPath());
 				}
 			}
 
@@ -1400,6 +1434,10 @@ public class Agent implements AutoCloseable, TriggerContext {
 						String target = stepUpdate.path("target").asText("");
 						String textDelta = stepUpdate.path("textDelta").asText("");
 						String thinkingDelta = stepUpdate.path("thinkingDelta").asText("");
+						String stepState = stepUpdate.path("state").asText("");
+						if ("STATE_ERROR".equals(stepState)) {
+							thinkingDelta = "";
+						}
 
 						if ("TARGET_ENVIRONMENT".equals(target)) {
 							if (currentThoughts != null && !textDelta.isEmpty()) {
@@ -1444,9 +1482,10 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 				if (stepUpdate.has("state") && "STATE_ERROR".equals(stepUpdate.path("state").asText())) {
 					String errorMessage = stepUpdate.path("errorMessage").asText("Unknown error");
+					String errorCode = stepUpdate.has("errorCode") ? stepUpdate.path("errorCode").asText(null) : null;
 					if (currentChatFuture != null && !currentChatFuture.isDone()) {
 						currentChatFuture.completeExceptionally(
-								new RuntimeException("Agent execution terminated: " + errorMessage));
+								new AgentExecutionException("Agent execution terminated: " + errorMessage, errorCode));
 						currentChatFuture = null;
 						currentChunkConsumer = null;
 						if (currentThoughtsPublisher != null) {
@@ -1733,8 +1772,25 @@ public class Agent implements AutoCloseable, TriggerContext {
 			}
 
 			if (payload.has("trajectoryStateUpdate")) {
-				String state = payload.get("trajectoryStateUpdate").path("state").asText();
-				if ("STATE_IDLE".equals(state) || "STATE_FULLY_IDLE".equals(state)) {
+				JsonNode tsu = payload.get("trajectoryStateUpdate");
+				String state = tsu.path("state").asText();
+				String error = tsu.path("error").asText("");
+				String errorCode = tsu.has("errorCode") ? tsu.path("errorCode").asText(null) : null;
+				if (!error.isEmpty() && !"STATE_RUNNING".equals(state)) {
+					if (currentChatFuture != null && !currentChatFuture.isDone()) {
+						currentChatFuture.completeExceptionally(new AgentExecutionException(error, errorCode));
+						currentChatFuture = null;
+						currentChunkConsumer = null;
+						if (currentThoughtsPublisher != null) {
+							currentThoughtsPublisher.close();
+							currentThoughtsPublisher = null;
+						}
+						if (currentToolCallsPublisher != null) {
+							currentToolCallsPublisher.close();
+							currentToolCallsPublisher = null;
+						}
+					}
+				} else if ("STATE_IDLE".equals(state) || "STATE_FULLY_IDLE".equals(state)) {
 					if (currentChatFuture != null && !currentChatFuture.isDone()) {
 						if (clientCancelled) {
 							currentChatFuture.completeExceptionally(new AgentCancelledException());
@@ -1817,7 +1873,8 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 				Policy.Decision decision = evaluatePolicies(name, args);
 				if (decision == Policy.Decision.DENY) {
-					sendToolResponse(callId, "{\"error\": \"Execution denied by policy\"}");
+					String reason = getPolicyDenialReason(name, args);
+					sendToolResponse(callId, "{\"error\": \"" + reason.replace("\"", "\\\"") + "\"}");
 					return;
 				}
 

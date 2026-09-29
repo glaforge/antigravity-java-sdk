@@ -825,6 +825,39 @@ AgentConfig secureAgent = AgentConfig.builder()
     .build();
 ```
 
+### 25. Native Agent Skills, Policy Containment & Trajectory Error Codes (v0.1.20)
+
+- **Native Agent Skills Configuration (`SkillsConfig`)**: Configure skills directories natively using `SkillsConfig` and `SkillSource`:
+  ```java
+  AgentConfig config = AgentConfig.builder()
+      .instructions("Assistant equipped with domain skills.")
+      .addSkill(SkillSource.fromDirectory("/opt/skills/git-workflow"))
+      .addSkillPath(Path.of("/opt/skills/code-review"))
+      .build();
+  ```
+- **Automatic Workspace Containment with `allowAll()`**: Following upstream v0.1.20, when `Policies.allowAll()` is configured without an explicit `Policies.workspaceOnly()` policy, the SDK automatically disables workspace containment (`WORKSPACE_CONTAINMENT_DISABLED`) so local tools can execute across the system unimpeded.
+- **Custom Policy Denial Reasons**: Policies now support informative rejection messages with `Policies.denyAll(String reason)` and `Policies.denyTool(String tool, String reason)`.
+- **Structured Trajectory Error Codes & `AgentExecutionException`**: Failed agent turns throw `AgentExecutionException` exposing both the error message and the machine-readable `errorCode` (e.g., `RESOURCE_EXHAUSTED`, `TOOL_TIMEOUT`).
+
+```java
+// 1. Configure agent with domain skills and custom policy reasons
+AgentConfig config = AgentConfig.builder()
+    .instructions("DevOps engineer with specialized skills.")
+    .addSkillPath(Path.of("./skills/docker-deploy"))
+    .addPolicy(Policies.denyTool("run_command", "Production deployments cannot run raw bash commands"))
+    .build();
+
+// 2. Catch structured execution exceptions with error codes
+try (Agent agent = new Agent(config)) {
+    AgentResponse response = agent.chat("Deploy service").get(30, TimeUnit.SECONDS);
+    System.out.println(response.content());
+} catch (ExecutionException e) {
+    if (e.getCause() instanceof AgentExecutionException aee) {
+        System.err.println("Execution failed [" + aee.getErrorCode() + "]: " + aee.getMessage());
+    }
+}
+```
+
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](LICENSE).

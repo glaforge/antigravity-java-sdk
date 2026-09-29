@@ -813,3 +813,57 @@ import io.github.glaforge.antigravity.tools.SchemaGenerator;
 JsonNode normalized = SchemaGenerator.normalizeSchema(rawSchemaNode);
 ```
 
+---
+
+## 17. Native Agent Skills, Policy Containment & Trajectory Error Codes (v0.1.20)
+
+### Native Agent Skills Configuration (`SkillsConfig`, `SkillSource`)
+Configure skills directories using modern immutable records:
+
+```java
+import io.github.glaforge.antigravity.SkillSource;
+import io.github.glaforge.antigravity.SkillsConfig;
+import java.nio.file.Path;
+
+SkillsConfig skillsConfig = SkillsConfig.builder()
+    .enabled(true)
+    .addSkill(SkillSource.fromDirectory("/opt/skills/git-workflow"))
+    .addSkillPath(Path.of("/opt/skills/code-review"))
+    .build();
+
+AgentConfig config = AgentConfig.builder()
+    .instructions("Senior engineer with domain skills.")
+    .skillsConfig(skillsConfig)
+    .build();
+```
+
+### Automatic Policy Workspace Containment Disabling
+Following upstream v0.1.20, when `Policies.allowAll()` is set without an explicit `Policies.workspaceOnly()` policy, workspace containment is automatically disabled (`WORKSPACE_CONTAINMENT_DISABLED`) so local tools can execute across the system unimpeded.
+
+### Policy Denial Messages
+Provide informative explanations when denying tool calls:
+
+```java
+import io.github.glaforge.antigravity.Policies;
+
+AgentConfig config = AgentConfig.builder()
+    .addPolicy(Policies.denyTool("run_command", "Production deployments cannot execute raw shell commands"))
+    .build();
+```
+
+### Structured Trajectory Error Codes (`AgentExecutionException`)
+Inspect machine-readable error codes when an agent turn fails:
+
+```java
+import io.github.glaforge.antigravity.AgentExecutionException;
+
+try (Agent agent = new Agent(config)) {
+    AgentResponse response = agent.chat("Deploy service").get(30, TimeUnit.SECONDS);
+} catch (ExecutionException e) {
+    if (e.getCause() instanceof AgentExecutionException aee) {
+        System.err.println("Error code: " + aee.getErrorCode());
+        System.err.println("Details: " + aee.getMessage());
+    }
+}
+```
+

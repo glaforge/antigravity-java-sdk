@@ -45,6 +45,7 @@ public class AgentConfig {
 	private final String modelName;
 	private final List<Object> toolInstances;
 	private final List<String> skillsPaths;
+	private final SkillsConfig skillsConfig;
 	private final CapabilitiesConfig capabilities;
 	private final GenerationConfig generation;
 	private final Path workspaceDir;
@@ -72,6 +73,14 @@ public class AgentConfig {
 		this.modelName = builder.modelName;
 		this.toolInstances = new ArrayList<>(builder.toolInstances);
 		this.skillsPaths = new ArrayList<>(builder.skillsPaths);
+		if (builder.skillsConfig != null) {
+			this.skillsConfig = builder.skillsConfig;
+		} else if (!builder.skillsPaths.isEmpty()) {
+			this.skillsConfig = SkillsConfig.builder()
+					.skills(builder.skillsPaths.stream().map(SkillSource::fromDirectory).toList()).build();
+		} else {
+			this.skillsConfig = null;
+		}
 		this.capabilities = builder.capabilities != null ? builder.capabilities : CapabilitiesConfig.builder().build();
 		this.generation = builder.generation;
 		this.workspaceDir = builder.workspaceDir;
@@ -126,6 +135,14 @@ public class AgentConfig {
 	 */
 	public List<String> getSkillsPaths() {
 		return Collections.unmodifiableList(skillsPaths);
+	}
+	/**
+	 * Returns the Agent Skills configuration.
+	 *
+	 * @return the skills configuration, or null if not configured
+	 */
+	public SkillsConfig getSkillsConfig() {
+		return skillsConfig;
 	}
 	/**
 	 * Returns the capabilities configuration.
@@ -371,6 +388,7 @@ public class AgentConfig {
 		private String modelName = DEFAULT_MODEL_NAME;
 		private List<Object> toolInstances = new ArrayList<>();
 		private List<String> skillsPaths = new ArrayList<>();
+		private SkillsConfig skillsConfig;
 		private CapabilitiesConfig capabilities = CapabilitiesConfig.builder().build();
 		private GenerationConfig generation = null;
 		private Path workspaceDir = Path.of(System.getProperty("user.dir"));
@@ -439,6 +457,59 @@ public class AgentConfig {
 		public Builder addSkillPath(String skillPath) {
 			this.skillsPaths.add(skillPath);
 			return this;
+		}
+
+		/**
+		 * Sets the Agent Skills configuration.
+		 *
+		 * @param skillsConfig
+		 *            the skills configuration
+		 * @return this builder
+		 */
+		public Builder skillsConfig(SkillsConfig skillsConfig) {
+			this.skillsConfig = skillsConfig;
+			return this;
+		}
+
+		/**
+		 * Sets the list of skill sources.
+		 *
+		 * @param skills
+		 *            the list of skill sources
+		 * @return this builder
+		 */
+		public Builder skills(List<SkillSource> skills) {
+			this.skillsConfig = SkillsConfig.of(skills);
+			return this;
+		}
+
+		/**
+		 * Adds a skill source.
+		 *
+		 * @param skill
+		 *            the skill source
+		 * @return this builder
+		 */
+		public Builder addSkill(SkillSource skill) {
+			if (this.skillsConfig == null) {
+				this.skillsConfig = SkillsConfig.builder().addSkill(skill).build();
+			} else {
+				List<SkillSource> list = new ArrayList<>(this.skillsConfig.skills());
+				list.add(skill);
+				this.skillsConfig = new SkillsConfig(this.skillsConfig.enabled(), list);
+			}
+			return this;
+		}
+
+		/**
+		 * Adds a skill directory path.
+		 *
+		 * @param path
+		 *            the path to the skill directory
+		 * @return this builder
+		 */
+		public Builder addSkillPath(Path path) {
+			return addSkill(SkillSource.fromPath(path));
 		}
 
 		/**

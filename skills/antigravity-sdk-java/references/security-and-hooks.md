@@ -258,4 +258,21 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
+---
+
+## 4. Policy Denial Reasons & Workspace Containment (v0.1.20)
+
+### Custom Denial Reasons
+Provide explicit, descriptive rejection messages when policies deny tool execution:
+
+```java
+AgentConfig config = AgentConfig.builder()
+    .addPolicy(Policies.denyTool("run_command", "Execution of shell commands is prohibited on this tenant"))
+    .addPolicy(Policies.denyAll("All tools locked pending administrative unlock"))
+    .build();
+```
+
+### Automatic Workspace Containment Disabling
+When an agent is configured with `Policies.allowAll()` and no explicit `Policies.workspaceOnly()` policy is provided, the SDK automatically disables workspace containment (`WORKSPACE_CONTAINMENT_DISABLED`), allowing autonomous tasks to operate across directories without restriction.
+
 

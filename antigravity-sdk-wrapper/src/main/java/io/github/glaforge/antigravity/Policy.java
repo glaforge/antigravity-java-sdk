@@ -45,4 +45,31 @@ public interface Policy {
 	 * @return the policy decision
 	 */
 	Decision evaluate(String toolName, JsonNode arguments);
+
+	/**
+	 * Returns an optional reason string explaining the decision.
+	 *
+	 * @return denial reason, or null if unspecified
+	 */
+	default String reason() {
+		return null;
+	}
+
+	/**
+	 * Indicates whether this policy allows all tool executions unconditionally.
+	 *
+	 * @return true if allow-all
+	 */
+	default boolean isAllowAll() {
+		return false;
+	}
+
+	/**
+	 * Indicates whether this policy enforces workspace-only containment.
+	 *
+	 * @return true if workspace-only
+	 */
+	default boolean isWorkspaceOnly() {
+		return false;
+	}
 }
