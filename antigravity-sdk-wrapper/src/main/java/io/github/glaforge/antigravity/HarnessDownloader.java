@@ -29,6 +29,9 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import org.slf4j.Logger;
@@ -42,22 +45,37 @@ public class HarnessDownloader {
 
 	private static final Logger log = LoggerFactory.getLogger(HarnessDownloader.class);
 	private static final ObjectMapper MAPPER = new ObjectMapper();
-	private static final Duration TIMEOUT = Duration.ofSeconds(60);
+	private static final Duration METADATA_TIMEOUT = Duration.ofSeconds(15);
+	private static final Duration DOWNLOAD_TIMEOUT = Duration.ofMinutes(3);
 
 	/**
 	 * Default upstream package version matching current protocol definitions.
 	 */
 	public static final String DEFAULT_UPSTREAM_VERSION = "0.1.20";
 
+	/**
+	 * Set of supported platform slices.
+	 */
+	public static final Set<String> SUPPORTED_SLICES = Set.of("linux-x86_64", "linux-aarch64", "osx-aarch64",
+			"osx-x86_64", "windows-x86_64", "windows-aarch64");
+
+	static {
+		// Prefer OS-level DNS address ordering on dual-stack IPv4/IPv6 networks
+		if (System.getProperty("java.net.preferIPv6Addresses") == null) {
+			System.setProperty("java.net.preferIPv6Addresses", "system");
+		}
+	}
+
 	private final HttpClient httpClient;
 	private final String upstreamVersion;
+	private final Map<String, String> wheelUrlCache = new ConcurrentHashMap<>();
 
 	/**
 	 * Creates a new downloader using default HTTP client and upstream version.
 	 */
 	public HarnessDownloader() {
-		this(HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).connectTimeout(TIMEOUT).build(),
-				DEFAULT_UPSTREAM_VERSION);
+		this(HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).connectTimeout(METADATA_TIMEOUT)
+				.build(), DEFAULT_UPSTREAM_VERSION);
 	}
 
 	/**
@@ -83,81 +101,76 @@ public class HarnessDownloader {
 	 *             if API lookup fails or no matching wheel is found
 	 */
 	public String resolveWheelUrl(String platformSlice) throws IOException {
+		if (!SUPPORTED_SLICES.contains(platformSlice)) {
+			throw new IllegalArgumentException("Unsupported platform slice: " + platformSlice);
+		}
+
+		String cached = wheelUrlCache.get(platformSlice);
+		if (cached != null) {
+			return cached;
+		}
+
 		String versionUrl = "https://pypi.org/pypi/google-antigravity/" + upstreamVersion + "/json";
-		String wheelUrl = queryWheelUrl(versionUrl, platformSlice);
-		if (wheelUrl != null) {
-			return wheelUrl;
+		queryWheelUrls(versionUrl);
+		cached = wheelUrlCache.get(platformSlice);
+		if (cached != null) {
+			return cached;
 		}
 
 		// Fallback to latest release endpoint if specific version metadata is not found
 		String latestUrl = "https://pypi.org/pypi/google-antigravity/json";
-		wheelUrl = queryWheelUrl(latestUrl, platformSlice);
-		if (wheelUrl != null) {
-			return wheelUrl;
+		queryWheelUrls(latestUrl);
+		cached = wheelUrlCache.get(platformSlice);
+		if (cached != null) {
+			return cached;
 		}
 
 		throw new FileNotFoundException("No upstream wheel found on PyPI for platform slice: " + platformSlice
 				+ " (version: " + upstreamVersion + ")");
 	}
 
-	private String queryWheelUrl(String metadataUrl, String platformSlice) throws IOException {
-		HttpRequest request = HttpRequest.newBuilder().uri(URI.create(metadataUrl)).timeout(TIMEOUT).GET().build();
+	private void queryWheelUrls(String metadataUrl) throws IOException {
+		HttpRequest request = HttpRequest.newBuilder().uri(URI.create(metadataUrl)).timeout(METADATA_TIMEOUT).GET()
+				.build();
 
 		try {
-			HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+			HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 			if (response.statusCode() != 200) {
 				log.debug("PyPI API returned status {} for URL {}", response.statusCode(), metadataUrl);
-				return null;
+				return;
 			}
 
 			JsonNode root = MAPPER.readTree(response.body());
 			JsonNode urlsNode = root.path("urls");
 			if (!urlsNode.isArray()) {
-				return null;
-			}
-
-			String targetPlatform;
-			String targetArch;
-			switch (platformSlice) {
-				case "linux-x86_64" -> {
-					targetPlatform = "manylinux";
-					targetArch = "x86_64";
-				}
-				case "linux-aarch64" -> {
-					targetPlatform = "manylinux";
-					targetArch = "aarch64";
-				}
-				case "osx-aarch64" -> {
-					targetPlatform = "macosx";
-					targetArch = "arm64";
-				}
-				case "osx-x86_64" -> {
-					targetPlatform = "macosx";
-					targetArch = "x86_64";
-				}
-				case "windows-x86_64" -> {
-					targetPlatform = "win";
-					targetArch = "amd64";
-				}
-				case "windows-aarch64" -> {
-					targetPlatform = "win";
-					targetArch = "arm64";
-				}
-				default -> throw new IllegalArgumentException("Unsupported platform slice: " + platformSlice);
+				return;
 			}
 
 			for (JsonNode fileNode : urlsNode) {
 				String filename = fileNode.path("filename").asText("");
-				if (filename.endsWith(".whl") && filename.contains(targetPlatform) && filename.contains(targetArch)) {
-					return fileNode.path("url").asText(null);
+				String url = fileNode.path("url").asText(null);
+				if (url == null || !filename.endsWith(".whl")) {
+					continue;
+				}
+
+				if (filename.contains("manylinux") && filename.contains("x86_64")) {
+					wheelUrlCache.putIfAbsent("linux-x86_64", url);
+				} else if (filename.contains("manylinux") && filename.contains("aarch64")) {
+					wheelUrlCache.putIfAbsent("linux-aarch64", url);
+				} else if (filename.contains("macosx") && filename.contains("arm64")) {
+					wheelUrlCache.putIfAbsent("osx-aarch64", url);
+				} else if (filename.contains("macosx") && filename.contains("x86_64")) {
+					wheelUrlCache.putIfAbsent("osx-x86_64", url);
+				} else if (filename.contains("win") && filename.contains("amd64")) {
+					wheelUrlCache.putIfAbsent("windows-x86_64", url);
+				} else if (filename.contains("win") && filename.contains("arm64")) {
+					wheelUrlCache.putIfAbsent("windows-aarch64", url);
 				}
 			}
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 			throw new IOException("Interrupted while querying PyPI for wheel metadata", e);
 		}
-
-		return null;
 	}
 
 	/**
@@ -177,7 +190,7 @@ public class HarnessDownloader {
 		String wheelUrl = resolveWheelUrl(platformSlice);
 		log.info("Downloading native localharness binary for {} from upstream wheel...", platformSlice);
 
-		HttpRequest request = HttpRequest.newBuilder().uri(URI.create(wheelUrl)).timeout(Duration.ofMinutes(3)).GET()
+		HttpRequest request = HttpRequest.newBuilder().uri(URI.create(wheelUrl)).timeout(DOWNLOAD_TIMEOUT).GET()
 				.build();
 
 		try {
@@ -192,43 +205,49 @@ public class HarnessDownloader {
 			String binaryEntryName = "google/antigravity/bin/localharness" + ext;
 
 			File tempFile = File.createTempFile("localharness-dl-", ext, baseDir);
-			boolean found = false;
-
-			try (ZipInputStream zis = new ZipInputStream(response.body())) {
-				ZipEntry entry;
-				while ((entry = zis.getNextEntry()) != null) {
-					if (entry.getName().equals(binaryEntryName)) {
-						Files.copy(zis, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-						found = true;
-						break;
+			boolean completed = false;
+			try {
+				boolean found = false;
+				try (ZipInputStream zis = new ZipInputStream(response.body())) {
+					ZipEntry entry;
+					while ((entry = zis.getNextEntry()) != null) {
+						if (entry.getName().equals(binaryEntryName)) {
+							Files.copy(zis, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+							found = true;
+							break;
+						}
 					}
 				}
+
+				if (!found) {
+					throw new FileNotFoundException(
+							"Entry '" + binaryEntryName + "' not found inside downloaded wheel: " + wheelUrl);
+				}
+
+				if (!tempFile.setExecutable(true)) {
+					throw new IllegalStateException(
+							"Failed to grant execution rights to downloaded binary: " + tempFile.getAbsolutePath());
+				}
+
+				try {
+					Files.move(tempFile.toPath(), targetBinary.toPath(), StandardCopyOption.REPLACE_EXISTING,
+							StandardCopyOption.ATOMIC_MOVE);
+				} catch (AtomicMoveNotSupportedException e) {
+					Files.move(tempFile.toPath(), targetBinary.toPath(), StandardCopyOption.REPLACE_EXISTING);
+				}
+
+				// Write version stamp file
+				File versionFile = new File(baseDir, ".version");
+				Files.writeString(versionFile.toPath(), upstreamVersion);
+
+				completed = true;
+				log.info("Successfully installed localharness {} to {}", upstreamVersion,
+						targetBinary.getAbsolutePath());
+			} finally {
+				if (!completed && tempFile.exists()) {
+					tempFile.delete();
+				}
 			}
-
-			if (!found) {
-				tempFile.delete();
-				throw new FileNotFoundException(
-						"Entry '" + binaryEntryName + "' not found inside downloaded wheel: " + wheelUrl);
-			}
-
-			if (!tempFile.setExecutable(true)) {
-				tempFile.delete();
-				throw new IllegalStateException(
-						"Failed to grant execution rights to downloaded binary: " + tempFile.getAbsolutePath());
-			}
-
-			try {
-				Files.move(tempFile.toPath(), targetBinary.toPath(), StandardCopyOption.REPLACE_EXISTING,
-						StandardCopyOption.ATOMIC_MOVE);
-			} catch (AtomicMoveNotSupportedException e) {
-				Files.move(tempFile.toPath(), targetBinary.toPath(), StandardCopyOption.REPLACE_EXISTING);
-			}
-
-			// Write version stamp file
-			File versionFile = new File(baseDir, ".version");
-			Files.writeString(versionFile.toPath(), upstreamVersion);
-
-			log.info("Successfully installed localharness {} to {}", upstreamVersion, targetBinary.getAbsolutePath());
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 			throw new IOException("Interrupted while downloading native localharness binary", e);

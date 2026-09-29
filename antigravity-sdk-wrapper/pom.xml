@@ -76,6 +76,9 @@
                 <version>3.5.4</version>
                 <configuration>
                     <excludedGroups>integration</excludedGroups>
+                    <systemPropertyVariables>
+                        <java.net.preferIPv6Addresses>system</java.net.preferIPv6Addresses>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>

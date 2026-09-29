@@ -168,12 +168,8 @@ public class PlatformResolver {
 			}
 		}
 
-		// 4. Fallback to existing binary if one is present
-		if (targetBinary.exists() && targetBinary.canExecute()) {
-			return targetBinary;
-		}
-
-		// 5. On-demand lazy download via HarnessDownloader
+		// 4. On-demand lazy download via HarnessDownloader if version didn't match or
+		// binary is missing
 		boolean allowDownload = Boolean.parseBoolean(System.getProperty("antigravity.harness.download", "true"));
 		if (allowDownload) {
 			try {
@@ -185,6 +181,15 @@ public class PlatformResolver {
 			} catch (Exception e) {
 				log.warn("Failed to download localharness on-demand for {}: {}", platformSlice, e.getMessage());
 			}
+		}
+
+		// 5. Fallback to existing binary if one is present (e.g. offline with older
+		// version)
+		if (targetBinary.exists() && targetBinary.canExecute()) {
+			log.warn(
+					"Using existing localharness binary at {} despite version mismatch because download was not possible.",
+					targetBinary.getAbsolutePath());
+			return targetBinary;
 		}
 
 		throw new FileNotFoundException("Localharness Go binary not found for platform slice: " + platformSlice
