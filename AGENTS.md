@@ -63,10 +63,11 @@ This entire project was autonomously generated and implemented by me (the Antigr
 
 ## 🔄 Upstream Synchronization
 
-Keeping this SDK at feature parity with the upstream Antigravity project requires a rigorous five-step sync process whenever new features are released:
+Keeping this SDK at feature parity with the upstream Antigravity project requires a rigorous six-step sync process whenever new features are released:
 
 1. **Update the Go Harness Binaries**:
    * Execute `./sync-harness.sh`. This script scrapes the Python Package Index (PyPI), downloads the latest upstream wheels, extracts the native Go binaries for all supported platforms, and places them in `src/main/resources/google/antigravity/bin/`.
+   * Keep the extracted Python package directory (or unpack to `/tmp/antigravity_upstream/`) to enable direct Python source diffing.
 
 2. **Accurate Protocol Extraction (Never Guess Field Names)**:
    * The upstream wheel contains compiled Python descriptors (`localharness_pb2.py` and `content_pb2.py`), which embed the serialized `FileDescriptorProto`.
@@ -81,13 +82,23 @@ Keeping this SDK at feature parity with the upstream Antigravity project require
      ```
    * Update `antigravity-sdk-protocol/src/main/proto/localharness.proto` to strictly match the extracted descriptor.
 
-3. **Regenerate and Refactor**:
+3. **Systematic Python SDK Source & Test Audit (Never Skip)**:
+   * Wire descriptors only cover the Go harness contract; high-level developer ergonomics, tool sets, builder options, and policies live in the Python codebase.
+   * Run a diff between the previous and new upstream Python source (`google/antigravity/`):
+     * `types.py`: Check for new/deprecated enum values, updated tool categorization methods (`BuiltinTools.deprecated()`, `minimal()`, `readOnly()`, `defaultTools()`), and new data structures.
+     * `connections/` & `connection_config.py`: Check all builder options across `LocalOpenAIAgentConfig`, `LiteRTAgentConfig`, and local agent strategies for forwarded properties (budgets, continuation modes, policies).
+     * `hooks/policy.py`: Check policy function signatures, callbacks (e.g., justification arguments), and decision evaluations.
+     * `*_test.py`: Inspect newly added test cases in `types_test.py`, `local_connection_test.py`, `policy_test.py`, etc. Upstream tests are the authoritative specification for all new behaviors.
+
+4. **Regenerate, Refactor & Create Parity Tests**:
    * Recompile protocol and wrapper (`./mvnw clean compile`).
    * Update wrapper classes and builders to support new options, enums, records, and configs.
+   * Create a dedicated unit test suite for the release (e.g. `FeatureParity<version>Test.java`) systematically verifying all audited diff items before running live tests.
 
-4. **Verify Wire Compatibility & Local Smoke Testing**:
+5. **Verify Wire Compatibility & Local Smoke Testing**:
    * Run fast unit tests: `./mvnw test`
    * Run at least one live integration test against the newly extracted `localharness` binary (e.g., `./mvnw test -Pintegration-tests -Dtest=InteractiveAskQuestionTest`) or run full integration tests (`./mvnw test -Pintegration-tests`) to verify that the native Go binary successfully unmarshals all `InputEvent` and `HarnessConfig` JSON messages over WebSockets.
 
-5. **Update Skill & Documentation**:
+6. **Update Skill & Documentation**:
    * Update `README.md` and the official Agent Skill (`skills/antigravity-sdk-java/SKILL.md` and `skills/antigravity-sdk-java/references/`) with new features, configuration options, and code samples.
+
