@@ -42,7 +42,7 @@ for SLICE in "${SLICES[@]}"; do
 done
 
 if [ "$ALL_EXIST" = true ] && [ "${FORCE_SYNC:-false}" != "true" ]; then
-  echo "All Go harness binaries are already present in $BIN_DIR. (Set FORCE_SYNC=true to re-download)"
+  echo "All Go harness binaries are already present in $BIN_DIR. (Set FORCE_SYNC=true to re-download and unpack Python source)"
   exit 0
 fi
 
@@ -52,6 +52,10 @@ PLATFORMS=("manylinux" "macosx" "macosx" "manylinux" "win" "win")
 ARCHS=("x86_64" "arm64" "x86_64" "aarch64" "amd64" "arm64")
 
 PACKAGE_INFO=$(curl -s https://pypi.org/pypi/google-antigravity/json)
+UPSTREAM_VERSION=$(echo "$PACKAGE_INFO" | jq -r '.info.version // "unknown"')
+echo "Detected upstream google-antigravity version: v${UPSTREAM_VERSION}"
+
+EXTRACTED_PYTHON=false
 
 for i in "${!PLATFORMS[@]}"; do
   PLATFORM="${PLATFORMS[$i]}"
@@ -67,6 +71,20 @@ for i in "${!PLATFORMS[@]}"; do
     echo "Downloading $SLICE from $WHEEL_URL"
     curl -sL -o "$WHEEL_FILE" "$WHEEL_URL"
     
+    # Extract Python package source from the first downloaded wheel for systematic diffing and API audit
+    if [ "$EXTRACTED_PYTHON" = false ]; then
+      UPSTREAM_PYTHON_DIR="${SCRIPT_DIR}/target/upstream-python"
+      echo "Extracting Python SDK source to $UPSTREAM_PYTHON_DIR and /tmp/antigravity_upstream/ for API audit..."
+      rm -rf "$UPSTREAM_PYTHON_DIR" /tmp/antigravity_upstream
+      mkdir -p "$UPSTREAM_PYTHON_DIR" /tmp/antigravity_upstream
+      unzip -q -o "$WHEEL_FILE" "google/antigravity/*" -d "$UPSTREAM_PYTHON_DIR" 2>/dev/null || true
+      if [ -d "$UPSTREAM_PYTHON_DIR/google/antigravity" ]; then
+        cp -R "$UPSTREAM_PYTHON_DIR"/google/antigravity/* /tmp/antigravity_upstream/ 2>/dev/null || true
+        echo "Python SDK source successfully unpacked."
+      fi
+      EXTRACTED_PYTHON=true
+    fi
+
     TARGET_DIR="$BIN_DIR/$SLICE"
     mkdir -p "$TARGET_DIR"
     
@@ -84,4 +102,10 @@ for i in "${!PLATFORMS[@]}"; do
   fi
 done
 
-echo "Go harness synchronization complete."
+echo "================================================================="
+echo "Go harness synchronization complete (upstream v${UPSTREAM_VERSION})."
+if [ "$EXTRACTED_PYTHON" = true ]; then
+  echo "Python SDK source unpacked at: /tmp/antigravity_upstream/"
+  echo "Audit step: diff -r <previous_source_dir> /tmp/antigravity_upstream/"
+fi
+echo "================================================================="
