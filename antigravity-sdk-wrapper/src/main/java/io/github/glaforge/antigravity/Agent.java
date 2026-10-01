@@ -442,6 +442,18 @@ public class Agent implements AutoCloseable, TriggerContext {
 		}
 
 		/**
+		 * Sets the session continuation mode.
+		 *
+		 * @param sessionContinuationMode
+		 *            the session continuation mode
+		 * @return this builder
+		 */
+		public Builder sessionContinuationMode(SessionContinuationMode sessionContinuationMode) {
+			configBuilder.sessionContinuationMode(sessionContinuationMode);
+			return this;
+		}
+
+		/**
 		 * Sets the agent behavior mode (AUTONOMOUS or INTERACTIVE).
 		 *
 		 * @param agentBehavior
@@ -817,6 +829,19 @@ public class Agent implements AutoCloseable, TriggerContext {
 				}
 				if (hasAllowAll && !hasWorkspaceOnly) {
 					configBuilder.getPolicyConfigBuilder().setWorkspaceContainment(WORKSPACE_CONTAINMENT_DISABLED);
+				}
+			}
+
+			if (config.getSessionContinuationMode() != null) {
+				switch (config.getSessionContinuationMode()) {
+					case RESUME ->
+						configBuilder.setSessionContinuationMode(HarnessConfig.SessionContinuationMode.RESUME);
+					case CREATE_OR_RESUME -> configBuilder
+							.setSessionContinuationMode(HarnessConfig.SessionContinuationMode.CREATE_OR_RESUME);
+					case CREATE_ONLY ->
+						configBuilder.setSessionContinuationMode(HarnessConfig.SessionContinuationMode.CREATE_ONLY);
+					case UNSPECIFIED -> configBuilder.setSessionContinuationMode(
+							HarnessConfig.SessionContinuationMode.SESSION_CONTINUATION_MODE_UNSPECIFIED);
 				}
 			}
 

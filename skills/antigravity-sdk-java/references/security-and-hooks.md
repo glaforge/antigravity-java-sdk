@@ -36,18 +36,18 @@ AgentConfig config = AgentConfig.builder()
         return false;
     }))
 
-    // Rule 2: Interactive user confirmation for sensitive files
-    .addPolicy(Policies.askUser((toolName, args) -> {
+    // Rule 2: Interactive user confirmation with contextual evaluation justification
+    .addPolicy(Policies.askUser((toolName, args, justification) -> {
         if ("view_file".equals(toolName) && args.has("path")) {
             String path = args.get("path").asText();
             if (path.contains("credentials.env")) {
-                System.out.print("⚠️ Agent requested sensitive file: " + path + ". Allow? (y/n): ");
+                System.out.printf("⚠️ [%s] Agent requested sensitive file: %s. Allow? (y/n): ", justification, path);
                 Scanner scanner = new Scanner(System.in);
                 return scanner.nextLine().trim().equalsIgnoreCase("y");
             }
         }
         return true; // Auto-pass non-sensitive files
-    }))
+    }, "Reading environment credential files requires explicit operator approval"))
 
     // Rule 3: Explicit allowlist for standard tools
     .addPolicy(Policies.allowTools("query_user", "get_status"))

@@ -75,22 +75,39 @@ public enum BuiltinTools {
 	}
 
 	/**
+	 * Returns deprecated/legacy builtin tools that are disabled by default.
+	 *
+	 * Includes LIST_DIR, SEARCH_DIR, and FIND_FILE, which are excluded from default
+	 * tool collections to reduce prompt overhead and only enabled when explicitly
+	 * requested.
+	 *
+	 * @return a list of deprecated BuiltinTools
+	 */
+	public static List<BuiltinTools> deprecated() {
+		return List.of(LIST_DIR, SEARCH_DIR, FIND_FILE);
+	}
+
+	/**
 	 * Returns tools that only read state (no writes, deletes, or commands).
+	 *
+	 * Excludes LIST_DIR, SEARCH_DIR, and FIND_FILE, which are disabled by default.
 	 *
 	 * @return a list of read-only BuiltinTools
 	 */
 	public static List<BuiltinTools> readOnly() {
-		return List.of(LIST_DIR, SEARCH_DIR, FIND_FILE, VIEW_FILE, READ_URL_CONTENT, FINISH);
+		return List.of(VIEW_FILE, READ_URL_CONTENT, SCHEDULE, FINISH);
 	}
 
 	/**
 	 * Returns tools that cannot delete content.
 	 *
+	 * Excludes LIST_DIR, SEARCH_DIR, and FIND_FILE, which are disabled by default.
+	 *
 	 * @return a list of non-destructive BuiltinTools
 	 */
 	public static List<BuiltinTools> nondestructive() {
-		return List.of(LIST_DIR, SEARCH_DIR, FIND_FILE, VIEW_FILE, CREATE_FILE, EDIT_FILE, ASK_QUESTION, START_SUBAGENT,
-				GENERATE_IMAGE, SEARCH_WEB, READ_URL_CONTENT, SCHEDULE, MANAGE_TASK, FINISH);
+		return List.of(VIEW_FILE, CREATE_FILE, EDIT_FILE, ASK_QUESTION, START_SUBAGENT, GENERATE_IMAGE, SEARCH_WEB,
+				READ_URL_CONTENT, SCHEDULE, MANAGE_TASK, FINISH);
 	}
 
 	/**
@@ -114,25 +131,25 @@ public enum BuiltinTools {
 	/**
 	 * Returns the minimal set of software engineering tools.
 	 *
-	 * Includes run_command, view_file, create_file, edit_file, list_directory, and
-	 * search_directory.
+	 * Includes run_command, view_file, create_file, and edit_file.
 	 *
 	 * @return a list of minimal BuiltinTools
 	 */
 	public static List<BuiltinTools> minimal() {
-		return List.of(RUN_COMMAND, VIEW_FILE, CREATE_FILE, EDIT_FILE, LIST_DIR, SEARCH_DIR);
+		return List.of(RUN_COMMAND, VIEW_FILE, CREATE_FILE, EDIT_FILE);
 	}
 
 	/**
 	 * Returns the default set of builtin tools for autonomous agents.
 	 *
 	 * Excludes {@link #ASK_QUESTION} because autonomous agents cannot prompt the
-	 * user interactively.
+	 * user interactively, as well as deprecated tools ({@link #LIST_DIR},
+	 * {@link #SEARCH_DIR}, and {@link #FIND_FILE}) to minimize prompt overhead.
 	 *
 	 * @return a list of default BuiltinTools
 	 */
 	public static List<BuiltinTools> defaultTools() {
-		return Arrays.stream(values()).filter(t -> t != ASK_QUESTION).toList();
+		return Arrays.stream(values()).filter(t -> t != ASK_QUESTION && !deprecated().contains(t)).toList();
 	}
 
 	/**

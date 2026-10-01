@@ -5,10 +5,10 @@
   <parent>
     <groupId>io.github.glaforge.antigravity</groupId>
     <artifactId>antigravity-sdk-parent</artifactId>
-    <version>0.2.18-SNAPSHOT</version>
+    <version>0.2.20-SNAPSHOT</version>
   </parent>
   <artifactId>antigravity-sdk-wrapper</artifactId>
-  <version>0.2.18-SNAPSHOT</version>
+  <version>0.2.20-SNAPSHOT</version>
   <name>Antigravity Java SDK - Wrapper</name>
   <description>The main Java wrapper and client for the Antigravity localharness.</description>
   <url>https://github.com/glaforge/antigravity-java-sdk</url>
@@ -71,6 +71,9 @@
         <version>3.5.4</version>
         <configuration>
           <excludedGroups>integration</excludedGroups>
+          <systemPropertyVariables>
+            <java.net.preferIPv6Addresses>system</java.net.preferIPv6Addresses>
+          </systemPropertyVariables>
         </configuration>
       </plugin>
     </plugins>

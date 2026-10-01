@@ -181,13 +181,13 @@ public class FeatureParity0117Test {
 		assertEquals(defaultTools, BuiltinTools.defaults());
 
 		List<BuiltinTools> minimal = BuiltinTools.minimal();
-		assertEquals(6, minimal.size());
+		assertEquals(4, minimal.size());
 		assertTrue(minimal.contains(BuiltinTools.RUN_COMMAND));
 		assertTrue(minimal.contains(BuiltinTools.VIEW_FILE));
 		assertTrue(minimal.contains(BuiltinTools.CREATE_FILE));
 		assertTrue(minimal.contains(BuiltinTools.EDIT_FILE));
-		assertTrue(minimal.contains(BuiltinTools.LIST_DIR));
-		assertTrue(minimal.contains(BuiltinTools.SEARCH_DIR));
+		assertFalse(minimal.contains(BuiltinTools.LIST_DIR));
+		assertFalse(minimal.contains(BuiltinTools.SEARCH_DIR));
 		assertFalse(minimal.contains(BuiltinTools.ASK_QUESTION));
 		assertFalse(minimal.contains(BuiltinTools.GENERATE_IMAGE));
 	}

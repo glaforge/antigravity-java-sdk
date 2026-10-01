@@ -222,6 +222,26 @@ public final class Policies {
 	}
 
 	/**
+	 * Callback for user confirmation of tool executions, including contextual
+	 * justification.
+	 */
+	@FunctionalInterface
+	public interface UserConfirmationCallback {
+		/**
+		 * Evaluates whether to confirm or deny the tool execution.
+		 *
+		 * @param toolName
+		 *            the name of the tool
+		 * @param arguments
+		 *            the arguments provided to the tool
+		 * @param justification
+		 *            the justification or reason string from policy evaluation
+		 * @return true to allow execution, false to deny
+		 */
+		boolean confirm(String toolName, JsonNode arguments, String justification);
+	}
+
+	/**
 	 * Creates a policy that delegates the decision to the user via a callback.
 	 *
 	 * @param prompter
@@ -230,8 +250,44 @@ public final class Policies {
 	 * @return a policy that asks the user for confirmation
 	 */
 	public static Policy askUser(BiPredicate<String, JsonNode> prompter) {
-		return (toolName,
-				arguments) -> prompter.test(toolName, arguments) ? Policy.Decision.ALLOW : Policy.Decision.DENY;
+		return askUser((toolName, arguments, justification) -> prompter.test(toolName, arguments));
+	}
+
+	/**
+	 * Creates a policy that delegates the decision to the user via a callback.
+	 *
+	 * @param callback
+	 *            a callback taking the tool name, arguments, and justification, and
+	 *            returning true to allow or false to deny.
+	 * @return a policy that asks the user for confirmation
+	 */
+	public static Policy askUser(UserConfirmationCallback callback) {
+		return askUser(callback, null);
+	}
+
+	/**
+	 * Creates a policy that delegates the decision to the user via a callback with
+	 * an evaluation justification string.
+	 *
+	 * @param callback
+	 *            a callback taking the tool name, arguments, and justification, and
+	 *            returning true to allow or false to deny.
+	 * @param justification
+	 *            the evaluation justification string forwarded to the callback
+	 * @return a policy that asks the user for confirmation
+	 */
+	public static Policy askUser(UserConfirmationCallback callback, String justification) {
+		return new Policy() {
+			@Override
+			public Decision evaluate(String toolName, JsonNode arguments) {
+				return callback.confirm(toolName, arguments, justification) ? Decision.ALLOW : Decision.DENY;
+			}
+
+			@Override
+			public String reason() {
+				return justification;
+			}
+		};
 	}
 
 	/**
@@ -244,11 +300,47 @@ public final class Policies {
 	 * @return a policy that asks the user before running a command
 	 */
 	public static Policy confirmRunCommand(BiPredicate<String, JsonNode> prompter) {
-		return (toolName, arguments) -> {
-			if ("run_command".equals(toolName)) {
-				return prompter.test(toolName, arguments) ? Policy.Decision.ALLOW : Policy.Decision.DENY;
+		return confirmRunCommand((toolName, arguments, justification) -> prompter.test(toolName, arguments));
+	}
+
+	/**
+	 * Creates a policy that asks the user for confirmation only when the agent
+	 * tries to run a command.
+	 *
+	 * @param callback
+	 *            a callback taking the tool name, arguments, and justification, and
+	 *            returning true to allow or false to deny.
+	 * @return a policy that asks the user before running a command
+	 */
+	public static Policy confirmRunCommand(UserConfirmationCallback callback) {
+		return confirmRunCommand(callback, null);
+	}
+
+	/**
+	 * Creates a policy that asks the user for confirmation only when the agent
+	 * tries to run a command, forwarding justification.
+	 *
+	 * @param callback
+	 *            a callback taking the tool name, arguments, and justification, and
+	 *            returning true to allow or false to deny.
+	 * @param justification
+	 *            the evaluation justification string forwarded to the callback
+	 * @return a policy that asks the user before running a command
+	 */
+	public static Policy confirmRunCommand(UserConfirmationCallback callback, String justification) {
+		return new Policy() {
+			@Override
+			public Decision evaluate(String toolName, JsonNode arguments) {
+				if ("run_command".equals(toolName)) {
+					return callback.confirm(toolName, arguments, justification) ? Decision.ALLOW : Decision.DENY;
+				}
+				return Decision.PASS;
 			}
-			return Policy.Decision.PASS;
+
+			@Override
+			public String reason() {
+				return justification;
+			}
 		};
 	}
 
@@ -263,13 +355,51 @@ public final class Policies {
 	 *         file
 	 */
 	public static Policy confirmRunCommandOrFileEdit(BiPredicate<String, JsonNode> prompter) {
-		return (toolName, arguments) -> {
-			if ("run_command".equals(toolName) || "file_edit".equals(toolName)
-					|| "replace_file_content".equals(toolName) || "multi_replace_file_content".equals(toolName)
-					|| "write_to_file".equals(toolName)) {
-				return prompter.test(toolName, arguments) ? Policy.Decision.ALLOW : Policy.Decision.DENY;
+		return confirmRunCommandOrFileEdit((toolName, arguments, justification) -> prompter.test(toolName, arguments));
+	}
+
+	/**
+	 * Creates a policy that asks the user for confirmation when the agent tries to
+	 * run a command or edit a file.
+	 *
+	 * @param callback
+	 *            a callback taking the tool name, arguments, and justification, and
+	 *            returning true to allow or false to deny.
+	 * @return a policy that asks the user before running a command or editing a
+	 *         file
+	 */
+	public static Policy confirmRunCommandOrFileEdit(UserConfirmationCallback callback) {
+		return confirmRunCommandOrFileEdit(callback, null);
+	}
+
+	/**
+	 * Creates a policy that asks the user for confirmation when the agent tries to
+	 * run a command or edit a file, forwarding justification.
+	 *
+	 * @param callback
+	 *            a callback taking the tool name, arguments, and justification, and
+	 *            returning true to allow or false to deny.
+	 * @param justification
+	 *            the evaluation justification string forwarded to the callback
+	 * @return a policy that asks the user before running a command or editing a
+	 *         file
+	 */
+	public static Policy confirmRunCommandOrFileEdit(UserConfirmationCallback callback, String justification) {
+		return new Policy() {
+			@Override
+			public Decision evaluate(String toolName, JsonNode arguments) {
+				if ("run_command".equals(toolName) || "file_edit".equals(toolName)
+						|| "replace_file_content".equals(toolName) || "multi_replace_file_content".equals(toolName)
+						|| "write_to_file".equals(toolName)) {
+					return callback.confirm(toolName, arguments, justification) ? Decision.ALLOW : Decision.DENY;
+				}
+				return Decision.PASS;
 			}
-			return Policy.Decision.PASS;
+
+			@Override
+			public String reason() {
+				return justification;
+			}
 		};
 	}
 }

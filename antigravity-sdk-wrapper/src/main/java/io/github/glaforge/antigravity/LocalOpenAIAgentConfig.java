@@ -84,6 +84,33 @@ public class LocalOpenAIAgentConfig {
 	}
 
 	/**
+	 * Returns the session budget configuration.
+	 *
+	 * @return budget configuration
+	 */
+	public BudgetConfig getBudgetConfig() {
+		return agentConfig.getBudgetConfig();
+	}
+
+	/**
+	 * Returns the session continuation mode.
+	 *
+	 * @return session continuation mode
+	 */
+	public SessionContinuationMode getSessionContinuationMode() {
+		return agentConfig.getSessionContinuationMode();
+	}
+
+	/**
+	 * Returns the configured security policies.
+	 *
+	 * @return list of policies
+	 */
+	public List<Policy> getPolicies() {
+		return agentConfig.getPolicies();
+	}
+
+	/**
 	 * Creates a new Builder for LocalOpenAIAgentConfig.
 	 *
 	 * @return a new Builder instance
@@ -251,6 +278,42 @@ public class LocalOpenAIAgentConfig {
 		 */
 		public Builder addPolicy(Policy policy) {
 			this.agentConfigBuilder.addPolicy(policy);
+			return this;
+		}
+
+		/**
+		 * Sets the session budget configuration for call counts and token caps.
+		 *
+		 * @param budgetConfig
+		 *            the budget configuration
+		 * @return this builder
+		 */
+		public Builder budgetConfig(BudgetConfig budgetConfig) {
+			this.agentConfigBuilder.budgetConfig(budgetConfig);
+			return this;
+		}
+
+		/**
+		 * Sets the session continuation mode.
+		 *
+		 * @param sessionContinuationMode
+		 *            the session continuation mode
+		 * @return this builder
+		 */
+		public Builder sessionContinuationMode(SessionContinuationMode sessionContinuationMode) {
+			this.agentConfigBuilder.sessionContinuationMode(sessionContinuationMode);
+			return this;
+		}
+
+		/**
+		 * Sets the conversation ID.
+		 *
+		 * @param conversationId
+		 *            the conversation identifier
+		 * @return this builder
+		 */
+		public Builder conversationId(String conversationId) {
+			this.agentConfigBuilder.conversationId(conversationId);
 			return this;
 		}
 

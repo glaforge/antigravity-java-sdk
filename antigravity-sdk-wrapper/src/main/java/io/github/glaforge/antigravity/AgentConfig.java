@@ -67,6 +67,7 @@ public class AgentConfig {
 	private final WorkspaceContainment workspaceContainment;
 	private final CompactionConfig compactionConfig;
 	private final List<SubagentConfig> subagents;
+	private final SessionContinuationMode sessionContinuationMode;
 
 	private AgentConfig(Builder builder) {
 		this.instructions = builder.instructions;
@@ -102,6 +103,12 @@ public class AgentConfig {
 		this.workspaceContainment = builder.workspaceContainment;
 		this.compactionConfig = builder.compactionConfig;
 		this.subagents = new ArrayList<>(builder.subagents);
+		this.sessionContinuationMode = builder.sessionContinuationMode;
+		if (this.sessionContinuationMode == SessionContinuationMode.RESUME
+				&& (this.conversationId == null || this.conversationId.isBlank())) {
+			throw new IllegalArgumentException(
+					"conversationId must be specified when sessionContinuationMode is RESUME");
+		}
 	}
 
 	/**
@@ -326,6 +333,15 @@ public class AgentConfig {
 	}
 
 	/**
+	 * Returns the session continuation mode.
+	 *
+	 * @return session continuation mode, or null if not configured
+	 */
+	public SessionContinuationMode getSessionContinuationMode() {
+		return sessionContinuationMode;
+	}
+
+	/**
 	 * Creates a new AgentConfig with standardized evaluation presets applied.
 	 *
 	 * @return a new AgentConfig configured for evaluations and benchmarks
@@ -410,6 +426,7 @@ public class AgentConfig {
 		private WorkspaceContainment workspaceContainment;
 		private CompactionConfig compactionConfig;
 		private List<SubagentConfig> subagents = new ArrayList<>();
+		private SessionContinuationMode sessionContinuationMode;
 
 		/**
 		 * Sets the instructions.
@@ -993,6 +1010,18 @@ public class AgentConfig {
 		 */
 		public Builder compactionThreshold(int tokenThreshold) {
 			this.compactionConfig = CompactionConfig.of(tokenThreshold);
+			return this;
+		}
+
+		/**
+		 * Sets the session continuation mode.
+		 *
+		 * @param sessionContinuationMode
+		 *            the session continuation mode
+		 * @return this builder
+		 */
+		public Builder sessionContinuationMode(SessionContinuationMode sessionContinuationMode) {
+			this.sessionContinuationMode = sessionContinuationMode;
 			return this;
 		}
 

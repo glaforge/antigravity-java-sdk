@@ -858,6 +858,26 @@ try (Agent agent = new Agent(config)) {
 }
 ```
 
+### 26. Multi-Backend Parity, Authorization Callbacks & Toolset Pruning (v0.1.20)
+
+- **Multi-Backend Parity**: `LocalOpenAIAgentConfig` and `LiteRTAgentConfig` now support identical policies, session continuation modes (`SessionContinuationMode`), and budget controls (`BudgetConfig`) as cloud/Gemini agents:
+  ```java
+  LocalOpenAIAgentConfig config = LocalOpenAIAgentConfig.builder()
+      .baseUrl("http://localhost:11434/v1")
+      .modelName("llama3.2")
+      .conversationId("session-openai-1")
+      .sessionContinuationMode(SessionContinuationMode.CREATE_OR_RESUME)
+      .budgetConfig(BudgetConfig.builder().maxModelCalls(10).build())
+      .addPolicy(Policies.confirmRunCommand((tool, args, justification) -> {
+          System.out.println("Approval requested: " + justification);
+          return true;
+      }, "Running shell commands on local backend requires human confirmation"))
+      .build();
+  ```
+- **Session Continuation Modes (`SessionContinuationMode`)**: Explicit control over connection session state (`RESUME`, `CREATE_OR_RESUME`, `CREATE_ONLY`, `UNSPECIFIED`). `RESUME` enforces an explicit `conversationId`.
+- **Contextual Authorization Callbacks**: `Policies.askUser(...)`, `Policies.confirmRunCommand(...)`, and `Policies.confirmRunCommandOrFileEdit(...)` forward evaluation justification strings directly into `UserConfirmationCallback` (`confirm(toolName, arguments, justification)`), enabling contextual operational approval.
+- **Toolset Pruning**: `BuiltinTools.deprecated()` moves legacy directory listing and search tools (`LIST_DIR`, `SEARCH_DIR`, `FIND_FILE`) into an opt-in group, pruning them from `defaultTools()`, `minimal()` (now 4 core tools: `RUN_COMMAND`, `VIEW_FILE`, `CREATE_FILE`, `EDIT_FILE`), `readOnly()`, and `nondestructive()` to optimize prompt token overhead.
+
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](LICENSE).

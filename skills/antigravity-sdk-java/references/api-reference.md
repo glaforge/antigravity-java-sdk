@@ -867,3 +867,41 @@ try (Agent agent = new Agent(config)) {
 }
 ```
 
+### Multi-Backend Parity & Session Continuation Modes (`SessionContinuationMode`)
+`LocalOpenAIAgentConfig` and `LiteRTAgentConfig` support identical policy, session continuation, and budget control capabilities as cloud Gemini agents:
+
+```java
+import io.github.glaforge.antigravity.BudgetConfig;
+import io.github.glaforge.antigravity.LocalOpenAIAgentConfig;
+import io.github.glaforge.antigravity.Policies;
+import io.github.glaforge.antigravity.SessionContinuationMode;
+
+LocalOpenAIAgentConfig localConfig = LocalOpenAIAgentConfig.builder()
+    .baseUrl("http://localhost:11434/v1")
+    .modelName("llama3.2")
+    .conversationId("session-123")
+    .sessionContinuationMode(SessionContinuationMode.RESUME)
+    .budgetConfig(BudgetConfig.builder().maxModelCalls(10).build())
+    .addPolicy(Policies.confirmRunCommand((tool, args, justification) -> {
+        System.out.printf("Action [%s] requires approval: %s%n", tool, justification);
+        return true;
+    }, "Shell command execution requires human verification"))
+    .build();
+```
+
+### Toolset Pruning & Deprecated Tools (`BuiltinTools.deprecated()`)
+To reduce prompt overhead in LLM system prompts, legacy directory listing and searching tools are moved to an opt-in group:
+
+```java
+import io.github.glaforge.antigravity.BuiltinTools;
+
+// Opt-in deprecated tools: [LIST_DIR, SEARCH_DIR, FIND_FILE]
+List<BuiltinTools> deprecated = BuiltinTools.deprecated();
+
+// Pruned tool sets:
+List<BuiltinTools> minimal = BuiltinTools.minimal();       // [RUN_COMMAND, VIEW_FILE, CREATE_FILE, EDIT_FILE]
+List<BuiltinTools> readOnly = BuiltinTools.readOnly();     // Excludes deprecated tools
+List<BuiltinTools> defaults = BuiltinTools.defaultTools(); // Excludes ASK_QUESTION and deprecated tools
+```
+
+

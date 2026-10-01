@@ -16,19 +16,17 @@
 package io.github.glaforge.antigravity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.glaforge.antigravity.localharness.ActionSkillLookup;
-import io.github.glaforge.antigravity.localharness.TrajectoryStateUpdate;
-import io.github.glaforge.antigravity.localharness.WorkspaceContainment;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag("unit")
@@ -37,106 +35,160 @@ public class FeatureParity0120Test {
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@Test
-	public void testSkillsConfigRecordAndBuilder() {
-		SkillSource source1 = SkillSource.fromDirectory("/path/to/skill-1");
-		SkillSource source2 = SkillSource.fromPath(Path.of("/path/to/skill-2"));
+	public void testSessionContinuationModeValidation() {
+		// Valid RESUME mode with conversationId
+		AgentConfig validConfig = AgentConfig.builder().conversationId("session-xyz")
+				.sessionContinuationMode(SessionContinuationMode.RESUME).build();
+		assertEquals(SessionContinuationMode.RESUME, validConfig.getSessionContinuationMode());
+		assertEquals("session-xyz", validConfig.getConversationId());
 
-		assertEquals("/path/to/skill-1", source1.directoryPath());
-		assertNotNull(source2.directoryPath());
+		// Invalid RESUME mode without conversationId
+		IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> {
+			AgentConfig.builder().sessionContinuationMode(SessionContinuationMode.RESUME).build();
+		});
+		assertTrue(thrown.getMessage()
+				.contains("conversationId must be specified when sessionContinuationMode is RESUME"));
 
-		SkillsConfig config = SkillsConfig.builder().enabled(true).addSkill(source1).addSkill(source2).build();
-
-		assertTrue(config.enabled());
-		assertEquals(2, config.skills().size());
-		assertEquals("/path/to/skill-1", config.skills().get(0).directoryPath());
+		// CREATE_OR_RESUME and CREATE_ONLY without conversationId are valid
+		AgentConfig createOrResume = AgentConfig.builder()
+				.sessionContinuationMode(SessionContinuationMode.CREATE_OR_RESUME).build();
+		assertEquals(SessionContinuationMode.CREATE_OR_RESUME, createOrResume.getSessionContinuationMode());
 	}
 
 	@Test
-	public void testAgentConfigSkillsIntegration() {
-		SkillSource skill = SkillSource.fromDirectory("/opt/custom-skills");
-		AgentConfig config = AgentConfig.builder().instructions("Helpful skills agent").addSkill(skill).build();
+	public void testLocalOpenAIAgentConfigParity() {
+		BudgetConfig budget = BudgetConfig.builder().maxModelCalls(10).maxTotalTokens(50000).build();
 
-		assertNotNull(config.getSkillsConfig());
-		assertTrue(config.getSkillsConfig().enabled());
-		assertEquals(1, config.getSkillsConfig().skills().size());
-		assertEquals("/opt/custom-skills", config.getSkillsConfig().skills().get(0).directoryPath());
+		LocalOpenAIAgentConfig config = LocalOpenAIAgentConfig.builder().baseUrl("http://localhost:11434/v1")
+				.modelName("llama3.2").conversationId("sess-openai-1")
+				.sessionContinuationMode(SessionContinuationMode.CREATE_OR_RESUME).budgetConfig(budget)
+				.addPolicy(Policies.allowTool("run_command")).build();
+
+		assertEquals("http://localhost:11434/v1", config.getBaseUrl());
+		assertEquals("llama3.2", config.getModelName());
+		assertEquals(SessionContinuationMode.CREATE_OR_RESUME, config.getSessionContinuationMode());
+		assertNotNull(config.getBudgetConfig());
+		assertEquals(10, config.getBudgetConfig().maxModelCalls());
+		assertEquals(50000, config.getBudgetConfig().maxTotalTokens());
+		assertEquals(1, config.getPolicies().size());
+
+		// Verify underlying AgentConfig
+		AgentConfig underlying = config.getAgentConfig();
+		assertEquals("sess-openai-1", underlying.getConversationId());
+		assertEquals(SessionContinuationMode.CREATE_OR_RESUME, underlying.getSessionContinuationMode());
+		assertEquals(budget, underlying.getBudgetConfig());
 	}
 
 	@Test
-	public void testAgentConfigSkillsConfigOverride() {
-		SkillsConfig skills = SkillsConfig.builder().enabled(false).addSkillDirectory("/var/skills").build();
+	public void testLiteRTAgentConfigParity() {
+		BudgetConfig budget = BudgetConfig.builder().maxModelCalls(5).build();
 
-		AgentConfig config = AgentConfig.builder().skillsConfig(skills).build();
+		LiteRTAgentConfig config = LiteRTAgentConfig.builder().modelPath("/models/gemma-2b-it.bin")
+				.conversationId("sess-litert-1").sessionContinuationMode(SessionContinuationMode.RESUME)
+				.budgetConfig(budget).addPolicy(Policies.allowAll()).build();
 
-		assertNotNull(config.getSkillsConfig());
-		assertFalse(config.getSkillsConfig().enabled());
-		assertEquals(1, config.getSkillsConfig().skills().size());
+		assertEquals("/models/gemma-2b-it.bin", config.getModelPath());
+		assertEquals(SessionContinuationMode.RESUME, config.getSessionContinuationMode());
+		assertNotNull(config.getBudgetConfig());
+		assertEquals(5, config.getBudgetConfig().maxModelCalls());
+		assertEquals(1, config.getPolicies().size());
+
+		// Verify underlying AgentConfig
+		AgentConfig underlying = config.getAgentConfig();
+		assertEquals("sess-litert-1", underlying.getConversationId());
+		assertEquals(SessionContinuationMode.RESUME, underlying.getSessionContinuationMode());
+		assertEquals(budget, underlying.getBudgetConfig());
 	}
 
 	@Test
-	public void testPolicyDenialReason() {
-		Policy denyPolicy = Policies.denyAll("Strict security perimeter active");
-		Policy.Decision decision = denyPolicy.evaluate("run_command", objectMapper.createObjectNode());
+	public void testAuthorizationCallbackJustificationForwarding() {
+		AtomicReference<String> capturedJustification = new AtomicReference<>();
+		AtomicReference<String> capturedTool = new AtomicReference<>();
 
+		Policies.UserConfirmationCallback callback = (tool, args, justification) -> {
+			capturedTool.set(tool);
+			capturedJustification.set(justification);
+			return "proceed".equals(args.path("action").asText());
+		};
+
+		String reason = "Modifying production database requires approval";
+		Policy policy = Policies.askUser(callback, reason);
+		assertEquals(reason, policy.reason());
+
+		ObjectNode args = objectMapper.createObjectNode();
+		args.put("action", "proceed");
+
+		Policy.Decision decision = policy.evaluate("sql_execute", args);
+		assertEquals(Policy.Decision.ALLOW, decision);
+		assertEquals("sql_execute", capturedTool.get());
+		assertEquals(reason, capturedJustification.get());
+
+		args.put("action", "abort");
+		decision = policy.evaluate("sql_execute", args);
 		assertEquals(Policy.Decision.DENY, decision);
-		assertEquals("Strict security perimeter active", denyPolicy.reason());
-
-		Policy denyTool = Policies.denyTool("run_command", "Shell execution disabled in sandbox");
-		assertEquals(Policy.Decision.DENY, denyTool.evaluate("run_command", objectMapper.createObjectNode()));
-		assertEquals("Shell execution disabled in sandbox", denyTool.reason());
-
-		assertEquals(Policy.Decision.PASS, denyTool.evaluate("view_file", objectMapper.createObjectNode()));
 	}
 
 	@Test
-	public void testPolicyMarkers() {
-		Policy allowAll = Policies.allowAll();
-		assertTrue(allowAll.isAllowAll());
-		assertFalse(allowAll.isWorkspaceOnly());
+	public void testConfirmRunCommandWithJustification() {
+		AtomicReference<String> capturedJustification = new AtomicReference<>();
 
-		Policy workspaceOnly = Policies.workspaceOnly();
-		assertTrue(workspaceOnly.isWorkspaceOnly());
-		assertFalse(workspaceOnly.isAllowAll());
+		Policy policy = Policies.confirmRunCommand((tool, args, justification) -> {
+			capturedJustification.set(justification);
+			return true;
+		}, "Security policy requires approval for shell commands");
+
+		ObjectNode args = objectMapper.createObjectNode();
+		args.put("command", "ls -la");
+
+		assertEquals(Policy.Decision.ALLOW, policy.evaluate("run_command", args));
+		assertEquals("Security policy requires approval for shell commands", capturedJustification.get());
+
+		// Pass for other tools
+		assertEquals(Policy.Decision.PASS, policy.evaluate("view_file", args));
 	}
 
 	@Test
-	public void testAgentExecutionException() {
-		AgentExecutionException ex1 = new AgentExecutionException("Quota exhausted", "RESOURCE_EXHAUSTED");
-		assertEquals("Quota exhausted", ex1.getMessage());
-		assertEquals("RESOURCE_EXHAUSTED", ex1.getErrorCode());
+	public void testToolsetPruningDeprecatedTools() {
+		List<BuiltinTools> deprecated = BuiltinTools.deprecated();
+		assertEquals(3, deprecated.size());
+		assertTrue(deprecated.contains(BuiltinTools.LIST_DIR));
+		assertTrue(deprecated.contains(BuiltinTools.SEARCH_DIR));
+		assertTrue(deprecated.contains(BuiltinTools.FIND_FILE));
 
-		AgentExecutionException ex2 = new AgentExecutionException("Internal error");
-		assertEquals("Internal error", ex2.getMessage());
-		assertNull(ex2.getErrorCode());
-	}
+		// Minimal tools must only contain 4 tools
+		List<BuiltinTools> minimal = BuiltinTools.minimal();
+		assertEquals(4, minimal.size());
+		assertTrue(minimal.contains(BuiltinTools.RUN_COMMAND));
+		assertTrue(minimal.contains(BuiltinTools.VIEW_FILE));
+		assertTrue(minimal.contains(BuiltinTools.CREATE_FILE));
+		assertTrue(minimal.contains(BuiltinTools.EDIT_FILE));
+		assertFalse(minimal.contains(BuiltinTools.LIST_DIR));
+		assertFalse(minimal.contains(BuiltinTools.SEARCH_DIR));
+		assertFalse(minimal.contains(BuiltinTools.FIND_FILE));
 
-	@Test
-	public void testProtobufSkillsAndActionSkillLookup() {
-		io.github.glaforge.antigravity.localharness.SkillsConfig protoSkills = io.github.glaforge.antigravity.localharness.SkillsConfig
-				.newBuilder().setEnabled(true).addSkills(io.github.glaforge.antigravity.localharness.SkillSource
-						.newBuilder().setDirectoryPath("/skills/java").build())
-				.build();
+		// Read-only tools must exclude deprecated tools
+		List<BuiltinTools> readOnly = BuiltinTools.readOnly();
+		for (BuiltinTools dep : deprecated) {
+			assertFalse(readOnly.contains(dep), "readOnly must not contain deprecated tool: " + dep);
+		}
 
-		assertTrue(protoSkills.getEnabled());
-		assertEquals(1, protoSkills.getSkillsCount());
-		assertEquals("/skills/java", protoSkills.getSkills(0).getDirectoryPath());
+		// Nondestructive tools must exclude deprecated tools
+		List<BuiltinTools> nondestructive = BuiltinTools.nondestructive();
+		for (BuiltinTools dep : deprecated) {
+			assertFalse(nondestructive.contains(dep), "nondestructive must not contain deprecated tool: " + dep);
+		}
 
-		ActionSkillLookup action = ActionSkillLookup.newBuilder()
-				.setOperation(ActionSkillLookup.Operation.OPERATION_LOOKUP_SKILLS)
-				.addRequestedSkillNames("java-refactor").addResolvedSkillNames("java-refactor").build();
+		// Default tools must exclude ASK_QUESTION and all deprecated tools
+		List<BuiltinTools> defaults = BuiltinTools.defaultTools();
+		assertFalse(defaults.contains(BuiltinTools.ASK_QUESTION));
+		for (BuiltinTools dep : deprecated) {
+			assertFalse(defaults.contains(dep), "defaultTools must not contain deprecated tool: " + dep);
+		}
 
-		assertEquals(ActionSkillLookup.Operation.OPERATION_LOOKUP_SKILLS, action.getOperation());
-		assertEquals(1, action.getRequestedSkillNamesCount());
-		assertEquals("java-refactor", action.getRequestedSkillNames(0));
-	}
-
-	@Test
-	public void testTrajectoryStateUpdateErrorCode() {
-		TrajectoryStateUpdate update = TrajectoryStateUpdate.newBuilder().setTrajectoryId("traj-123")
-				.setState(TrajectoryStateUpdate.State.STATE_FULLY_IDLE).setError("Tool execution timed out")
-				.setErrorCode("TOOL_TIMEOUT").build();
-
-		assertEquals("TOOL_TIMEOUT", update.getErrorCode());
-		assertEquals("Tool execution timed out", update.getError());
+		// All tools must contain all values including deprecated
+		List<BuiltinTools> all = BuiltinTools.allTools();
+		for (BuiltinTools dep : deprecated) {
+			assertTrue(all.contains(dep), "allTools must contain deprecated tool: " + dep);
+		}
 	}
 }
