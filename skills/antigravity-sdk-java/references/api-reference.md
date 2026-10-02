@@ -280,7 +280,7 @@ public record CodeAnalysis(
 
 AgentConfig config = AgentConfig.builder()
     .instructions("Analyze the provided snippet and return structured metrics.")
-    .finishToolSchema(CodeAnalysis.class)
+    .responseSchema(CodeAnalysis.class)
     .build();
 
 try (Agent agent = new Agent(config)) {

@@ -235,10 +235,21 @@ public class AgentConfig {
 		return Collections.unmodifiableList(policies);
 	}
 	/**
+	 * Returns the response schema JSON.
+	 *
+	 * @return the response schema JSON
+	 */
+	public String getResponseSchema() {
+		return finishToolSchemaJson;
+	}
+
+	/**
 	 * Returns the finish tool schema JSON.
 	 *
 	 * @return the finish tool schema JSON
+	 * @deprecated Use {@link #getResponseSchema()} instead.
 	 */
+	@Deprecated
 	public String getFinishToolSchemaJson() {
 		return finishToolSchemaJson;
 	}
@@ -860,13 +871,13 @@ public class AgentConfig {
 		}
 
 		/**
-		 * Sets the finish tool schema JSON by auto-generating it from the given class.
+		 * Sets the response schema by auto-generating JSON Schema from the given class.
 		 *
 		 * @param targetClass
 		 *            the Java class to generate a JSON Schema from
 		 * @return this builder
 		 */
-		public Builder finishToolSchema(Class<?> targetClass) {
+		public Builder responseSchema(Class<?> targetClass) {
 			try {
 				ObjectNode schemaNode = SchemaGenerator.generateSchema(targetClass);
 				this.finishToolSchemaJson = SchemaGenerator.getMapper().writeValueAsString(schemaNode);
@@ -877,15 +888,41 @@ public class AgentConfig {
 		}
 
 		/**
+		 * Sets the response schema JSON string directly.
+		 *
+		 * @param responseSchema
+		 *            the JSON schema string
+		 * @return this builder
+		 */
+		public Builder responseSchema(String responseSchema) {
+			this.finishToolSchemaJson = responseSchema;
+			return this;
+		}
+
+		/**
+		 * Sets the finish tool schema JSON by auto-generating it from the given class.
+		 *
+		 * @param targetClass
+		 *            the Java class to generate a JSON Schema from
+		 * @return this builder
+		 * @deprecated Use {@link #responseSchema(Class)} instead.
+		 */
+		@Deprecated
+		public Builder finishToolSchema(Class<?> targetClass) {
+			return responseSchema(targetClass);
+		}
+
+		/**
 		 * Sets the finish tool schema JSON string directly.
 		 *
 		 * @param finishToolSchemaJson
 		 *            the JSON schema string
 		 * @return this builder
+		 * @deprecated Use {@link #responseSchema(String)} instead.
 		 */
+		@Deprecated
 		public Builder finishToolSchemaJson(String finishToolSchemaJson) {
-			this.finishToolSchemaJson = finishToolSchemaJson;
-			return this;
+			return responseSchema(finishToolSchemaJson);
 		}
 
 		/**

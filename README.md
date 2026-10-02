@@ -401,7 +401,7 @@ public record Person(String name) {}
 
 AgentConfig config = AgentConfig.builder()
     .instructions("Extract the person's name and return it in the provided schema. Do not output anything else.")
-    .finishToolSchema(Person.class)
+    .responseSchema(Person.class)
     .build();
 
 try (Agent agent = new Agent(config)) {

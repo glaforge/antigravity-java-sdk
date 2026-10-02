@@ -406,15 +406,53 @@ public class Agent implements AutoCloseable, TriggerContext {
 		}
 
 		/**
+		 * Sets the response schema by auto-generating JSON Schema from the given class.
+		 *
+		 * @param targetClass
+		 *            the Java class to generate a JSON Schema from
+		 * @return this builder
+		 */
+		public Builder responseSchema(Class<?> targetClass) {
+			configBuilder.responseSchema(targetClass);
+			return this;
+		}
+
+		/**
+		 * Sets the response schema JSON string directly.
+		 *
+		 * @param responseSchema
+		 *            the JSON schema string
+		 * @return this builder
+		 */
+		public Builder responseSchema(String responseSchema) {
+			configBuilder.responseSchema(responseSchema);
+			return this;
+		}
+
+		/**
+		 * Sets the finish tool schema JSON by auto-generating it from the given class.
+		 *
+		 * @param targetClass
+		 *            the Java class to generate a JSON Schema from
+		 * @return this builder
+		 * @deprecated Use {@link #responseSchema(Class)} instead.
+		 */
+		@Deprecated
+		public Builder finishToolSchema(Class<?> targetClass) {
+			return responseSchema(targetClass);
+		}
+
+		/**
 		 * Sets finish tool schema JSON.
 		 *
 		 * @param finishToolSchemaJson
 		 *            the JSON schema
 		 * @return this builder
+		 * @deprecated Use {@link #responseSchema(String)} instead.
 		 */
+		@Deprecated
 		public Builder finishToolSchemaJson(String finishToolSchemaJson) {
-			configBuilder.finishToolSchemaJson(finishToolSchemaJson);
-			return this;
+			return responseSchema(finishToolSchemaJson);
 		}
 
 		/**
