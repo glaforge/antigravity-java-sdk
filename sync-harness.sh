@@ -28,7 +28,17 @@ if [ -d "$PARENT_BIN_DIR" ] && [ -n "$(ls -A "$PARENT_BIN_DIR" 2>/dev/null)" ]; 
   exit 0
 fi
 
-# Check if all slices already exist locally and are non-empty
+PACKAGE_INFO=$(curl -s https://pypi.org/pypi/google-antigravity/json)
+UPSTREAM_VERSION=$(echo "$PACKAGE_INFO" | jq -r '.info.version // "unknown"')
+echo "Detected upstream google-antigravity version: v${UPSTREAM_VERSION}"
+
+VERSION_FILE="${BIN_DIR}/.version"
+CURRENT_VERSION=""
+if [ -f "$VERSION_FILE" ]; then
+  CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+fi
+
+# Check if all slices already exist locally, are non-empty, and match upstream version
 ALL_EXIST=true
 for SLICE in "${SLICES[@]}"; do
   BINARY_PATH="$BIN_DIR/$SLICE/localharness"
@@ -41,19 +51,15 @@ for SLICE in "${SLICES[@]}"; do
   fi
 done
 
-if [ "$ALL_EXIST" = true ] && [ "${FORCE_SYNC:-false}" != "true" ]; then
-  echo "All Go harness binaries are already present in $BIN_DIR. (Set FORCE_SYNC=true to re-download and unpack Python source)"
+if [ "$ALL_EXIST" = true ] && [ "$CURRENT_VERSION" = "$UPSTREAM_VERSION" ] && [ "${FORCE_SYNC:-false}" != "true" ]; then
+  echo "All Go harness binaries are already present and up-to-date (v${CURRENT_VERSION}) in $BIN_DIR. (Set FORCE_SYNC=true to re-download and unpack Python source)"
   exit 0
 fi
 
-echo "Syncing Go harness binaries from upstream PyPI wheels..."
+echo "Syncing Go harness binaries from upstream PyPI wheels (current: '${CURRENT_VERSION:-none}', target: 'v${UPSTREAM_VERSION}')..."
 
 PLATFORMS=("manylinux" "macosx" "macosx" "manylinux" "win" "win")
 ARCHS=("x86_64" "arm64" "x86_64" "aarch64" "amd64" "arm64")
-
-PACKAGE_INFO=$(curl -s https://pypi.org/pypi/google-antigravity/json)
-UPSTREAM_VERSION=$(echo "$PACKAGE_INFO" | jq -r '.info.version // "unknown"')
-echo "Detected upstream google-antigravity version: v${UPSTREAM_VERSION}"
 
 EXTRACTED_PYTHON=false
 
@@ -101,6 +107,9 @@ for i in "${!PLATFORMS[@]}"; do
     echo "Warning: No matching upstream wheel found for platform slice: $SLICE"
   fi
 done
+
+# Write version stamp
+echo "$UPSTREAM_VERSION" > "$BIN_DIR/.version"
 
 echo "================================================================="
 echo "Go harness synchronization complete (upstream v${UPSTREAM_VERSION})."
