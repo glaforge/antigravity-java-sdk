@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Collections;
+import java.util.Collection;
 import io.github.glaforge.antigravity.hooks.*;
 import io.github.glaforge.antigravity.tools.SchemaGenerator;
 import io.github.glaforge.antigravity.triggers.AgentTrigger;
@@ -597,6 +598,72 @@ public class AgentConfig {
 		 */
 		public Builder addHook(AgentHook hook) {
 			this.hooks.add(hook);
+			return this;
+		}
+
+		/**
+		 * Sets the collection of hooks, replacing any previously registered hooks.
+		 *
+		 * @param hooks
+		 *            collection of hooks
+		 * @return this builder
+		 */
+		public Builder hooks(Collection<? extends AgentHook> hooks) {
+			this.hooks.clear();
+			if (hooks != null) {
+				this.hooks.addAll(hooks);
+			}
+			return this;
+		}
+
+		/**
+		 * Sets the hooks, replacing any previously registered hooks.
+		 *
+		 * @param hooks
+		 *            varargs of hooks
+		 * @return this builder
+		 */
+		public Builder hooks(AgentHook... hooks) {
+			this.hooks.clear();
+			if (hooks != null) {
+				for (AgentHook hook : hooks) {
+					if (hook != null) {
+						this.hooks.add(hook);
+					}
+				}
+			}
+			return this;
+		}
+
+		/**
+		 * Adds a collection of hooks to the agent configuration.
+		 *
+		 * @param hooks
+		 *            collection of hooks to add
+		 * @return this builder
+		 */
+		public Builder addHooks(Collection<? extends AgentHook> hooks) {
+			if (hooks != null) {
+				this.hooks.addAll(hooks);
+			}
+			return this;
+		}
+
+		/**
+		 * Adds multiple hooks to the agent configuration.
+		 *
+		 * @param hooks
+		 *            varargs of hooks to add
+		 * @return this builder
+		 */
+		public Builder addHooks(AgentHook... hooks) {
+			if (hooks != null) {
+				for (AgentHook hook : hooks) {
+					if (hook != null) {
+						this.hooks.add(hook);
+					}
+				}
+			}
 			return this;
 		}
 

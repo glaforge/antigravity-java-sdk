@@ -21,10 +21,12 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 import io.github.glaforge.antigravity.DynamicTool;
 import io.github.glaforge.antigravity.ToolContext;
@@ -141,7 +143,7 @@ public class ToolRegistry {
 
 			Parameter[] params = entry.getValue().method().getParameters();
 			for (Parameter p : params) {
-				if (p.getType() == ToolContext.class) {
+				if (isToolContextParam(p)) {
 					continue;
 				}
 
@@ -268,6 +270,10 @@ public class ToolRegistry {
 				parsedValues[i] = toolContext;
 				continue;
 			}
+			if (isOptionalToolContextParam(param)) {
+				parsedValues[i] = Optional.ofNullable(toolContext);
+				continue;
+			}
 
 			String name = param.getName();
 			if (param.isAnnotationPresent(Param.class)) {
@@ -320,6 +326,21 @@ public class ToolRegistry {
 		if (type == char.class)
 			return '\0';
 		return null;
+	}
+
+	private boolean isToolContextParam(Parameter param) {
+		return param.getType() == ToolContext.class || isOptionalToolContextParam(param);
+	}
+
+	private boolean isOptionalToolContextParam(Parameter param) {
+		if (param.getType() != Optional.class) {
+			return false;
+		}
+		if (param.getParameterizedType() instanceof ParameterizedType pt) {
+			var typeArgs = pt.getActualTypeArguments();
+			return typeArgs.length == 1 && typeArgs[0] == ToolContext.class;
+		}
+		return false;
 	}
 
 	private record ToolMethodHandler(Object instance, Method method) {

@@ -878,6 +878,45 @@ try (Agent agent = new Agent(config)) {
 - **Contextual Authorization Callbacks**: `Policies.askUser(...)`, `Policies.confirmRunCommand(...)`, and `Policies.confirmRunCommandOrFileEdit(...)` forward evaluation justification strings directly into `UserConfirmationCallback` (`confirm(toolName, arguments, justification)`), enabling contextual operational approval.
 - **Toolset Pruning**: `BuiltinTools.deprecated()` moves legacy directory listing and search tools (`LIST_DIR`, `SEARCH_DIR`, `FIND_FILE`) into an opt-in group, pruning them from `defaultTools()`, `minimal()` (now 4 core tools: `RUN_COMMAND`, `VIEW_FILE`, `CREATE_FILE`, `EDIT_FILE`), `readOnly()`, and `nondestructive()` to optimize prompt token overhead.
 
+### 27. Subagent Skill Inheritance, Bulk Hooks, Summary Prompt Overrides & Beta Namespace (v0.1.21)
+
+- **Subagent Skill Isolation (`SubagentSkillsConfig`)**: Granular control over which skills custom subagents can discover and access:
+  - `SubagentSkillsConfig.inherit()`: Inherits all parent skills.
+  - `SubagentSkillsConfig.inherit(List<String> names)`: Allowlist specific parent skills by name.
+  - `SubagentSkillsConfig.inherit(names, extraPaths)` / `inheritWithExtraPaths(extraPaths)`: Augments inherited skills with extra skill directories.
+  - `SubagentSkillsConfig.none()`: Completely isolates the subagent, disabling skills and the `lookup_skill` tool.
+  - `SubagentSkillsConfig.override(List<String> paths)`: Completely replaces parent skills with explicit skill paths.
+- **Bulk Hook Registration**: `AgentConfig.Builder` and `Agent.Builder` now support `hooks(...)` and `addHooks(...)` accepting `Collection<? extends AgentHook>` or varargs `AgentHook...`.
+- **Compaction Summary Prompt Overrides**: Customize the compaction summary prompt using `CompactionConfig.builder().summaryPromptOverride("...")` (or `new CompactionConfig(threshold, interval, max, summaryPromptOverride)`).
+- **Experimental API Isolation (`@Beta` & `agent.beta()`)**: Experimental and evolving features are cleanly isolated under `@Beta` and accessible via `agent.beta()` (`BetaOperations`).
+- **Optional Context Injection**: Custom tools can now declare `Optional<ToolContext>` parameters in their tool methods; `ToolRegistry` automatically detects and injects `Optional.ofNullable(toolContext)` without exposing it in the tool parameter schema.
+
+```java
+// 1. Configure custom subagent with isolated skills
+SubagentConfig reviewer = SubagentConfig.builder()
+    .name("security_reviewer")
+    .description("Performs security audits")
+    .instructions("Analyze code for vulnerabilities")
+    .skillsConfig(SubagentSkillsConfig.override(List.of("/opt/skills/security-audit")))
+    .build();
+
+// 2. Register bulk hooks and custom compaction summary prompt
+AgentConfig config = AgentConfig.builder()
+    .instructions("Senior orchestrator")
+    .addSubagent(reviewer)
+    .hooks(List.of(new AuditHook(), new LoggingHook()))
+    .compactionConfig(CompactionConfig.builder()
+        .tokenThreshold(20_000)
+        .summaryPromptOverride("Provide a concise summary highlighting unresolved actions.")
+        .build())
+    .build();
+
+// 3. Access experimental beta operations
+try (Agent agent = new Agent(config)) {
+    BetaOperations beta = agent.beta();
+}
+```
+
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](LICENSE).

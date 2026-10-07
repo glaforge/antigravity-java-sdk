@@ -51,7 +51,7 @@ public class HarnessDownloader {
 	/**
 	 * Default upstream package version matching current protocol definitions.
 	 */
-	public static final String DEFAULT_UPSTREAM_VERSION = "0.1.20";
+	public static final String DEFAULT_UPSTREAM_VERSION = "0.1.21";
 
 	/**
 	 * Set of supported platform slices.

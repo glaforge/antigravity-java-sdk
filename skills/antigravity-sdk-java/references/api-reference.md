@@ -904,4 +904,101 @@ List<BuiltinTools> readOnly = BuiltinTools.readOnly();     // Excludes deprecate
 List<BuiltinTools> defaults = BuiltinTools.defaultTools(); // Excludes ASK_QUESTION and deprecated tools
 ```
 
+---
+
+## 18. Subagent Skill Inheritance, Bulk Hooks, Summary Prompt Overrides & Beta Namespace (v0.1.21)
+
+### Subagent Skills Configuration (`SubagentSkillsConfig`)
+Control how custom subagents inherit or isolate agent skills:
+
+```java
+import io.github.glaforge.antigravity.SubagentConfig;
+import io.github.glaforge.antigravity.SubagentSkillsConfig;
+import java.util.List;
+
+// 1. Inherit all parent skills
+SubagentSkillsConfig inheritAll = SubagentSkillsConfig.inherit();
+
+// 2. Inherit only specific parent skills by name
+SubagentSkillsConfig filterNames = SubagentSkillsConfig.inherit(List.of("git-workflow", "review-skill"));
+
+// 3. Inherit skills and augment with extra paths
+SubagentSkillsConfig inheritWithExtra = SubagentSkillsConfig.inherit(List.of("git-workflow"), List.of("/opt/custom-skills"));
+
+// 4. Disable all skills for the subagent
+SubagentSkillsConfig isolated = SubagentSkillsConfig.none();
+
+// 5. Override parent skills completely with explicit directories
+SubagentSkillsConfig override = SubagentSkillsConfig.override(List.of("/opt/specialist-skills"));
+
+SubagentConfig subagent = SubagentConfig.builder()
+    .name("specialist")
+    .description("Specialist agent with isolated skills")
+    .instructions("Execute specialized tasks")
+    .skillsConfig(override)
+    .build();
+```
+
+### Bulk Hook Registration
+Register multiple hooks in batch using collections or varargs:
+
+```java
+import io.github.glaforge.antigravity.AgentConfig;
+import io.github.glaforge.antigravity.Agent;
+import java.util.List;
+
+// On AgentConfig.Builder:
+AgentConfig config = AgentConfig.builder()
+    .hooks(List.of(new AuditHook(), new MetricsHook()))
+    .addHooks(new LoggingHook(), new TracingHook())
+    .build();
+
+// On Agent.Builder:
+Agent.Builder builder = Agent.builder()
+    .hooks(List.of(new AuditHook()))
+    .addHooks(new LoggingHook());
+```
+
+### Compaction Summary Prompt Override
+Directly customize the prompt used by the model during conversation trajectory compaction:
+
+```java
+import io.github.glaforge.antigravity.CompactionConfig;
+
+CompactionConfig compaction = CompactionConfig.builder()
+    .tokenThreshold(20_000)
+    .summaryPromptOverride("Summarize previous steps concisely, highlighting remaining todo items.")
+    .build();
+```
+
+### Experimental APIs (`@Beta` & `agent.beta()`)
+Access preview and experimental APIs via the `beta()` accessor on `Agent`:
+
+```java
+import io.github.glaforge.antigravity.Agent;
+import io.github.glaforge.antigravity.beta.BetaOperations;
+
+try (Agent agent = new Agent(config)) {
+    BetaOperations beta = agent.beta();
+}
+```
+
+### Optional ToolContext Injection
+Custom tool methods can declare `Optional<ToolContext>` instead of a raw `ToolContext`. The SDK automatically injects `Optional.ofNullable(toolContext)` without leaking it into the tool parameter schema:
+
+```java
+import io.github.glaforge.antigravity.tools.Tool;
+import io.github.glaforge.antigravity.tools.Param;
+import io.github.glaforge.antigravity.ToolContext;
+import java.util.Optional;
+
+public class MyTools {
+    @Tool(description = "Tool with optional context")
+    public String executeAction(Optional<ToolContext> context, @Param(name = "input") String input) {
+        context.ifPresent(ctx -> ctx.send("Processing " + input));
+        return "Done";
+    }
+}
+```
+
 

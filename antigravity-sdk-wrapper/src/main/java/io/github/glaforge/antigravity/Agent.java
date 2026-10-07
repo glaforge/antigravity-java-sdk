@@ -32,6 +32,8 @@ import io.github.glaforge.antigravity.hooks.*;
 import io.github.glaforge.antigravity.hooks.ToolCall;
 import io.github.glaforge.antigravity.tools.ToolRegistry;
 import io.github.glaforge.antigravity.tools.ToolDefinition;
+import io.github.glaforge.antigravity.beta.Beta;
+import io.github.glaforge.antigravity.beta.BetaOperations;
 import com.google.protobuf.util.JsonFormat;
 import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
@@ -63,6 +65,7 @@ import java.util.concurrent.SubmissionPublisher;
 
 import java.util.function.Consumer;
 import java.util.List;
+import java.util.Collection;
 import java.util.Set;
 import java.util.Map;
 import java.util.HashMap;
@@ -216,6 +219,26 @@ public class Agent implements AutoCloseable, TriggerContext {
 	}
 
 	private final AgentConfig config;
+	private final BetaOperations betaOperations = new BetaOperations(this);
+
+	/**
+	 * Accesses experimental and beta operations on this agent.
+	 *
+	 * @return beta operations accessor
+	 */
+	@Beta
+	public BetaOperations beta() {
+		return betaOperations;
+	}
+
+	/**
+	 * Returns the configuration for this agent.
+	 *
+	 * @return agent configuration
+	 */
+	public AgentConfig getConfig() {
+		return config;
+	}
 
 	/**
 	 * Creates a new builder for the Agent.
@@ -318,6 +341,54 @@ public class Agent implements AutoCloseable, TriggerContext {
 		 */
 		public Builder addHook(AgentHook hook) {
 			configBuilder.addHook(hook);
+			return this;
+		}
+
+		/**
+		 * Sets the collection of hooks, replacing any previously registered hooks.
+		 *
+		 * @param hooks
+		 *            collection of hooks
+		 * @return this builder
+		 */
+		public Builder hooks(Collection<? extends AgentHook> hooks) {
+			configBuilder.hooks(hooks);
+			return this;
+		}
+
+		/**
+		 * Sets the hooks, replacing any previously registered hooks.
+		 *
+		 * @param hooks
+		 *            varargs of hooks
+		 * @return this builder
+		 */
+		public Builder hooks(AgentHook... hooks) {
+			configBuilder.hooks(hooks);
+			return this;
+		}
+
+		/**
+		 * Adds a collection of hooks to the agent configuration.
+		 *
+		 * @param hooks
+		 *            collection of hooks to add
+		 * @return this builder
+		 */
+		public Builder addHooks(Collection<? extends AgentHook> hooks) {
+			configBuilder.addHooks(hooks);
+			return this;
+		}
+
+		/**
+		 * Adds multiple hooks to the agent configuration.
+		 *
+		 * @param hooks
+		 *            varargs of hooks to add
+		 * @return this builder
+		 */
+		public Builder addHooks(AgentHook... hooks) {
+			configBuilder.addHooks(hooks);
 			return this;
 		}
 
@@ -537,6 +608,15 @@ public class Agent implements AutoCloseable, TriggerContext {
 		public Builder compactionThreshold(int tokenThreshold) {
 			configBuilder.compactionThreshold(tokenThreshold);
 			return this;
+		}
+
+		/**
+		 * Builds the AgentConfig without starting the agent or spawning a process.
+		 *
+		 * @return the configured AgentConfig
+		 */
+		public AgentConfig buildConfig() {
+			return configBuilder.build();
 		}
 
 		/**
@@ -837,6 +917,9 @@ public class Agent implements AutoCloseable, TriggerContext {
 				if (cc.maxContextTokens() != null) {
 					compactionBuilder.setMaxContextTokens(cc.maxContextTokens());
 				}
+				if (cc.summaryPromptOverride() != null && !cc.summaryPromptOverride().isBlank()) {
+					compactionBuilder.setSummaryPromptOverride(cc.summaryPromptOverride());
+				}
 			}
 
 			if (config.getAgentBehavior() != null) {
@@ -915,6 +998,25 @@ public class Agent implements AutoCloseable, TriggerContext {
 					if (subagent.tools() != null) {
 						for (String toolName : subagent.tools()) {
 							subBuilder.addTools(Tool.newBuilder().setName(toolName).build());
+						}
+					}
+					if (subagent.skillsConfig() != null) {
+						var scBuilder = subBuilder.getSkillsConfigBuilder();
+						if (subagent.skillsConfig() instanceof SubagentInheritSkillsConfig isc) {
+							var inheritBuilder = scBuilder.getInheritConfigBuilder();
+							if (isc.extraSkillsPaths() != null) {
+								inheritBuilder.addAllExtraSkillsPaths(isc.extraSkillsPaths());
+							}
+							if (isc.skillNames() != null) {
+								inheritBuilder.addAllSkillNames(isc.skillNames());
+							}
+						} else if (subagent.skillsConfig() instanceof SubagentNoneSkillsConfig) {
+							scBuilder.getNoneConfigBuilder();
+						} else if (subagent.skillsConfig() instanceof SubagentOverrideSkillsConfig osc) {
+							var overrideBuilder = scBuilder.getOverrideConfigBuilder();
+							if (osc.skillsPaths() != null) {
+								overrideBuilder.addAllSkillsPaths(osc.skillsPaths());
+							}
 						}
 					}
 					configBuilder.addCustomSubagents(subBuilder.build());

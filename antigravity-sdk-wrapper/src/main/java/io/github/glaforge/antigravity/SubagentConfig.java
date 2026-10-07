@@ -38,9 +38,11 @@ import java.util.Objects;
  *            optional capabilities config controlling allowed tools
  * @param agentBehavior
  *            optional agent behavior mode
+ * @param skillsConfig
+ *            optional skills configuration for this subagent
  */
 public record SubagentConfig(String name, String description, String instructions, String model, List<String> tools,
-		CapabilitiesConfig capabilities, AgentBehavior agentBehavior) {
+		CapabilitiesConfig capabilities, AgentBehavior agentBehavior, SubagentSkillsConfig skillsConfig) {
 
 	/**
 	 * Canonical constructor with defensive null and list handling.
@@ -52,6 +54,14 @@ public record SubagentConfig(String name, String description, String instruction
 	}
 
 	/**
+	 * Backward compatible constructor without skillsConfig.
+	 */
+	public SubagentConfig(String name, String description, String instructions, String model, List<String> tools,
+			CapabilitiesConfig capabilities, AgentBehavior agentBehavior) {
+		this(name, description, instructions, model, tools, capabilities, agentBehavior, null);
+	}
+
+	/**
 	 * Convenience constructor with minimal fields.
 	 *
 	 * @param name
@@ -60,7 +70,7 @@ public record SubagentConfig(String name, String description, String instruction
 	 *            description of the subagent
 	 */
 	public SubagentConfig(String name, String description) {
-		this(name, description, null, null, List.of(), null, null);
+		this(name, description, null, null, List.of(), null, null, null);
 	}
 
 	/**
@@ -74,7 +84,7 @@ public record SubagentConfig(String name, String description, String instruction
 	 *            model target name
 	 */
 	public SubagentConfig(String name, String description, String model) {
-		this(name, description, null, model, List.of(), null, null);
+		this(name, description, null, model, List.of(), null, null, null);
 	}
 
 	/**
@@ -107,6 +117,7 @@ public record SubagentConfig(String name, String description, String instruction
 		private final List<String> tools = new ArrayList<>();
 		private CapabilitiesConfig capabilities;
 		private AgentBehavior agentBehavior;
+		private SubagentSkillsConfig skillsConfig;
 
 		/** Default constructor. */
 		public Builder() {
@@ -228,6 +239,18 @@ public record SubagentConfig(String name, String description, String instruction
 		}
 
 		/**
+		 * Sets the skills configuration for the subagent.
+		 *
+		 * @param skillsConfig
+		 *            subagent skills configuration
+		 * @return this builder
+		 */
+		public Builder skillsConfig(SubagentSkillsConfig skillsConfig) {
+			this.skillsConfig = skillsConfig;
+			return this;
+		}
+
+		/**
 		 * Builds a new {@link SubagentConfig}.
 		 *
 		 * @return new SubagentConfig instance
@@ -239,7 +262,8 @@ public record SubagentConfig(String name, String description, String instruction
 			if (description == null || description.isBlank()) {
 				throw new IllegalArgumentException("Subagent description must not be blank");
 			}
-			return new SubagentConfig(name, description, instructions, model, tools, capabilities, agentBehavior);
+			return new SubagentConfig(name, description, instructions, model, tools, capabilities, agentBehavior,
+					skillsConfig);
 		}
 	}
 }

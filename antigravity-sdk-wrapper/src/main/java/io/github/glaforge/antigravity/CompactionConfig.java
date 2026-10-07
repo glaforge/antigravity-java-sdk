@@ -29,8 +29,26 @@ package io.github.glaforge.antigravity;
  *            compaction passes
  * @param maxContextTokens
  *            optional absolute maximum context token limit
+ * @param summaryPromptOverride
+ *            optional custom prompt override used when generating compaction
+ *            summaries
  */
-public record CompactionConfig(Integer tokenThreshold, Integer checkpointIntervalTokens, Integer maxContextTokens) {
+public record CompactionConfig(Integer tokenThreshold, Integer checkpointIntervalTokens, Integer maxContextTokens,
+		String summaryPromptOverride) {
+
+	/**
+	 * Creates a CompactionConfig without a summary prompt override.
+	 *
+	 * @param tokenThreshold
+	 *            token ceiling allowed before compaction
+	 * @param checkpointIntervalTokens
+	 *            checkpoint interval tokens
+	 * @param maxContextTokens
+	 *            max context tokens
+	 */
+	public CompactionConfig(Integer tokenThreshold, Integer checkpointIntervalTokens, Integer maxContextTokens) {
+		this(tokenThreshold, checkpointIntervalTokens, maxContextTokens, null);
+	}
 
 	/**
 	 * Creates a CompactionConfig with only a token threshold.
@@ -39,7 +57,7 @@ public record CompactionConfig(Integer tokenThreshold, Integer checkpointInterva
 	 *            token ceiling allowed before compaction
 	 */
 	public CompactionConfig(Integer tokenThreshold) {
-		this(tokenThreshold, null, null);
+		this(tokenThreshold, null, null, null);
 	}
 
 	/**
@@ -50,7 +68,7 @@ public record CompactionConfig(Integer tokenThreshold, Integer checkpointInterva
 	 * @return a new CompactionConfig instance
 	 */
 	public static CompactionConfig of(int tokenThreshold) {
-		return new CompactionConfig(tokenThreshold, null, null);
+		return new CompactionConfig(tokenThreshold, null, null, null);
 	}
 
 	/**
@@ -69,6 +87,7 @@ public record CompactionConfig(Integer tokenThreshold, Integer checkpointInterva
 		private Integer tokenThreshold;
 		private Integer checkpointIntervalTokens;
 		private Integer maxContextTokens;
+		private String summaryPromptOverride;
 
 		/**
 		 * Default constructor.
@@ -119,12 +138,26 @@ public record CompactionConfig(Integer tokenThreshold, Integer checkpointInterva
 		}
 
 		/**
+		 * Sets an optional prompt override to customize how the model summarizes
+		 * compacted context.
+		 *
+		 * @param summaryPromptOverride
+		 *            summary prompt override
+		 * @return this builder
+		 */
+		public Builder summaryPromptOverride(String summaryPromptOverride) {
+			this.summaryPromptOverride = summaryPromptOverride;
+			return this;
+		}
+
+		/**
 		 * Builds the {@link CompactionConfig} instance.
 		 *
 		 * @return a new CompactionConfig
 		 */
 		public CompactionConfig build() {
-			return new CompactionConfig(tokenThreshold, checkpointIntervalTokens, maxContextTokens);
+			return new CompactionConfig(tokenThreshold, checkpointIntervalTokens, maxContextTokens,
+					summaryPromptOverride);
 		}
 	}
 }
