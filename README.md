@@ -1,4 +1,4 @@
-# Antigravity SDK for Java
+# Antigravity SDK for Java [![javadoc](https://javadoc.io/badge2/io.github.glaforge.antigravity/antigravity-sdk-wrapper/javadoc.svg)](https://javadoc.io/doc/io.github.glaforge.antigravity/antigravity-sdk-wrapper)
 
 Welcome to the **Antigravity SDK for Java**, an unofficial Java port of the Python-based [Antigravity SDK](https://antigravity.google/product/antigravity-sdk)! 
 
