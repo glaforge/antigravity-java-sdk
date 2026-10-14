@@ -19,18 +19,21 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.glaforge.antigravity.DynamicTool;
+import io.github.glaforge.antigravity.ToolContext;
+import io.github.glaforge.antigravity.ToolExecutionError;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
-import io.github.glaforge.antigravity.DynamicTool;
-import io.github.glaforge.antigravity.ToolContext;
-import io.github.glaforge.antigravity.ToolExecutionError;
 
 /**
  * Manages the registration and execution of tools for the agent.
@@ -38,7 +41,7 @@ import io.github.glaforge.antigravity.ToolExecutionError;
 public class ToolRegistry {
 	private final Map<String, ToolMethodHandler> registry = new HashMap<>();
 	private final Map<String, DynamicTool> dynamicRegistry = new HashMap<>();
-	private final JsonMapper mapper = JsonMapper.builder().build();
+	private final JsonMapper mapper = SchemaGenerator.getMapper();
 
 	/**
 	 * Default constructor.
@@ -58,10 +61,8 @@ public class ToolRegistry {
 		boolean foundTool = false;
 
 		for (Method method : clazz.getDeclaredMethods()) {
-			if (method.isAnnotationPresent(Tool.class)) {
-				Tool annotation = method.getAnnotation(Tool.class);
-
-				String toolName = annotation.name().isEmpty() ? method.getName() : annotation.name();
+			if (isToolMethod(method)) {
+				String toolName = resolveToolName(serviceInstance, method);
 
 				method.setAccessible(true);
 				registry.put(toolName, new ToolMethodHandler(serviceInstance, method));
@@ -103,17 +104,67 @@ public class ToolRegistry {
 	 * @return resolved tool name
 	 */
 	public static String resolveToolName(Object instance, Method method) {
-		if (method != null && method.isAnnotationPresent(Tool.class)) {
-			Tool anno = method.getAnnotation(Tool.class);
-			if (!anno.name().isEmpty()) {
-				return anno.name();
+		if (method != null) {
+			if (method.isAnnotationPresent(Tool.class)) {
+				Tool anno = method.getAnnotation(Tool.class);
+				if (!anno.name().isEmpty()) {
+					return anno.name();
+				}
+				return method.getName();
+			}
+			for (Annotation ann : method.getAnnotations()) {
+				if (isThirdPartyToolAnnotation(ann)) {
+					String name = SchemaGenerator.invokeStringAttribute(ann, "name");
+					if (name != null && !name.isEmpty()) {
+						return name;
+					}
+					return method.getName();
+				}
 			}
 			return method.getName();
 		}
-		if (method != null) {
-			return method.getName();
-		}
 		return instance.getClass().getSimpleName();
+	}
+
+	private static boolean isToolMethod(Method method) {
+		if (method.isAnnotationPresent(Tool.class)) {
+			return true;
+		}
+		for (Annotation ann : method.getAnnotations()) {
+			if (isThirdPartyToolAnnotation(ann)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean isThirdPartyToolAnnotation(Annotation ann) {
+		return SchemaGenerator.isAnnotationNamed(ann, "dev.langchain4j.agent.tool.Tool", "Tool")
+				|| SchemaGenerator.isAnnotationNamed(ann, "org.springframework.ai.tool.annotation.Tool", "Tool")
+				|| SchemaGenerator.isAnnotationNamed(ann, "org.springaicommunity.mcp.annotation.McpTool", "McpTool")
+				|| SchemaGenerator.isAnnotationNamed(ann, "org.springframework.ai.mcp.annotation.McpTool", "McpTool")
+				|| SchemaGenerator.isAnnotationNamed(ann, "org.mcpjava.annotations.tools.Tool", "Tool");
+	}
+
+	private static String resolveToolDescription(Method method) {
+		if (method.isAnnotationPresent(Tool.class)) {
+			return method.getAnnotation(Tool.class).description();
+		}
+		for (Annotation ann : method.getAnnotations()) {
+			if (SchemaGenerator.isAnnotationNamed(ann, "dev.langchain4j.agent.tool.Tool", "Tool")) {
+				String desc = SchemaGenerator.invokeStringOrArrayAttribute(ann, "value");
+				if (desc != null && !desc.isEmpty()) {
+					return desc;
+				}
+			}
+			if (isThirdPartyToolAnnotation(ann)) {
+				String desc = SchemaGenerator.invokeStringAttribute(ann, "description");
+				if (desc != null && !desc.isEmpty()) {
+					return desc;
+				}
+			}
+		}
+		return SchemaGenerator.extractDescription(method);
 	}
 
 	/**
@@ -135,36 +186,34 @@ public class ToolRegistry {
 		List<ToolDefinition> definitions = new ArrayList<>();
 
 		for (Map.Entry<String, ToolMethodHandler> entry : registry.entrySet()) {
-			Tool annotation = entry.getValue().method().getAnnotation(Tool.class);
+			Method method = entry.getValue().method();
 			ObjectNode parametersNode = mapper.createObjectNode();
 			parametersNode.put("type", "object");
 			ObjectNode properties = parametersNode.putObject("properties");
 			ArrayNode required = mapper.createArrayNode();
 
-			Parameter[] params = entry.getValue().method().getParameters();
+			Parameter[] params = method.getParameters();
 			for (Parameter p : params) {
 				if (isToolContextParam(p)) {
 					continue;
 				}
 
-				String paramName = p.getName();
-				String description = "";
-
-				if (p.isAnnotationPresent(Param.class)) {
-					Param paramAnno = p.getAnnotation(Param.class);
-					if (!paramAnno.name().isEmpty()) {
-						paramName = paramAnno.name();
-					}
-					description = paramAnno.description();
-				}
+				String paramName = SchemaGenerator.extractPropertyName(p, p.getName());
+				String description = SchemaGenerator.extractDescription(p);
+				String defaultValue = SchemaGenerator.extractDefaultValue(p);
 
 				ObjectNode paramSchema = SchemaGenerator.generateSchema(p.getParameterizedType());
 				if (!description.isEmpty()) {
 					paramSchema.put("description", description);
 				}
+				if (!defaultValue.isEmpty()) {
+					paramSchema.put("default", defaultValue);
+				}
 
 				properties.set(paramName, paramSchema);
-				required.add(paramName);
+				if (SchemaGenerator.isRequired(p)) {
+					required.add(paramName);
+				}
 			}
 
 			if (!required.isEmpty()) {
@@ -179,7 +228,8 @@ public class ToolRegistry {
 			}
 
 			var builder = ToolDefinition.builder();
-			builder.name(entry.getKey()).description(annotation.description()).parametersSchema(parametersJsonSchema);
+			builder.name(entry.getKey()).description(resolveToolDescription(method))
+					.parametersSchema(parametersJsonSchema);
 			definitions.add(builder.build());
 		}
 		for (DynamicTool dt : dynamicRegistry.values()) {
@@ -222,7 +272,7 @@ public class ToolRegistry {
 			throw tee;
 		} catch (Exception e) {
 			Throwable cause = e;
-			if (e instanceof java.lang.reflect.InvocationTargetException ite && ite.getCause() != null) {
+			if (e instanceof InvocationTargetException ite && ite.getCause() != null) {
 				cause = ite.getCause();
 			}
 			if (cause instanceof ToolExecutionError tee) {
@@ -275,37 +325,79 @@ public class ToolRegistry {
 				continue;
 			}
 
-			String name = param.getName();
-			if (param.isAnnotationPresent(Param.class)) {
-				Param paramAnno = param.getAnnotation(Param.class);
-				if (!paramAnno.name().isEmpty()) {
-					name = paramAnno.name();
-				}
-			}
+			String name = SchemaGenerator.extractPropertyName(param, param.getName());
 
 			if (arguments == null || !arguments.has(name) || arguments.get(name).isNull()) {
-				parsedValues[i] = getDefaultValue(type);
+				String defaultVal = SchemaGenerator.extractDefaultValue(param);
+				if (!defaultVal.isEmpty()) {
+					parsedValues[i] = convertDefaultValue(defaultVal, param.getParameterizedType(), type);
+				} else if (type == Optional.class) {
+					parsedValues[i] = Optional.empty();
+				} else {
+					parsedValues[i] = getDefaultValue(type);
+				}
 				continue;
 			}
 
 			JsonNode valueNode = arguments.get(name);
-			if (type == String.class)
-				parsedValues[i] = valueNode.asText();
-			else if (type == int.class || type == Integer.class)
-				parsedValues[i] = valueNode.asInt();
-			else if (type == long.class || type == Long.class)
-				parsedValues[i] = valueNode.asLong();
-			else if (type == double.class || type == Double.class)
-				parsedValues[i] = valueNode.asDouble();
-			else if (type == float.class || type == Float.class)
-				parsedValues[i] = (float) valueNode.asDouble();
-			else if (type == boolean.class || type == Boolean.class)
-				parsedValues[i] = valueNode.asBoolean();
-			else {
-				parsedValues[i] = mapper.treeToValue(valueNode, type);
+			if (type == Optional.class) {
+				Type innerType = Object.class;
+				if (param.getParameterizedType() instanceof ParameterizedType pt
+						&& pt.getActualTypeArguments().length == 1) {
+					innerType = pt.getActualTypeArguments()[0];
+				}
+				Object innerVal = convertNodeValue(valueNode, innerType);
+				parsedValues[i] = Optional.ofNullable(innerVal);
+			} else {
+				parsedValues[i] = convertNodeValue(valueNode, param.getParameterizedType());
 			}
 		}
 		return parsedValues;
+	}
+
+	private Object convertNodeValue(JsonNode valueNode, Type targetType) throws Exception {
+		Class<?> rawClass = targetType instanceof Class<?> c
+				? c
+				: (targetType instanceof ParameterizedType pt && pt.getRawType() instanceof Class<?> rc
+						? rc
+						: Object.class);
+		if (rawClass == String.class)
+			return valueNode.asText();
+		if (rawClass == int.class || rawClass == Integer.class)
+			return valueNode.asInt();
+		if (rawClass == long.class || rawClass == Long.class)
+			return valueNode.asLong();
+		if (rawClass == double.class || rawClass == Double.class)
+			return valueNode.asDouble();
+		if (rawClass == float.class || rawClass == Float.class)
+			return (float) valueNode.asDouble();
+		if (rawClass == boolean.class || rawClass == Boolean.class)
+			return valueNode.asBoolean();
+		return mapper.convertValue(valueNode, mapper.constructType(targetType));
+	}
+
+	private Object convertDefaultValue(String defaultVal, Type genericType, Class<?> rawType) throws Exception {
+		if (rawType == Optional.class) {
+			Type innerType = Object.class;
+			if (genericType instanceof ParameterizedType pt && pt.getActualTypeArguments().length == 1) {
+				innerType = pt.getActualTypeArguments()[0];
+			}
+			Class<?> innerRaw = innerType instanceof Class<?> c ? c : Object.class;
+			return Optional.ofNullable(convertDefaultValue(defaultVal, innerType, innerRaw));
+		}
+		if (rawType == String.class)
+			return defaultVal;
+		if (rawType == int.class || rawType == Integer.class)
+			return Integer.parseInt(defaultVal);
+		if (rawType == long.class || rawType == Long.class)
+			return Long.parseLong(defaultVal);
+		if (rawType == double.class || rawType == Double.class)
+			return Double.parseDouble(defaultVal);
+		if (rawType == float.class || rawType == Float.class)
+			return Float.parseFloat(defaultVal);
+		if (rawType == boolean.class || rawType == Boolean.class)
+			return Boolean.parseBoolean(defaultVal);
+		return mapper.readValue(defaultVal, mapper.constructType(genericType));
 	}
 
 	private Object getDefaultValue(Class<?> type) {

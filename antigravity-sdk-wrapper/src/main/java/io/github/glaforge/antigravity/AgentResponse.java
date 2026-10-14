@@ -15,7 +15,7 @@
  */
 package io.github.glaforge.antigravity;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.glaforge.antigravity.tools.SchemaGenerator;
 
 /**
  * Represents the final response from the agent.
@@ -58,8 +58,7 @@ public record AgentResponse(String text, String thoughts, UsageMetadata usageMet
 	 *             if mapping fails
 	 */
 	public <T> T getStructuredOutput(Class<T> type) throws Exception {
-		ObjectMapper mapper = new ObjectMapper();
-		return mapper.readValue(text, type);
+		return SchemaGenerator.getMapper().readValue(text, type);
 	}
 
 	@Override

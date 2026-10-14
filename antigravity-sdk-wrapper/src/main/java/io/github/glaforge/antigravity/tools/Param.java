@@ -21,24 +21,33 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation used to describe a parameter of a tool method.
+ * Annotation used to describe a tool parameter, POJO field, record component,
+ * or structured schema type.
  */
-@Target(ElementType.PARAMETER)
+@Target({ElementType.PARAMETER, ElementType.FIELD, ElementType.METHOD, ElementType.RECORD_COMPONENT, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Param {
 	/**
-	 * The name of the parameter in the JSON schema. If empty, the Java parameter
-	 * name is used (requires -parameters compiler flag).
+	 * The name of the parameter or property in the JSON schema. If empty, the Java
+	 * parameter or field name is used (requires -parameters compiler flag for
+	 * method parameters).
 	 *
-	 * @return the parameter name
+	 * @return the parameter or property name
 	 */
 	String name() default "";
 
 	/**
-	 * Explains what the parameter represents. This description is passed to the LLM
-	 * in the JSON schema.
+	 * Explains what the parameter, property, or type represents. This description
+	 * is passed to the LLM in the JSON schema.
 	 *
-	 * @return the parameter description
+	 * @return the description
 	 */
 	String description() default "";
+
+	/**
+	 * Whether this parameter or property is required in the generated JSON schema.
+	 *
+	 * @return true if required (default), false if optional
+	 */
+	boolean required() default true;
 }

@@ -264,21 +264,31 @@ context.merge("total_tokens", 150, (oldVal, newVal) -> ((Integer) oldVal) + ((In
 
 ---
 
-## 6. Structured Outputs
+## 6. Structured Outputs & Schema Annotations
 
-Force the agent to respond in a strict JSON schema format, deserializing directly into Java 21 `record`s.
+Force the agent to respond in a strict JSON schema format, deserializing directly into Java 21 `record`s or POJOs. `SchemaGenerator` and `ToolRegistry` support three tiers of annotations across both tool inputs and `responseSchema(Class<?>)` outputs:
+
+| Tier | Supported Annotations | Capabilities |
+| :--- | :--- | :--- |
+| **Tier 1 (Jackson & Java Types)** | `@JsonProperty(value, required, defaultValue)`, `@JsonPropertyDescription`, `@JsonClassDescription`, `@JsonIgnore`, `Optional<T>`, `@Nullable` | Custom property/enum names, property & class/enum descriptions, default values, optional properties, field exclusion, `Collection`/`Set`/`Map`, and cycle-safe recursive schemas. |
+| **Tier 2 (Native `@Param`)** | `@Param(name, description, required)` on `PARAMETER`, `FIELD`, `RECORD_COMPONENT`, and `TYPE` | Unified native annotation for method parameters, nested record components, POJO fields/getters, enum constants, and top-level types. |
+| **Tier 3 (Polyglot Ecosystem)** | LangChain4j (`@Tool`, `@P`, `@Description`), Spring AI (`@Tool`, `@ToolParam`, `@McpTool`, `@McpToolParam`, `@McpArg`), `mcp-java` (`@Tool`, `@ToolArg`), OpenAPI (`@Schema`) | Zero-dependency reflection support so existing annotated records, POJOs, and tool classes work across frameworks without modification. |
 
 ```java
 import io.github.glaforge.antigravity.Agent;
 import io.github.glaforge.antigravity.AgentConfig;
 import io.github.glaforge.antigravity.AgentResponse;
+import io.github.glaforge.antigravity.tools.Param;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+@Param(description = "Structured code review analysis")
 public record CodeAnalysis(
-    String language,
-    int complexityScore,
-    List<String> suggestions
+    @Param(name = "programming_language", description = "Detected language") String language,
+    @Param(description = "Complexity score from 1 to 10") int complexityScore,
+    @Param(description = "Actionable refactoring suggestions", required = false) List<String> suggestions,
+    Optional<String> summary
 ) {}
 
 AgentConfig config = AgentConfig.builder()

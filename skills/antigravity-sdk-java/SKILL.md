@@ -68,17 +68,23 @@ try (Agent agent = Agent.builder()
 
 ### 1. Tool Declaration & Context Injection
 
-Prefer annotated tools (`@Tool` and `@Param`). The SDK auto-generates JSON Schemas from Java reflection. Inject [`ToolContext`](references/api-reference.md#toolcontext) to access session state or send messages without polluting the LLM's tool parameters schema.
+Prefer annotated tools (`@Tool` and `@Param`). The SDK auto-generates JSON Schemas from Java reflection:
+- `@Param(name, description, required)` can be placed on method parameters, POJO fields, record components, and classes/records (`TYPE`).
+- `Optional<T>` and `@Nullable` parameters/fields are automatically unwrapped and marked optional (`required = false`).
+- Jackson (`@JsonProperty`, `@JsonPropertyDescription`, `@JsonClassDescription`, `@JsonIgnore`) and third-party annotations from LangChain4j (`@Tool`, `@P`, `@Description`), Spring AI (`@Tool`, `@ToolParam`, `@McpTool`, `@McpToolParam`, `@McpArg`), `mcp-java` (`@Tool`, `@ToolArg`), and OpenAPI (`@Schema`) are also recognized out of the box.
+- Inject [`ToolContext`](references/api-reference.md#toolcontext) (or `Optional<ToolContext>`) to access session state or send messages without polluting the LLM's tool parameters schema.
 
 ```java
 import io.github.glaforge.antigravity.tools.Tool;
 import io.github.glaforge.antigravity.tools.Param;
 import io.github.glaforge.antigravity.ToolContext;
+import java.util.Optional;
 
 public class DatabaseTools {
     @Tool(name = "query_user", description = "Fetch user record by email.")
     public String queryUser(
         @Param(name = "email", description = "User's primary email address") String email,
+        @Param(name = "include_audit", description = "Include audit log", required = false) Optional<Boolean> includeAudit,
         ToolContext context // Automatically injected by SDK (excluded from tool schema)
     ) {
         context.setState("last_queried_user", email);
