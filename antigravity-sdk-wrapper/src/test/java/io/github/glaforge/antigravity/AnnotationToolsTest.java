@@ -45,31 +45,27 @@ public class AnnotationToolsTest {
 	}
 
 	@Test
+	@Retry(2)
 	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testPojoToolInvocation() throws Exception {
-		TestUtils.retry(2, () -> {
-			AgentConfig config = AgentConfig.builder().instructions("""
-					You are a weather bot.
-					Always invoke the weather_forecast tool to get the weather, and tell the user the result.
-					""").addTool(new MyToolbox()).modelName("gemini-3.6-flash").build();
+		AgentConfig config = AgentConfig.builder().instructions("""
+				You are a weather bot.
+				Always invoke the weather_forecast tool to get the weather, and tell the user the result.
+				""").addTool(new MyToolbox()).modelName("gemini-3.8-flash").build();
 
-			try (Agent agent = new Agent(config)) {
-				System.out.println("Agent initialized successfully!");
+		try (Agent agent = new Agent(config)) {
+			System.out.println("Agent initialized successfully!");
 
-				System.out.println("Sending prompt...");
-				CompletableFuture<AgentResponse> future = agent
-						.chat("What is the weather in Paris, France, zip 75001?");
-				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
-				AgentResponse response = future.get();
-				System.out.println("\n--- Agent Response ---");
-				System.out.println(response.text());
-				System.out.println("----------------------\n");
+			System.out.println("Sending prompt...");
+			CompletableFuture<AgentResponse> future = agent.chat("What is the weather in Paris, France, zip 75001?");
+			await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
+			AgentResponse response = future.get();
+			System.out.println("\n--- Agent Response ---");
+			System.out.println(response.text());
+			System.out.println("----------------------\n");
 
-				assertTrue(response.text().contains("Sunny"));
-				assertTrue(response.text().contains("25.5"));
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		});
+			assertTrue(response.text().toLowerCase().contains("sunny"));
+			assertTrue(response.text().contains("25.5"));
+		}
 	}
 }

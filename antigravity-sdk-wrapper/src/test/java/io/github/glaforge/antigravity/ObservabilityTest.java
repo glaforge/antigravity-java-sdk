@@ -27,29 +27,28 @@ import static org.junit.jupiter.api.Assertions.*;
 public class ObservabilityTest {
 
 	@Test
+	@Retry(2)
 	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testUsageObservability() throws Exception {
-		TestUtils.retry(2, () -> {
-			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
-					.modelName("gemini-3.6-flash").build();
+		AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
+				.modelName("gemini-3.8-flash").build();
 
-			try (Agent agent = new Agent(config)) {
-				CompletableFuture<AgentResponse> future = agent.chat("Hi, say exactly one word: Hello.");
-				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
-				AgentResponse response = future.get();
+		try (Agent agent = new Agent(config)) {
+			CompletableFuture<AgentResponse> future = agent.chat("Hi, say exactly one word: Hello.");
+			await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
+			AgentResponse response = future.get();
 
-				// Verify usage metadata is populated
-				UsageMetadata usage = response.usageMetadata();
-				assertNotNull(usage, "UsageMetadata should not be null in response");
-				assertEquals(usage, response.usage(), "response.usage() should match response.usageMetadata()");
-				assertTrue(usage.promptTokenCount() > 0, "Prompt tokens should be > 0");
-				assertTrue(usage.totalTokenCount() > 0, "Total tokens should be > 0");
+			// Verify usage metadata is populated
+			UsageMetadata usage = response.usageMetadata();
+			assertNotNull(usage, "UsageMetadata should not be null in response");
+			assertEquals(usage, response.usage(), "response.usage() should match response.usageMetadata()");
+			assertTrue(usage.promptTokenCount() > 0, "Prompt tokens should be > 0");
+			assertTrue(usage.totalTokenCount() > 0, "Total tokens should be > 0");
 
-				// Verify Agent getters
-				assertNotNull(agent.getUsageMetadata(), "agent.getUsageMetadata() should not be null");
-				assertNotNull(agent.getTotalUsage(), "agent.getTotalUsage() should not be null");
-				assertTrue(agent.getTotalUsage().totalTokenCount() > 0, "Cumulative total tokens should be > 0");
-			}
-		});
+			// Verify Agent getters
+			assertNotNull(agent.getUsageMetadata(), "agent.getUsageMetadata() should not be null");
+			assertNotNull(agent.getTotalUsage(), "agent.getTotalUsage() should not be null");
+			assertTrue(agent.getTotalUsage().totalTokenCount() > 0, "Cumulative total tokens should be > 0");
+		}
 	}
 }

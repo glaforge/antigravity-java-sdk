@@ -40,7 +40,7 @@ public enum BuiltinTools {
 	/** Ask the user a clarifying question. */
 	ASK_QUESTION("ask_question"),
 	/** Invoke a subagent. */
-	START_SUBAGENT("start_subagent"),
+	INVOKE_SUBAGENT("invoke_subagent"),
 	/** Generate or edit images. */
 	GENERATE_IMAGE("generate_image"),
 	/** Search the web. */
@@ -51,8 +51,18 @@ public enum BuiltinTools {
 	SCHEDULE("schedule"),
 	/** Manage background tasks. */
 	MANAGE_TASK("manage_task"),
+	/** Execute a declarative multi-step workflow. */
+	RUN_WORKFLOW("run_workflow"),
 	/** Finish the conversation and return structured output. */
 	FINISH("finish");
+
+	/**
+	 * Legacy alias for {@link #INVOKE_SUBAGENT}.
+	 *
+	 * @deprecated Use {@link #INVOKE_SUBAGENT} instead.
+	 */
+	@Deprecated
+	public static final BuiltinTools START_SUBAGENT = INVOKE_SUBAGENT;
 
 	private final String toolName;
 
@@ -71,6 +81,60 @@ public enum BuiltinTools {
 
 	@Override
 	public String toString() {
+		return toolName;
+	}
+
+	/**
+	 * Resolves a {@link BuiltinTools} constant from its wire value or legacy alias
+	 * (such as {@code "start_subagent"}).
+	 *
+	 * @param value
+	 *            the tool name string
+	 * @return matching BuiltinTools constant, or null if not a builtin tool
+	 */
+	public static BuiltinTools fromValue(String value) {
+		if (value == null) {
+			return null;
+		}
+		String normalized = normalizeToolName(value);
+		for (BuiltinTools tool : values()) {
+			if (tool.toolName.equals(normalized)) {
+				return tool;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Normalizes legacy builtin tool names (such as {@code "start_subagent"}) to
+	 * their canonical wire name ({@code "invoke_subagent"}).
+	 *
+	 * @param toolName
+	 *            the tool name to normalize
+	 * @return normalized tool name
+	 */
+	public static String normalizeToolName(String toolName) {
+		return normalizeToolName(toolName, null);
+	}
+
+	/**
+	 * Normalizes legacy builtin tool names (such as {@code "start_subagent"}) to
+	 * their canonical wire name ({@code "invoke_subagent"}), leaving MCP tools
+	 * (where {@code serverName} is non-empty) untouched.
+	 *
+	 * @param toolName
+	 *            the tool name to normalize
+	 * @param serverName
+	 *            optional MCP server name
+	 * @return normalized tool name
+	 */
+	public static String normalizeToolName(String toolName, String serverName) {
+		if (toolName == null) {
+			return null;
+		}
+		if ((serverName == null || serverName.isEmpty()) && "start_subagent".equals(toolName)) {
+			return INVOKE_SUBAGENT.getValue();
+		}
 		return toolName;
 	}
 
@@ -106,8 +170,8 @@ public enum BuiltinTools {
 	 * @return a list of non-destructive BuiltinTools
 	 */
 	public static List<BuiltinTools> nondestructive() {
-		return List.of(VIEW_FILE, CREATE_FILE, EDIT_FILE, ASK_QUESTION, START_SUBAGENT, GENERATE_IMAGE, SEARCH_WEB,
-				READ_URL_CONTENT, SCHEDULE, MANAGE_TASK, FINISH);
+		return List.of(VIEW_FILE, CREATE_FILE, EDIT_FILE, ASK_QUESTION, INVOKE_SUBAGENT, GENERATE_IMAGE, SEARCH_WEB,
+				READ_URL_CONTENT, SCHEDULE, MANAGE_TASK, RUN_WORKFLOW, FINISH);
 	}
 
 	/**

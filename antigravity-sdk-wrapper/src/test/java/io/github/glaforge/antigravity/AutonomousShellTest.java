@@ -30,29 +30,28 @@ import static org.junit.jupiter.api.Assertions.*;
 public class AutonomousShellTest {
 
 	@Test
+	@Retry(2)
 	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testShellAccess() throws Exception {
-		TestUtils.retry(2, () -> {
-			CapabilitiesConfig capabilities = CapabilitiesConfig.builder().enableShell(true).build();
+		CapabilitiesConfig capabilities = CapabilitiesConfig.builder().enableShell(true).build();
 
-			AgentConfig config = AgentConfig.builder().modelName("gemini-3.6-flash").capabilities(capabilities)
-					.addPolicy(new Policy() {
-						@Override
-						public Decision evaluate(String toolName, JsonNode arguments) {
-							return Decision.ALLOW;
-						}
-					}).build();
+		AgentConfig config = AgentConfig.builder().modelName("gemini-3.8-flash").capabilities(capabilities)
+				.addPolicy(new Policy() {
+					@Override
+					public Decision evaluate(String toolName, JsonNode arguments) {
+						return Decision.ALLOW;
+					}
+				}).build();
 
-			try (Agent agent = new Agent(config)) {
-				CompletableFuture<AgentResponse> future = agent
-						.chat("Run 'echo Hello from the autonomous shell!' and tell me what the output is.");
-				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
-				AgentResponse response = future.get();
+		try (Agent agent = new Agent(config)) {
+			CompletableFuture<AgentResponse> future = agent
+					.chat("Run 'echo Hello from the autonomous shell!' and tell me what the output is.");
+			await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
+			AgentResponse response = future.get();
 
-				assertNotNull(response);
-				assertNotNull(response.text());
-				assertTrue(response.text().contains("Hello from the autonomous shell!"));
-			}
-		});
+			assertNotNull(response);
+			assertNotNull(response.text());
+			assertTrue(response.text().contains("Hello from the autonomous shell!"));
+		}
 	}
 }

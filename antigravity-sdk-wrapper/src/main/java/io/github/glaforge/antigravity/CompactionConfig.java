@@ -32,9 +32,29 @@ package io.github.glaforge.antigravity;
  * @param summaryPromptOverride
  *            optional custom prompt override used when generating compaction
  *            summaries
+ * @param useModelReportedTokenCount
+ *            optional flag instructing the harness to use model-reported token
+ *            counts when evaluating the compaction threshold
  */
 public record CompactionConfig(Integer tokenThreshold, Integer checkpointIntervalTokens, Integer maxContextTokens,
-		String summaryPromptOverride) {
+		String summaryPromptOverride, Boolean useModelReportedTokenCount) {
+
+	/**
+	 * Creates a CompactionConfig without useModelReportedTokenCount.
+	 *
+	 * @param tokenThreshold
+	 *            token ceiling allowed before compaction
+	 * @param checkpointIntervalTokens
+	 *            checkpoint interval tokens
+	 * @param maxContextTokens
+	 *            max context tokens
+	 * @param summaryPromptOverride
+	 *            summary prompt override
+	 */
+	public CompactionConfig(Integer tokenThreshold, Integer checkpointIntervalTokens, Integer maxContextTokens,
+			String summaryPromptOverride) {
+		this(tokenThreshold, checkpointIntervalTokens, maxContextTokens, summaryPromptOverride, null);
+	}
 
 	/**
 	 * Creates a CompactionConfig without a summary prompt override.
@@ -47,7 +67,7 @@ public record CompactionConfig(Integer tokenThreshold, Integer checkpointInterva
 	 *            max context tokens
 	 */
 	public CompactionConfig(Integer tokenThreshold, Integer checkpointIntervalTokens, Integer maxContextTokens) {
-		this(tokenThreshold, checkpointIntervalTokens, maxContextTokens, null);
+		this(tokenThreshold, checkpointIntervalTokens, maxContextTokens, null, null);
 	}
 
 	/**
@@ -57,7 +77,7 @@ public record CompactionConfig(Integer tokenThreshold, Integer checkpointInterva
 	 *            token ceiling allowed before compaction
 	 */
 	public CompactionConfig(Integer tokenThreshold) {
-		this(tokenThreshold, null, null, null);
+		this(tokenThreshold, null, null, null, null);
 	}
 
 	/**
@@ -68,7 +88,7 @@ public record CompactionConfig(Integer tokenThreshold, Integer checkpointInterva
 	 * @return a new CompactionConfig instance
 	 */
 	public static CompactionConfig of(int tokenThreshold) {
-		return new CompactionConfig(tokenThreshold, null, null, null);
+		return new CompactionConfig(tokenThreshold, null, null, null, null);
 	}
 
 	/**
@@ -88,6 +108,7 @@ public record CompactionConfig(Integer tokenThreshold, Integer checkpointInterva
 		private Integer checkpointIntervalTokens;
 		private Integer maxContextTokens;
 		private String summaryPromptOverride;
+		private Boolean useModelReportedTokenCount;
 
 		/**
 		 * Default constructor.
@@ -151,13 +172,26 @@ public record CompactionConfig(Integer tokenThreshold, Integer checkpointInterva
 		}
 
 		/**
+		 * Sets whether to use model-reported token counts when evaluating compaction
+		 * thresholds.
+		 *
+		 * @param useModelReportedTokenCount
+		 *            true to use model-reported token counts
+		 * @return this builder
+		 */
+		public Builder useModelReportedTokenCount(Boolean useModelReportedTokenCount) {
+			this.useModelReportedTokenCount = useModelReportedTokenCount;
+			return this;
+		}
+
+		/**
 		 * Builds the {@link CompactionConfig} instance.
 		 *
 		 * @return a new CompactionConfig
 		 */
 		public CompactionConfig build() {
 			return new CompactionConfig(tokenThreshold, checkpointIntervalTokens, maxContextTokens,
-					summaryPromptOverride);
+					summaryPromptOverride, useModelReportedTokenCount);
 		}
 	}
 }

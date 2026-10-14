@@ -39,7 +39,7 @@ public class FeatureParity019Test {
 		assertFalse(BuiltinTools.nondestructive().contains(BuiltinTools.RUN_COMMAND));
 
 		assertTrue(BuiltinTools.fileTools().contains(BuiltinTools.EDIT_FILE));
-		assertEquals(15, BuiltinTools.allTools().size());
+		assertEquals(16, BuiltinTools.allTools().size());
 		assertTrue(BuiltinTools.none().isEmpty());
 	}
 

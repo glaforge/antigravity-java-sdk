@@ -165,6 +165,22 @@ public class SchemaGenerator {
 	}
 
 	/**
+	 * Generates a JSON schema string representation of the given Java type.
+	 *
+	 * @param genericType
+	 *            the Java type to generate a schema for
+	 * @return a JSON string representing the JSON schema
+	 */
+	public static String generateSchemaJson(Type genericType) {
+		try {
+			ObjectNode schemaNode = generateSchema(genericType);
+			return mapper.writeValueAsString(schemaNode);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to generate JSON schema for class: " + genericType.getTypeName(), e);
+		}
+	}
+
+	/**
 	 * Returns the shared JsonMapper instance used by this generator.
 	 * 
 	 * @return the JsonMapper

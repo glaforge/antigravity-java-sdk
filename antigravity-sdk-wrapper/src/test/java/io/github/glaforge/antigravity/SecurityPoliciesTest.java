@@ -36,45 +36,44 @@ public class SecurityPoliciesTest {
 	}
 
 	@Test
+	@Retry(2)
 	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testSecurityPolicies() throws Exception {
-		TestUtils.retry(2, () -> {
-			WeatherTool tools = new WeatherTool();
-			AtomicBoolean allowWeather = new AtomicBoolean(false);
+		WeatherTool tools = new WeatherTool();
+		AtomicBoolean allowWeather = new AtomicBoolean(false);
 
-			Policy customPolicy = (toolName, args) -> {
-				if ("get_weather".equals(toolName) && allowWeather.get()) {
-					return Policy.Decision.ALLOW;
-				}
-				return Policy.Decision.DENY;
-			};
-
-			AgentConfig config = AgentConfig.builder().instructions("""
-					You are a weather assistant. Fetch the weather for Tokyo.
-					If denied, just say you can't.
-					""").modelName("gemini-3.6-flash").addTool(tools).addPolicy(customPolicy).build();
-
-			try (Agent agent = new Agent(config)) {
-				System.out.println("Testing with denied policy...");
-				CompletableFuture<AgentResponse> future1 = agent.chat("What is the weather in Tokyo right now?");
-				await().atMost(90, TimeUnit.SECONDS).until(future1::isDone);
-				AgentResponse response1 = future1.get();
-				System.out.println(response1.text());
-				assertNotNull(response1.text());
-				assertTrue(response1.text().toLowerCase().contains("cannot")
-						|| response1.text().toLowerCase().contains("can't"));
-
-				System.out.println("\nTesting with allowed policy...");
-				allowWeather.set(true);
-				CompletableFuture<AgentResponse> future2 = agent.chat("Try to fetch the weather for Tokyo again.");
-				await().atMost(90, TimeUnit.SECONDS).until(future2::isDone);
-				AgentResponse response2 = future2.get();
-				System.out.println(response2.text());
-				assertNotNull(response2.text());
-				// Since there is no actual implementation in the agent to recall tools in this
-				// basic test setup unless the agent decides to, we just assert the agent
-				// responds.
+		Policy customPolicy = (toolName, args) -> {
+			if ("get_weather".equals(toolName) && allowWeather.get()) {
+				return Policy.Decision.ALLOW;
 			}
-		});
+			return Policy.Decision.DENY;
+		};
+
+		AgentConfig config = AgentConfig.builder().instructions("""
+				You are a weather assistant. Fetch the weather for Tokyo.
+				If denied, just say you can't.
+				""").modelName("gemini-3.8-flash").addTool(tools).addPolicy(customPolicy).build();
+
+		try (Agent agent = new Agent(config)) {
+			System.out.println("Testing with denied policy...");
+			CompletableFuture<AgentResponse> future1 = agent.chat("What is the weather in Tokyo right now?");
+			await().atMost(90, TimeUnit.SECONDS).until(future1::isDone);
+			AgentResponse response1 = future1.get();
+			System.out.println(response1.text());
+			assertNotNull(response1.text());
+			assertTrue(response1.text().toLowerCase().contains("cannot")
+					|| response1.text().toLowerCase().contains("can't"));
+
+			System.out.println("\nTesting with allowed policy...");
+			allowWeather.set(true);
+			CompletableFuture<AgentResponse> future2 = agent.chat("Try to fetch the weather for Tokyo again.");
+			await().atMost(90, TimeUnit.SECONDS).until(future2::isDone);
+			AgentResponse response2 = future2.get();
+			System.out.println(response2.text());
+			assertNotNull(response2.text());
+			// Since there is no actual implementation in the agent to recall tools in this
+			// basic test setup unless the agent decides to, we just assert the agent
+			// responds.
+		}
 	}
 }

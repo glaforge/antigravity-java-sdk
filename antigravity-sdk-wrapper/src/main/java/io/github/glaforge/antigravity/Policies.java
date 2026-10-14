@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.util.Set;
 import java.util.Arrays;
 import java.util.function.BiPredicate;
+import java.util.stream.Collectors;
 
 /**
  * Pre-packaged policies to control autonomous agent behavior and simplify
@@ -99,7 +100,23 @@ public final class Policies {
 	 * @return a policy allowing the specified tool
 	 */
 	public static Policy allowTool(String targetToolName) {
-		return (toolName, arguments) -> targetToolName.equals(toolName) ? Policy.Decision.ALLOW : Policy.Decision.PASS;
+		String normalizedTarget = BuiltinTools.normalizeToolName(targetToolName);
+		return (toolName,
+				arguments) -> normalizedTarget != null
+						&& normalizedTarget.equals(BuiltinTools.normalizeToolName(toolName))
+								? Policy.Decision.ALLOW
+								: Policy.Decision.PASS;
+	}
+
+	/**
+	 * Creates a policy that allows a specific builtin tool.
+	 *
+	 * @param targetTool
+	 *            the builtin tool to allow
+	 * @return a policy allowing the specified tool
+	 */
+	public static Policy allowTool(BuiltinTools targetTool) {
+		return allowTool(targetTool != null ? targetTool.getValue() : null);
 	}
 
 	/**
@@ -114,6 +131,31 @@ public final class Policies {
 	}
 
 	/**
+	 * Creates a policy that denies a specific builtin tool.
+	 *
+	 * @param targetTool
+	 *            the builtin tool to deny
+	 * @return a policy denying the specified tool
+	 */
+	public static Policy denyTool(BuiltinTools targetTool) {
+		return denyTool(targetTool != null ? targetTool.getValue() : null, null);
+	}
+
+	/**
+	 * Creates a policy that denies a specific builtin tool with a custom
+	 * explanation.
+	 *
+	 * @param targetTool
+	 *            the builtin tool to deny
+	 * @param reason
+	 *            the custom denial reason
+	 * @return a policy denying the specified tool
+	 */
+	public static Policy denyTool(BuiltinTools targetTool, String reason) {
+		return denyTool(targetTool != null ? targetTool.getValue() : null, reason);
+	}
+
+	/**
 	 * Creates a policy that denies a specific tool with a custom explanation.
 	 * 
 	 * @param targetToolName
@@ -123,10 +165,13 @@ public final class Policies {
 	 * @return a policy denying the specified tool
 	 */
 	public static Policy denyTool(String targetToolName, String reason) {
+		String normalizedTarget = BuiltinTools.normalizeToolName(targetToolName);
 		return new Policy() {
 			@Override
 			public Decision evaluate(String toolName, JsonNode arguments) {
-				return targetToolName.equals(toolName) ? Decision.DENY : Decision.PASS;
+				return normalizedTarget != null && normalizedTarget.equals(BuiltinTools.normalizeToolName(toolName))
+						? Decision.DENY
+						: Decision.PASS;
 			}
 
 			@Override
@@ -164,8 +209,22 @@ public final class Policies {
 	 * @return a policy allowing the specified tools
 	 */
 	public static Policy allowTools(String... targetToolNames) {
-		Set<String> tools = Set.copyOf(Arrays.asList(targetToolNames));
-		return (toolName, arguments) -> tools.contains(toolName) ? Policy.Decision.ALLOW : Policy.Decision.PASS;
+		Set<String> tools = Arrays.stream(targetToolNames).map(BuiltinTools::normalizeToolName)
+				.collect(Collectors.toUnmodifiableSet());
+		return (toolName, arguments) -> tools.contains(BuiltinTools.normalizeToolName(toolName))
+				? Policy.Decision.ALLOW
+				: Policy.Decision.PASS;
+	}
+
+	/**
+	 * Creates a policy that allows a list of specific builtin tools.
+	 *
+	 * @param targetTools
+	 *            the builtin tools to allow
+	 * @return a policy allowing the specified tools
+	 */
+	public static Policy allowTools(BuiltinTools... targetTools) {
+		return allowTools(Arrays.stream(targetTools).map(BuiltinTools::getValue).toArray(String[]::new));
 	}
 
 	/**
@@ -176,8 +235,22 @@ public final class Policies {
 	 * @return a policy denying the specified tools
 	 */
 	public static Policy denyTools(String... targetToolNames) {
-		Set<String> tools = Set.copyOf(Arrays.asList(targetToolNames));
-		return (toolName, arguments) -> tools.contains(toolName) ? Policy.Decision.DENY : Policy.Decision.PASS;
+		Set<String> tools = Arrays.stream(targetToolNames).map(BuiltinTools::normalizeToolName)
+				.collect(Collectors.toUnmodifiableSet());
+		return (toolName, arguments) -> tools.contains(BuiltinTools.normalizeToolName(toolName))
+				? Policy.Decision.DENY
+				: Policy.Decision.PASS;
+	}
+
+	/**
+	 * Creates a policy that denies a list of specific builtin tools.
+	 *
+	 * @param targetTools
+	 *            the builtin tools to deny
+	 * @return a policy denying the specified tools
+	 */
+	public static Policy denyTools(BuiltinTools... targetTools) {
+		return denyTools(Arrays.stream(targetTools).map(BuiltinTools::getValue).toArray(String[]::new));
 	}
 
 	/**

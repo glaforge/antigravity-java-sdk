@@ -115,6 +115,7 @@ message HarnessConfig {
   CompactionConfig compaction_config = 24;
   SkillsConfig skills_config = 27;
   RulesConfig rules_config = 28;
+  int32 mcp_max_output_bytes = 29;
 }
 
 message RulesConfig {
@@ -157,6 +158,7 @@ message CompactionConfig {
   uint32 checkpoint_interval_tokens = 2;
   uint32 max_context_tokens = 3;
   string summary_prompt_override = 4;
+  bool use_model_reported_token_count = 5;
 }
 
 message Workspace {
@@ -172,6 +174,7 @@ message FilesystemWorkspace {
 message GeminiModelOptions {
   string thinking_level = 1;
   string service_tier = 2;
+  int32 max_output_tokens = 3;
 }
 
 message GeminiAPIEndpoint {
@@ -282,6 +285,7 @@ message HarnessSideTools {
   ToolSearchConfig tool_search_config = 15;
   ManageTaskToolConfig manage_task = 16;
   ScheduleToolConfig schedule = 17;
+  RunWorkflowToolConfig run_workflow = 20;
 }
 
 message FindToolConfig {
@@ -342,9 +346,36 @@ message ToolSearchConfig {
   bool enabled = 1;
 }
 
+message SkillFile {
+  oneof content {
+    string text = 2;
+    bytes data = 3;
+  }
+  string mime_type = 1;
+}
+
+message Skill {
+  message InlineResources {
+    map<string, SkillFile> resources = 1;
+  }
+
+  oneof resources {
+    InlineResources inline_resources = 7;
+    SkillFile zipped_resources = 8;
+  }
+  string name = 1;
+  string skill_id = 2;
+  string description = 3;
+  string content = 4;
+  repeated string allowed_tools = 5;
+  map<string, string> metadata = 6;
+}
+
 message SkillSource {
-  reserved 1;
-  string directory_path = 2;
+  oneof source {
+    Skill skill = 1;
+    string directory_path = 2;
+  }
 }
 
 message SkillsConfig {
@@ -358,6 +389,11 @@ message ManageTaskToolConfig {
 
 message ScheduleToolConfig {
   bool enabled = 1;
+}
+
+message RunWorkflowToolConfig {
+  bool enabled = 1;
+  ToolExecutionMode execution_mode = 2;
 }
 
 message PermissionsConfig {
@@ -460,6 +496,7 @@ message StepUpdate {
   ActionReadUrlContent read_url_content = 35;
   ActionCustomTool custom_tool = 36;
   ActionSkillLookup skill_lookup = 37;
+  ActionRunWorkflow run_workflow = 38;
   string request_text = 50;
   ToolConfirmationRequest tool_confirmation_request = 51;
   UserQuestionsRequest questions_request = 52;
@@ -481,6 +518,13 @@ message ActionSkillLookup {
   repeated string requested_skill_names = 2;
   repeated string resolved_skill_names = 3;
   string error_message = 4;
+}
+
+message ActionRunWorkflow {
+  string script_path = 1;
+  string description = 2;
+  string output = 3;
+  string script = 4;
 }
 
 message ActionGenerateImage {
@@ -654,7 +698,7 @@ message TrajectoryStateUpdate {
     STATE_IDLE = 2;
     STATE_CANCELLED = 3;
     STATE_WAITING_FOR_TASKS = 4;
-    STATE_FULLY_IDLE = 5;
+    STATE_WAITING_FOR_SUBAGENTS = 5;
   }
 
   enum StopReason {
@@ -780,6 +824,7 @@ message McpServerConfig {
   repeated string disabled_tools = 5;
   AuthProviderType auth_provider_type = 6;
   int32 timeout_seconds = 7;
+  bool force_all_tools_eager = 10;
 }
 
 message McpStdioTransport {
@@ -931,6 +976,7 @@ message SubagentSkillsConfig {
 
   message OverrideConfig {
     repeated string skills_paths = 1;
+    repeated SkillSource skill_sources = 2;
   }
 
   oneof mode {

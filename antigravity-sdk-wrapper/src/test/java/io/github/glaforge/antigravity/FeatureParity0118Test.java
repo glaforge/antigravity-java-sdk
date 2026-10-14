@@ -141,7 +141,7 @@ public class FeatureParity0118Test {
 		assertTrue(nondestructive.contains(BuiltinTools.MANAGE_TASK));
 
 		List<BuiltinTools> all = BuiltinTools.allTools();
-		assertEquals(15, all.size());
+		assertEquals(16, all.size());
 		assertTrue(all.contains(BuiltinTools.SCHEDULE));
 		assertTrue(all.contains(BuiltinTools.MANAGE_TASK));
 	}

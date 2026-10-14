@@ -29,53 +29,52 @@ import static org.junit.jupiter.api.Assertions.*;
 public class ReactiveStreamingTest {
 
 	@Test
+	@Retry(2)
 	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testReactiveStreaming() throws Exception {
-		TestUtils.retry(2, () -> {
-			AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
-					.modelName("gemini-3.6-flash").build();
+		AgentConfig config = AgentConfig.builder().instructions("You are a helpful assistant.")
+				.modelName("gemini-3.8-flash").build();
 
-			try (Agent agent = new Agent(config)) {
-				System.out.println("Starting reactive chat stream...");
-				AtomicInteger chunkCount = new AtomicInteger(0);
-				CompletableFuture<Void> completionFuture = new CompletableFuture<>();
+		try (Agent agent = new Agent(config)) {
+			System.out.println("Starting reactive chat stream...");
+			AtomicInteger chunkCount = new AtomicInteger(0);
+			CompletableFuture<Void> completionFuture = new CompletableFuture<>();
 
-				Flow.Publisher<AgentResponseChunk> publisher = agent
-						.chatPublisher("Write a 3 sentence story about a brave knight.");
+			Flow.Publisher<AgentResponseChunk> publisher = agent
+					.chatPublisher("Write a 3 sentence story about a brave knight.");
 
-				publisher.subscribe(new Flow.Subscriber<>() {
-					private Flow.Subscription subscription;
+			publisher.subscribe(new Flow.Subscriber<>() {
+				private Flow.Subscription subscription;
 
-					@Override
-					public void onSubscribe(Flow.Subscription subscription) {
-						this.subscription = subscription;
-						subscription.request(Long.MAX_VALUE);
-					}
+				@Override
+				public void onSubscribe(Flow.Subscription subscription) {
+					this.subscription = subscription;
+					subscription.request(Long.MAX_VALUE);
+				}
 
-					@Override
-					public void onNext(AgentResponseChunk item) {
-						System.out.print(item.textDelta());
-						chunkCount.incrementAndGet();
-					}
+				@Override
+				public void onNext(AgentResponseChunk item) {
+					System.out.print(item.textDelta());
+					chunkCount.incrementAndGet();
+				}
 
-					@Override
-					public void onError(Throwable throwable) {
-						completionFuture.completeExceptionally(throwable);
-					}
+				@Override
+				public void onError(Throwable throwable) {
+					completionFuture.completeExceptionally(throwable);
+				}
 
-					@Override
-					public void onComplete() {
-						completionFuture.complete(null);
-					}
-				});
+				@Override
+				public void onComplete() {
+					completionFuture.complete(null);
+				}
+			});
 
-				await().atMost(90, TimeUnit.SECONDS).until(completionFuture::isDone);
+			await().atMost(90, TimeUnit.SECONDS).until(completionFuture::isDone);
 
-				System.out.println("\n--- Reactive Stream Complete ---");
+			System.out.println("\n--- Reactive Stream Complete ---");
 
-				// Verify streaming fired multiple times
-				assertTrue(chunkCount.get() > 0, "Should have received multiple streaming chunks");
-			}
-		});
+			// Verify streaming fired multiple times
+			assertTrue(chunkCount.get() > 0, "Should have received multiple streaming chunks");
+		}
 	}
 }

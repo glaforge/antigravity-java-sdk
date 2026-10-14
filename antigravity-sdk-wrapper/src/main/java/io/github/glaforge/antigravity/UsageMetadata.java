@@ -66,6 +66,15 @@ public record UsageMetadata(int promptTokenCount, int cachedContentTokenCount, i
 				List.of(), List.of(), List.of(), List.of());
 	}
 
+	private boolean isZero() {
+		return promptTokenCount == 0 && cachedContentTokenCount == 0 && candidatesTokenCount == 0
+				&& thoughtsTokenCount == 0 && totalTokenCount == 0 && serviceTier == null
+				&& (promptTokensDetails == null || promptTokensDetails.isEmpty())
+				&& (cacheTokensDetails == null || cacheTokensDetails.isEmpty())
+				&& (candidatesTokensDetails == null || candidatesTokensDetails.isEmpty())
+				&& (toolUsePromptTokensDetails == null || toolUsePromptTokensDetails.isEmpty());
+	}
+
 	/**
 	 * Adds token counts from another UsageMetadata.
 	 *
@@ -74,10 +83,10 @@ public record UsageMetadata(int promptTokenCount, int cachedContentTokenCount, i
 	 * @return a new UsageMetadata with summed token counts and merged service tier
 	 */
 	public UsageMetadata add(UsageMetadata other) {
-		if (other == null || other.totalTokenCount() == 0) {
+		if (other == null || other.isZero()) {
 			return this;
 		}
-		if (this.totalTokenCount == 0) {
+		if (this.isZero()) {
 			return other;
 		}
 		String mergedTier;
@@ -114,7 +123,7 @@ public record UsageMetadata(int promptTokenCount, int cachedContentTokenCount, i
 	 * @return a new UsageMetadata with subtracted token counts
 	 */
 	public UsageMetadata subtract(UsageMetadata other) {
-		if (other == null || other.totalTokenCount() == 0) {
+		if (other == null || other.isZero()) {
 			return this;
 		}
 		String mergedTier = this.serviceTier != null ? this.serviceTier : other.serviceTier();
@@ -134,6 +143,51 @@ public record UsageMetadata(int promptTokenCount, int cachedContentTokenCount, i
 	 */
 	public UsageMetadata minus(UsageMetadata other) {
 		return subtract(other);
+	}
+
+	/**
+	 * Returns a new {@link UsageMetadata} with all token counts negated.
+	 *
+	 * @return negated UsageMetadata
+	 */
+	public UsageMetadata negate() {
+		return new UsageMetadata(-this.promptTokenCount, -this.cachedContentTokenCount, -this.candidatesTokenCount,
+				-this.thoughtsTokenCount, -this.totalTokenCount, this.serviceTier, List.of(), List.of(), List.of(),
+				List.of());
+	}
+
+	/**
+	 * Subtracts this {@link UsageMetadata} from a numeric left-hand side
+	 * (equivalent to Python's {@code __rsub__}). Only {@code 0} is supported
+	 * (yielding {@link #negate()}).
+	 *
+	 * @param lhs
+	 *            left-hand numeric operand (must be 0)
+	 * @return negated UsageMetadata when lhs == 0
+	 * @throws IllegalArgumentException
+	 *             if lhs is non-zero
+	 */
+	public UsageMetadata subtractFrom(double lhs) {
+		if (lhs == 0.0) {
+			return negate();
+		}
+		throw new IllegalArgumentException(
+				"Numeric subtraction from UsageMetadata is only supported for 0 (e.g. 0 - usage), got " + lhs);
+	}
+
+	/**
+	 * Subtracts this {@link UsageMetadata} from another {@link UsageMetadata} (or
+	 * null, which is treated as 0).
+	 *
+	 * @param lhs
+	 *            left-hand UsageMetadata operand, or null
+	 * @return {@code lhs - this} (or {@code -this} if lhs is null)
+	 */
+	public UsageMetadata subtractFrom(UsageMetadata lhs) {
+		if (lhs == null) {
+			return negate();
+		}
+		return lhs.subtract(this);
 	}
 
 	/**

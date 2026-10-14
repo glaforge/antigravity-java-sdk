@@ -34,6 +34,10 @@ import io.github.glaforge.antigravity.tools.ToolRegistry;
 import io.github.glaforge.antigravity.tools.ToolDefinition;
 import io.github.glaforge.antigravity.beta.Beta;
 import io.github.glaforge.antigravity.beta.BetaOperations;
+import io.github.glaforge.antigravity.beta.WorkflowDefinition;
+import io.github.glaforge.antigravity.beta.WorkflowProgress;
+import io.github.glaforge.antigravity.beta.WorkflowResult;
+import io.github.glaforge.antigravity.beta.Workflows;
 import com.google.protobuf.util.JsonFormat;
 import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
@@ -58,6 +62,7 @@ import java.util.concurrent.Executors;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.net.URI;
+import java.net.URLDecoder;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
@@ -109,6 +114,12 @@ public class Agent implements AutoCloseable, TriggerContext {
 	private final Set<String> handledToolConfirmations = ConcurrentHashMap.newKeySet();
 	private final SessionContext sessionContext = new SessionContext();
 	private volatile SandboxStatus sandboxStatus;
+	private volatile Consumer<WorkflowProgress> currentWorkflowProgressConsumer;
+	private volatile WorkflowProgress lastWorkflowProgress;
+	private volatile String lastWorkflowStepId;
+	private volatile boolean sawRunWorkflowStep;
+	private volatile String runWorkflowStepError;
+	private volatile String mainTrajectoryId;
 
 	/**
 	 * Returns the OS command sandbox status reported at handshake, if any.
@@ -305,6 +316,78 @@ public class Agent implements AutoCloseable, TriggerContext {
 		 */
 		public Builder addSkillPath(String skillPath) {
 			configBuilder.addSkillPath(skillPath);
+			return this;
+		}
+
+		/**
+		 * Sets the skill directory paths.
+		 *
+		 * @param skillsPaths
+		 *            list of skill directory paths
+		 * @return this builder
+		 */
+		public Builder skillsPaths(List<String> skillsPaths) {
+			configBuilder.skillsPaths(skillsPaths);
+			return this;
+		}
+
+		/**
+		 * Sets in-memory inline skills.
+		 *
+		 * @param inlineSkills
+		 *            list of inline skills
+		 * @return this builder
+		 */
+		public Builder inlineSkills(List<InlineSkill> inlineSkills) {
+			configBuilder.inlineSkills(inlineSkills);
+			return this;
+		}
+
+		/**
+		 * Adds an in-memory inline skill.
+		 *
+		 * @param inlineSkill
+		 *            the inline skill to add
+		 * @return this builder
+		 */
+		public Builder addInlineSkill(InlineSkill inlineSkill) {
+			configBuilder.addInlineSkill(inlineSkill);
+			return this;
+		}
+
+		/**
+		 * Sets the Agent Skills configuration.
+		 *
+		 * @param skillsConfig
+		 *            the skills configuration
+		 * @return this builder
+		 */
+		public Builder skillsConfig(SkillsConfig skillsConfig) {
+			configBuilder.skillsConfig(skillsConfig);
+			return this;
+		}
+
+		/**
+		 * Sets the list of skill sources.
+		 *
+		 * @param skills
+		 *            list of skill sources
+		 * @return this builder
+		 */
+		public Builder skills(List<SkillSource> skills) {
+			configBuilder.skills(skills);
+			return this;
+		}
+
+		/**
+		 * Adds a skill source.
+		 *
+		 * @param skill
+		 *            the skill source to add
+		 * @return this builder
+		 */
+		public Builder addSkill(SkillSource skill) {
+			configBuilder.addSkill(skill);
 			return this;
 		}
 
@@ -766,7 +849,11 @@ public class Agent implements AutoCloseable, TriggerContext {
 					String line;
 					while ((line = reader.readLine()) != null) {
 						if (line.contains("ERROR: logging before google.Init: I") || line.contains("[CDP Discovery]")
-								|| line.contains("permissions: skipping check")) {
+								|| line.contains("permissions: skipping check")
+								|| line.contains("No agent type specified in config")
+								|| line.contains("stripped 1 trailing model message")
+								|| line.contains("context canceled") || line.contains("pubsub: Publish after Close")
+								|| line.contains("error executing cascade step:")) {
 							log.debug("[localharness] {}", line);
 						} else if (line.contains("ERROR: logging before google.Init: W")) {
 							log.warn("[localharness] {}", line);
@@ -783,309 +870,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 			stderrConsumer.setDaemon(true);
 			stderrConsumer.start();
 
-			HarnessConfig.Builder configBuilder = HarnessConfig.newBuilder().setCascadeId(config.getConversationId())
-					.setAppDataDir(config.getAppDataDir() != null ? config.getAppDataDir() : "");
-
-			ModelConfig.Builder modelConfigBuilder = ModelConfig.newBuilder()
-					.setName(config.getModelName() != null ? config.getModelName() : "gemma-local")
-					.addTypes(ModelType.MODEL_TYPE_TEXT);
-
-			if (config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()) {
-				modelConfigBuilder.setGemmaEndpoint(GemmaEndpoint.newBuilder().setBaseUrl(config.getBaseUrl()).build());
-			} else {
-				GeminiAPIEndpoint.Builder apiEndpointBuilder = GeminiAPIEndpoint.newBuilder().setApiKey(apiKey);
-				if (config.getGeneration() != null) {
-					GeminiModelOptions.Builder optionsBuilder = GeminiModelOptions.newBuilder();
-					if (config.getGeneration().thinkingLevel() != null) {
-						optionsBuilder.setThinkingLevel(config.getGeneration().thinkingLevel().getValue());
-					}
-					if (config.getGeneration().serviceTier() != null) {
-						optionsBuilder.setServiceTier(config.getGeneration().serviceTier().getValue());
-					}
-					apiEndpointBuilder.setOptions(optionsBuilder.build());
-				}
-				modelConfigBuilder.setGeminiApiEndpoint(apiEndpointBuilder.build());
-			}
-			configBuilder.addModels(modelConfigBuilder.build());
-
-			configBuilder.setSystemInstructions(SystemInstructions.newBuilder()
-					.setAppended(
-							AppendedSystemInstructions.newBuilder().setCustomIdentity(config.getInstructions()).build())
-					.build());
-
-			int mcpIndex = 1;
-			for (McpServerConfig mcp : config.getMcpServers()) {
-				var mcpBuilder = configBuilder.addMcpServersBuilder().setName("server-" + (mcpIndex++));
-
-				if (mcp instanceof McpServerConfig.StdioMcpServerConfig stdio) {
-					mcpBuilder.setStdio(McpStdioTransport.newBuilder().setCommand(stdio.command())
-							.addAllArgs(stdio.args()).build());
-				} else if (mcp instanceof McpServerConfig.SseMcpServerConfig sse) {
-					McpHttpTransport.Builder http = McpHttpTransport.newBuilder().setUrl(sse.url());
-					if (sse.headers() != null) {
-						http.putAllHeaders(sse.headers());
-					}
-					mcpBuilder.setHttp(http.build());
-				} else if (mcp instanceof McpServerConfig.HttpMcpServerConfig httpConfig) {
-					McpHttpTransport.Builder http = McpHttpTransport.newBuilder().setUrl(httpConfig.url());
-					if (httpConfig.headers() != null) {
-						http.putAllHeaders(httpConfig.headers());
-					}
-					mcpBuilder.setHttp(http.build());
-				}
-			}
-
-			// Add Hooks tracking
-			for (AgentHook hook : config.getHooks()) {
-				if (hook instanceof PreTurnHook)
-					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_PRE_TURN);
-				if (hook instanceof PostTurnHook)
-					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_POST_TURN);
-				if (hook instanceof PreToolCallDecideHook)
-					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_PRE_TOOL);
-				if (hook instanceof PostToolCallHook)
-					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_POST_TOOL);
-				if (hook instanceof OnToolErrorHook)
-					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_ON_TOOL_ERROR);
-				if (hook instanceof OnCompactionHook)
-					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_ON_COMPACTION);
-				if (hook instanceof OnStopHook)
-					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_STOP);
-				if (hook instanceof OnInteractionHook)
-					configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_UNSPECIFIED); // Will
-																								// use
-																								// manually
-																								// for
-																								// now
-			}
-
-			for (ToolDefinition toolDef : toolRegistry.getToolDefinitions()) {
-				configBuilder.addTools(toolDef.toProtobuf());
-			}
-			configBuilder.addAllSkillsPaths(config.getSkillsPaths());
-
-			if (config.getFinishToolSchemaJson() != null) {
-				configBuilder.setFinishToolSchemaJson(config.getFinishToolSchemaJson());
-			}
-
-			if (config.getRetryConfig() != null) {
-				var retryBuilder = configBuilder.getRetryConfigBuilder();
-				if (config.getRetryConfig().apiRetry() != null) {
-					retryBuilder.setApiRetry(config.getRetryConfig().apiRetry().toProtobuf());
-				}
-				if (config.getRetryConfig().modelOutputRetry() != null) {
-					retryBuilder.setModelOutputRetry(config.getRetryConfig().modelOutputRetry().toProtobuf());
-				}
-			}
-
-			if (config.getBudgetConfig() != null) {
-				BudgetConfig b = config.getBudgetConfig();
-				var budgetBuilder = configBuilder.getBudgetConfigBuilder();
-				if (b.maxModelCalls() != null) {
-					budgetBuilder.setMaxModelCalls(b.maxModelCalls());
-				}
-				if (b.maxToolCalls() != null) {
-					budgetBuilder.setMaxToolCalls(b.maxToolCalls());
-				}
-				if (b.maxInputTokens() != null) {
-					budgetBuilder.setMaxInputTokens(b.maxInputTokens());
-				}
-				if (b.maxOutputTokens() != null) {
-					budgetBuilder.setMaxOutputTokens(b.maxOutputTokens());
-				}
-				if (b.maxTotalTokens() != null) {
-					budgetBuilder.setMaxTotalTokens(b.maxTotalTokens());
-				}
-				if (b.scope() != null) {
-					switch (b.scope()) {
-						case LIFETIME -> budgetBuilder.setScope(BUDGET_SCOPE_LIFETIME);
-						case FORWARD_LOOKING -> budgetBuilder.setScope(BUDGET_SCOPE_FORWARD_LOOKING);
-					}
-				}
-			}
-
-			if (config.getCompactionConfig() != null) {
-				CompactionConfig cc = config.getCompactionConfig();
-				var compactionBuilder = configBuilder.getCompactionConfigBuilder();
-				if (cc.tokenThreshold() != null) {
-					compactionBuilder.setTokenThreshold(cc.tokenThreshold());
-					configBuilder.setCompactionThreshold(cc.tokenThreshold());
-				}
-				if (cc.checkpointIntervalTokens() != null) {
-					compactionBuilder.setCheckpointIntervalTokens(cc.checkpointIntervalTokens());
-				}
-				if (cc.maxContextTokens() != null) {
-					compactionBuilder.setMaxContextTokens(cc.maxContextTokens());
-				}
-				if (cc.summaryPromptOverride() != null && !cc.summaryPromptOverride().isBlank()) {
-					compactionBuilder.setSummaryPromptOverride(cc.summaryPromptOverride());
-				}
-			}
-
-			if (config.getAgentBehavior() != null) {
-				switch (config.getAgentBehavior()) {
-					case AUTONOMOUS -> configBuilder.setAgentBehavior(AGENT_BEHAVIOR_AUTONOMOUS);
-					case INTERACTIVE -> configBuilder.setAgentBehavior(AGENT_BEHAVIOR_INTERACTIVE);
-					case MINIMAL -> configBuilder.setAgentBehavior(AGENT_BEHAVIOR_MINIMAL);
-				}
-			}
-
-			if (config.getWorkspaceContainment() != null) {
-				var policyBuilder = configBuilder.getPolicyConfigBuilder();
-				switch (config.getWorkspaceContainment()) {
-					case ENABLED -> policyBuilder.setWorkspaceContainment(WORKSPACE_CONTAINMENT_ENABLED);
-					case DISABLED -> policyBuilder.setWorkspaceContainment(WORKSPACE_CONTAINMENT_DISABLED);
-					case UNSPECIFIED -> policyBuilder.setWorkspaceContainment(WORKSPACE_CONTAINMENT_UNSPECIFIED);
-				}
-			} else {
-				boolean hasAllowAll = false;
-				boolean hasWorkspaceOnly = false;
-				for (Policy policy : policies) {
-					if (policy.isAllowAll()) {
-						hasAllowAll = true;
-					}
-					if (policy.isWorkspaceOnly()) {
-						hasWorkspaceOnly = true;
-					}
-				}
-				if (hasAllowAll && !hasWorkspaceOnly) {
-					configBuilder.getPolicyConfigBuilder().setWorkspaceContainment(WORKSPACE_CONTAINMENT_DISABLED);
-				}
-			}
-
-			if (config.getSessionContinuationMode() != null) {
-				switch (config.getSessionContinuationMode()) {
-					case RESUME ->
-						configBuilder.setSessionContinuationMode(HarnessConfig.SessionContinuationMode.RESUME);
-					case CREATE_OR_RESUME -> configBuilder
-							.setSessionContinuationMode(HarnessConfig.SessionContinuationMode.CREATE_OR_RESUME);
-					case CREATE_ONLY ->
-						configBuilder.setSessionContinuationMode(HarnessConfig.SessionContinuationMode.CREATE_ONLY);
-					case UNSPECIFIED -> configBuilder.setSessionContinuationMode(
-							HarnessConfig.SessionContinuationMode.SESSION_CONTINUATION_MODE_UNSPECIFIED);
-				}
-			}
-
-			if (config.getSkillsConfig() != null) {
-				SkillsConfig sc = config.getSkillsConfig();
-				var skillsProto = configBuilder.getSkillsConfigBuilder();
-				skillsProto.setEnabled(sc.enabled());
-				for (SkillSource source : sc.skills()) {
-					skillsProto.addSkillsBuilder().setDirectoryPath(source.directoryPath());
-					configBuilder.addSkillsPaths(source.directoryPath());
-				}
-			}
-
-			if (config.getSubagents() != null && !config.getSubagents().isEmpty()) {
-				for (SubagentConfig subagent : config.getSubagents()) {
-					CustomAgent.Builder subBuilder = CustomAgent.newBuilder().setName(subagent.name())
-							.setDescription(subagent.description());
-					if (subagent.instructions() != null && !subagent.instructions().isBlank()) {
-						subBuilder.setSystemInstructions(
-								SystemInstructions.newBuilder().setAppended(AppendedSystemInstructions.newBuilder()
-										.setCustomIdentity(subagent.instructions()).build()).build());
-					}
-					if (subagent.model() != null && !subagent.model().isBlank()) {
-						subBuilder.setModel(ModelConfig.newBuilder().setName(subagent.model()).build());
-					}
-					if (subagent.agentBehavior() != null) {
-						switch (subagent.agentBehavior()) {
-							case AUTONOMOUS -> subBuilder.setAgentBehavior(AGENT_BEHAVIOR_AUTONOMOUS);
-							case INTERACTIVE -> subBuilder.setAgentBehavior(AGENT_BEHAVIOR_INTERACTIVE);
-							case MINIMAL -> subBuilder.setAgentBehavior(AGENT_BEHAVIOR_MINIMAL);
-						}
-					}
-					if (subagent.tools() != null) {
-						for (String toolName : subagent.tools()) {
-							subBuilder.addTools(Tool.newBuilder().setName(toolName).build());
-						}
-					}
-					if (subagent.skillsConfig() != null) {
-						var scBuilder = subBuilder.getSkillsConfigBuilder();
-						if (subagent.skillsConfig() instanceof SubagentInheritSkillsConfig isc) {
-							var inheritBuilder = scBuilder.getInheritConfigBuilder();
-							if (isc.extraSkillsPaths() != null) {
-								inheritBuilder.addAllExtraSkillsPaths(isc.extraSkillsPaths());
-							}
-							if (isc.skillNames() != null) {
-								inheritBuilder.addAllSkillNames(isc.skillNames());
-							}
-						} else if (subagent.skillsConfig() instanceof SubagentNoneSkillsConfig) {
-							scBuilder.getNoneConfigBuilder();
-						} else if (subagent.skillsConfig() instanceof SubagentOverrideSkillsConfig osc) {
-							var overrideBuilder = scBuilder.getOverrideConfigBuilder();
-							if (osc.skillsPaths() != null) {
-								overrideBuilder.addAllSkillsPaths(osc.skillsPaths());
-							}
-						}
-					}
-					configBuilder.addCustomSubagents(subBuilder.build());
-				}
-			}
-
-			if (config.getWorkspaces() != null && !config.getWorkspaces().isEmpty()) {
-				for (String ws : config.getWorkspaces()) {
-					configBuilder.addWorkspaces(Workspace.newBuilder()
-							.setFilesystemWorkspace(FilesystemWorkspace.newBuilder().setDirectory(ws).build()).build());
-				}
-			}
-
-			if (config.getCapabilities() != null) {
-				HarnessSideTools.Builder capBuilder = HarnessSideTools.newBuilder();
-				if (config.getCapabilities().enableSubagents()) {
-					capBuilder.setSubagents(SubagentsConfig.newBuilder().setEnabled(true).build());
-				}
-				if (config.getCapabilities().allowUserQuestions()) {
-					capBuilder.setUserQuestions(UserQuestionsConfig.newBuilder().setEnabled(true).build());
-				}
-				if (config.getCapabilities().enableWebSearch()) {
-					capBuilder.setSearchWeb(SearchWebToolConfig.newBuilder().setEnabled(true).build());
-				}
-				if (config.getCapabilities().enableUrlReading()) {
-					capBuilder.setReadUrlContent(ReadUrlContentToolConfig.newBuilder().setEnabled(true).build());
-				}
-				boolean runCommandActive = config.getCapabilities().enableShell();
-				if (runCommandActive) {
-					var runCmdBuilder = RunCommandToolConfig.newBuilder().setEnabled(true);
-					if (config.getCapabilities().runCommandConfig() != null) {
-						RunCommandConfig rcc = config.getCapabilities().runCommandConfig();
-						runCmdBuilder.setEnableDaemonCommands(rcc.enableDaemons());
-						runCmdBuilder.setEnableSandbox(rcc.enableSandbox());
-						if (rcc.timeoutSeconds() != null) {
-							runCmdBuilder.setMaxTimeoutMs((int) (rcc.timeoutSeconds() * 1000));
-						}
-					}
-					capBuilder.setRunCommand(runCmdBuilder.build());
-				}
-				if (config.getCapabilities().enableViewFile()) {
-					capBuilder.setViewFile(ViewFileToolConfig.newBuilder().setEnabled(true).build());
-				}
-				if (config.getCapabilities().enableWriteFile()) {
-					capBuilder.setWriteToFile(WriteToFileToolConfig.newBuilder().setEnabled(true).build());
-				}
-				if (config.getCapabilities().enableFileEdit()) {
-					capBuilder.setFileEdit(FileEditToolConfig.newBuilder().setEnabled(true).build());
-				}
-				if (config.getCapabilities().enableListDir()) {
-					capBuilder.setListDir(ListDirToolConfig.newBuilder().setEnabled(true).build());
-				}
-				if (config.getCapabilities().enableGrepSearch()) {
-					capBuilder.setGrepSearch(GrepSearchToolConfig.newBuilder().setEnabled(true).build());
-				}
-				if (config.getCapabilities().enableGenerateImage()) {
-					capBuilder.setGenerateImage(GenerateImageToolConfig.newBuilder().setEnabled(true).build());
-				}
-				boolean scheduleActive = config.getCapabilities().enableSchedule();
-				if (scheduleActive) {
-					capBuilder.setSchedule(ScheduleToolConfig.newBuilder().setEnabled(true).build());
-				}
-				if (runCommandActive || scheduleActive) {
-					capBuilder.setManageTask(ManageTaskToolConfig.newBuilder().setEnabled(true).build());
-				}
-				configBuilder.setHarnessSideTools(capBuilder.build());
-			}
-
-			HarnessConfig protoConfig = configBuilder.build();
+			HarnessConfig protoConfig = buildHarnessConfig(apiKey);
 
 			InitializeConversationEvent initEvent = InitializeConversationEvent.newBuilder().setConfig(protoConfig)
 					.build();
@@ -1157,6 +942,369 @@ public class Agent implements AutoCloseable, TriggerContext {
 			throw e;
 		}
 		triggerSessionStart().join();
+	}
+
+	HarnessConfig buildHarnessConfig(String apiKey) {
+		HarnessConfig.Builder configBuilder = HarnessConfig.newBuilder().setCascadeId(config.getConversationId())
+				.setAppDataDir(config.getAppDataDir() != null ? config.getAppDataDir() : "");
+
+		ModelConfig.Builder modelConfigBuilder = ModelConfig.newBuilder()
+				.setName(config.getModelName() != null ? config.getModelName() : "gemma-local")
+				.addTypes(ModelType.MODEL_TYPE_TEXT);
+
+		if (config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()) {
+			modelConfigBuilder.setGemmaEndpoint(GemmaEndpoint.newBuilder().setBaseUrl(config.getBaseUrl()).build());
+		} else {
+			GeminiAPIEndpoint.Builder apiEndpointBuilder = GeminiAPIEndpoint.newBuilder().setApiKey(apiKey);
+			if (config.getGeneration() != null) {
+				GeminiModelOptions.Builder optionsBuilder = GeminiModelOptions.newBuilder();
+				if (config.getGeneration().thinkingLevel() != null) {
+					optionsBuilder.setThinkingLevel(config.getGeneration().thinkingLevel().getValue());
+				}
+				if (config.getGeneration().serviceTier() != null) {
+					optionsBuilder.setServiceTier(config.getGeneration().serviceTier().getValue());
+				}
+				if (config.getGeneration().maxOutputTokens() != null) {
+					optionsBuilder.setMaxOutputTokens(config.getGeneration().maxOutputTokens());
+				}
+				apiEndpointBuilder.setOptions(optionsBuilder.build());
+			}
+			modelConfigBuilder.setGeminiApiEndpoint(apiEndpointBuilder.build());
+		}
+		configBuilder.addModels(modelConfigBuilder.build());
+
+		configBuilder.setSystemInstructions(SystemInstructions.newBuilder()
+				.setAppended(
+						AppendedSystemInstructions.newBuilder().setCustomIdentity(config.getInstructions()).build())
+				.build());
+
+		int mcpIndex = 1;
+		for (McpServerConfig mcp : config.getMcpServers()) {
+			String serverName = (mcp.name() != null && !mcp.name().isEmpty()) ? mcp.name() : "server-" + mcpIndex;
+			mcpIndex++;
+			var mcpBuilder = configBuilder.addMcpServersBuilder().setName(serverName);
+			if (mcp.timeoutSeconds() != null) {
+				mcpBuilder.setTimeoutSeconds(mcp.timeoutSeconds().intValue());
+			}
+			if (mcp.enabledTools() != null && !mcp.enabledTools().isEmpty()) {
+				mcpBuilder.addAllEnabledTools(mcp.enabledTools());
+			}
+			if (mcp.disabledTools() != null && !mcp.disabledTools().isEmpty()) {
+				mcpBuilder.addAllDisabledTools(mcp.disabledTools());
+			}
+			if (Boolean.TRUE.equals(mcp.forceAllToolsEager())) {
+				mcpBuilder.setForceAllToolsEager(true);
+			}
+
+			if (mcp instanceof McpServerConfig.StdioMcpServerConfig stdio) {
+				McpStdioTransport.Builder stdioBuilder = McpStdioTransport.newBuilder().setCommand(stdio.command())
+						.addAllArgs(stdio.args());
+				if (stdio.env() != null && !stdio.env().isEmpty()) {
+					stdioBuilder.putAllEnv(stdio.env());
+				}
+				mcpBuilder.setStdio(stdioBuilder.build());
+			} else if (mcp instanceof McpServerConfig.SseMcpServerConfig sse) {
+				McpHttpTransport.Builder http = McpHttpTransport.newBuilder().setUrl(sse.url());
+				if (sse.headers() != null) {
+					http.putAllHeaders(sse.headers());
+				}
+				mcpBuilder.setHttp(http.build());
+			} else if (mcp instanceof McpServerConfig.HttpMcpServerConfig httpConfig) {
+				McpHttpTransport.Builder http = McpHttpTransport.newBuilder().setUrl(httpConfig.url());
+				if (httpConfig.headers() != null) {
+					http.putAllHeaders(httpConfig.headers());
+				}
+				mcpBuilder.setHttp(http.build());
+			}
+		}
+
+		// Add Hooks tracking
+		for (AgentHook hook : config.getHooks()) {
+			if (hook instanceof PreTurnHook)
+				configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_PRE_TURN);
+			if (hook instanceof PostTurnHook)
+				configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_POST_TURN);
+			if (hook instanceof PreToolCallDecideHook)
+				configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_PRE_TOOL);
+			if (hook instanceof PostToolCallHook)
+				configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_POST_TOOL);
+			if (hook instanceof OnToolErrorHook)
+				configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_ON_TOOL_ERROR);
+			if (hook instanceof OnCompactionHook)
+				configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_ON_COMPACTION);
+			if (hook instanceof OnStopHook)
+				configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_STOP);
+			if (hook instanceof OnInteractionHook)
+				configBuilder.addEnabledHooks(LifecycleHook.LIFECYCLE_HOOK_UNSPECIFIED);
+		}
+
+		for (ToolDefinition toolDef : toolRegistry.getToolDefinitions()) {
+			configBuilder.addTools(toolDef.toProtobuf());
+		}
+		configBuilder.addAllSkillsPaths(config.getSkillsPaths());
+
+		if (config.getFinishToolSchemaJson() != null) {
+			configBuilder.setFinishToolSchemaJson(config.getFinishToolSchemaJson());
+		}
+
+		if (config.getRetryConfig() != null) {
+			var retryBuilder = configBuilder.getRetryConfigBuilder();
+			if (config.getRetryConfig().apiRetry() != null) {
+				retryBuilder.setApiRetry(config.getRetryConfig().apiRetry().toProtobuf());
+			}
+			if (config.getRetryConfig().modelOutputRetry() != null) {
+				retryBuilder.setModelOutputRetry(config.getRetryConfig().modelOutputRetry().toProtobuf());
+			}
+		}
+
+		if (config.getBudgetConfig() != null) {
+			BudgetConfig b = config.getBudgetConfig();
+			var budgetBuilder = configBuilder.getBudgetConfigBuilder();
+			if (b.maxModelCalls() != null) {
+				budgetBuilder.setMaxModelCalls(b.maxModelCalls());
+			}
+			if (b.maxToolCalls() != null) {
+				budgetBuilder.setMaxToolCalls(b.maxToolCalls());
+			}
+			if (b.maxInputTokens() != null) {
+				budgetBuilder.setMaxInputTokens(b.maxInputTokens());
+			}
+			if (b.maxOutputTokens() != null) {
+				budgetBuilder.setMaxOutputTokens(b.maxOutputTokens());
+			}
+			if (b.maxTotalTokens() != null) {
+				budgetBuilder.setMaxTotalTokens(b.maxTotalTokens());
+			}
+			if (b.scope() != null) {
+				switch (b.scope()) {
+					case LIFETIME -> budgetBuilder.setScope(BUDGET_SCOPE_LIFETIME);
+					case FORWARD_LOOKING -> budgetBuilder.setScope(BUDGET_SCOPE_FORWARD_LOOKING);
+				}
+			}
+		}
+
+		if (config.getCompactionConfig() != null) {
+			CompactionConfig cc = config.getCompactionConfig();
+			var compactionBuilder = configBuilder.getCompactionConfigBuilder();
+			if (cc.tokenThreshold() != null) {
+				compactionBuilder.setTokenThreshold(cc.tokenThreshold());
+				configBuilder.setCompactionThreshold(cc.tokenThreshold());
+			}
+			if (cc.checkpointIntervalTokens() != null) {
+				compactionBuilder.setCheckpointIntervalTokens(cc.checkpointIntervalTokens());
+			}
+			if (cc.maxContextTokens() != null) {
+				compactionBuilder.setMaxContextTokens(cc.maxContextTokens());
+			}
+			if (cc.summaryPromptOverride() != null && !cc.summaryPromptOverride().isBlank()) {
+				compactionBuilder.setSummaryPromptOverride(cc.summaryPromptOverride());
+			}
+			if (cc.useModelReportedTokenCount() != null) {
+				compactionBuilder.setUseModelReportedTokenCount(cc.useModelReportedTokenCount());
+			}
+		}
+
+		if (config.getAgentBehavior() != null) {
+			switch (config.getAgentBehavior()) {
+				case AUTONOMOUS -> configBuilder.setAgentBehavior(AGENT_BEHAVIOR_AUTONOMOUS);
+				case INTERACTIVE -> configBuilder.setAgentBehavior(AGENT_BEHAVIOR_INTERACTIVE);
+				case MINIMAL -> configBuilder.setAgentBehavior(AGENT_BEHAVIOR_MINIMAL);
+			}
+		} else {
+			configBuilder.setAgentBehavior(AGENT_BEHAVIOR_AUTONOMOUS);
+		}
+
+		if (config.getWorkspaceContainment() != null) {
+			var policyBuilder = configBuilder.getPolicyConfigBuilder();
+			switch (config.getWorkspaceContainment()) {
+				case ENABLED -> policyBuilder.setWorkspaceContainment(WORKSPACE_CONTAINMENT_ENABLED);
+				case DISABLED -> policyBuilder.setWorkspaceContainment(WORKSPACE_CONTAINMENT_DISABLED);
+				case UNSPECIFIED -> policyBuilder.setWorkspaceContainment(WORKSPACE_CONTAINMENT_UNSPECIFIED);
+			}
+		} else {
+			boolean hasAllowAll = false;
+			boolean hasWorkspaceOnly = false;
+			for (Policy policy : policies) {
+				if (policy.isAllowAll()) {
+					hasAllowAll = true;
+				}
+				if (policy.isWorkspaceOnly()) {
+					hasWorkspaceOnly = true;
+				}
+			}
+			if (hasAllowAll && !hasWorkspaceOnly) {
+				configBuilder.getPolicyConfigBuilder().setWorkspaceContainment(WORKSPACE_CONTAINMENT_DISABLED);
+			}
+		}
+
+		if (config.getSessionContinuationMode() != null) {
+			switch (config.getSessionContinuationMode()) {
+				case RESUME -> configBuilder.setSessionContinuationMode(HarnessConfig.SessionContinuationMode.RESUME);
+				case CREATE_OR_RESUME ->
+					configBuilder.setSessionContinuationMode(HarnessConfig.SessionContinuationMode.CREATE_OR_RESUME);
+				case CREATE_ONLY ->
+					configBuilder.setSessionContinuationMode(HarnessConfig.SessionContinuationMode.CREATE_ONLY);
+				case UNSPECIFIED -> configBuilder.setSessionContinuationMode(
+						HarnessConfig.SessionContinuationMode.SESSION_CONTINUATION_MODE_UNSPECIFIED);
+			}
+		}
+
+		if (config.getSkillsConfig() != null) {
+			SkillsConfig sc = config.getSkillsConfig();
+			var skillsProto = configBuilder.getSkillsConfigBuilder();
+			skillsProto.setEnabled(sc.enabled());
+			for (SkillSource source : sc.skills()) {
+				if (source.directoryPath() != null) {
+					skillsProto.addSkillsBuilder().setDirectoryPath(source.directoryPath());
+					if (!configBuilder.getSkillsPathsList().contains(source.directoryPath())) {
+						configBuilder.addSkillsPaths(source.directoryPath());
+					}
+				} else if (source.inlineSkill() != null) {
+					skillsProto.addSkillsBuilder().setSkill(toProtoSkill(source.inlineSkill()));
+				}
+			}
+		}
+
+		if (config.getSubagents() != null && !config.getSubagents().isEmpty()) {
+			for (SubagentConfig subagent : config.getSubagents()) {
+				CustomAgent.Builder subBuilder = CustomAgent.newBuilder().setName(subagent.name())
+						.setDescription(subagent.description());
+				if (subagent.instructions() != null && !subagent.instructions().isBlank()) {
+					subBuilder.setSystemInstructions(SystemInstructions.newBuilder().setAppended(
+							AppendedSystemInstructions.newBuilder().setCustomIdentity(subagent.instructions()).build())
+							.build());
+				}
+				if (subagent.model() != null && !subagent.model().isBlank()) {
+					subBuilder.setModel(ModelConfig.newBuilder().setName(subagent.model()).build());
+				}
+				if (subagent.agentBehavior() != null) {
+					switch (subagent.agentBehavior()) {
+						case AUTONOMOUS -> subBuilder.setAgentBehavior(AGENT_BEHAVIOR_AUTONOMOUS);
+						case INTERACTIVE -> subBuilder.setAgentBehavior(AGENT_BEHAVIOR_INTERACTIVE);
+						case MINIMAL -> subBuilder.setAgentBehavior(AGENT_BEHAVIOR_MINIMAL);
+					}
+				} else {
+					subBuilder.setAgentBehavior(AGENT_BEHAVIOR_AUTONOMOUS);
+				}
+				if (subagent.tools() != null) {
+					for (String toolName : subagent.tools()) {
+						subBuilder.addTools(Tool.newBuilder().setName(toolName).build());
+					}
+				}
+				if (subagent.skillsConfig() != null) {
+					var scBuilder = subBuilder.getSkillsConfigBuilder();
+					if (subagent.skillsConfig() instanceof SubagentInheritSkillsConfig isc) {
+						var inheritBuilder = scBuilder.getInheritConfigBuilder();
+						if (isc.extraSkillsPaths() != null) {
+							inheritBuilder.addAllExtraSkillsPaths(isc.extraSkillsPaths());
+						}
+						if (isc.skillNames() != null) {
+							inheritBuilder.addAllSkillNames(isc.skillNames());
+						}
+					} else if (subagent.skillsConfig() instanceof SubagentNoneSkillsConfig) {
+						scBuilder.getNoneConfigBuilder();
+					} else if (subagent.skillsConfig() instanceof SubagentOverrideSkillsConfig osc) {
+						var overrideBuilder = scBuilder.getOverrideConfigBuilder();
+						if (osc.skillsPaths() != null) {
+							overrideBuilder.addAllSkillsPaths(osc.skillsPaths());
+						}
+						if (osc.inlineSkills() != null) {
+							for (InlineSkill s : osc.inlineSkills()) {
+								overrideBuilder.addSkillSourcesBuilder().setSkill(toProtoSkill(s));
+							}
+						}
+					}
+				}
+				configBuilder.addCustomSubagents(subBuilder.build());
+			}
+		}
+
+		if (config.getWorkspaces() != null && !config.getWorkspaces().isEmpty()) {
+			for (String ws : config.getWorkspaces()) {
+				configBuilder.addWorkspaces(Workspace.newBuilder()
+						.setFilesystemWorkspace(FilesystemWorkspace.newBuilder().setDirectory(ws).build()).build());
+			}
+		} else if (config.getWorkspaceDir() != null) {
+			configBuilder.addWorkspaces(Workspace.newBuilder()
+					.setFilesystemWorkspace(FilesystemWorkspace.newBuilder()
+							.setDirectory(config.getWorkspaceDir().toAbsolutePath().normalize().toString()).build())
+					.build());
+		}
+
+		if (config.getCapabilities() != null) {
+			if (config.getCapabilities().mcpMaxOutputBytes() != null) {
+				configBuilder.setMcpMaxOutputBytes(config.getCapabilities().mcpMaxOutputBytes());
+			}
+			HarnessSideTools.Builder capBuilder = HarnessSideTools.newBuilder();
+			if (config.getCapabilities().enableSubagents()) {
+				capBuilder.setSubagents(SubagentsConfig.newBuilder().setEnabled(true).build());
+			}
+			if (config.getCapabilities().allowUserQuestions()) {
+				capBuilder.setUserQuestions(UserQuestionsConfig.newBuilder().setEnabled(true).build());
+			}
+			if (config.getCapabilities().enableWebSearch()) {
+				capBuilder.setSearchWeb(SearchWebToolConfig.newBuilder().setEnabled(true).build());
+			}
+			if (config.getCapabilities().enableUrlReading()) {
+				capBuilder.setReadUrlContent(ReadUrlContentToolConfig.newBuilder().setEnabled(true).build());
+			}
+			boolean runCommandActive = config.getCapabilities().enableShell();
+			if (runCommandActive) {
+				var runCmdBuilder = RunCommandToolConfig.newBuilder().setEnabled(true);
+				if (config.getCapabilities().runCommandConfig() != null) {
+					RunCommandConfig rcc = config.getCapabilities().runCommandConfig();
+					runCmdBuilder.setEnableDaemonCommands(rcc.enableDaemons());
+					runCmdBuilder.setEnableSandbox(rcc.enableSandbox());
+					if (rcc.timeoutSeconds() != null) {
+						runCmdBuilder.setMaxTimeoutMs((int) (rcc.timeoutSeconds() * 1000));
+					}
+				}
+				capBuilder.setRunCommand(runCmdBuilder.build());
+			}
+			if (config.getCapabilities().enableViewFile()) {
+				capBuilder.setViewFile(ViewFileToolConfig.newBuilder().setEnabled(true).build());
+			}
+			if (config.getCapabilities().enableWriteFile()) {
+				capBuilder.setWriteToFile(WriteToFileToolConfig.newBuilder().setEnabled(true).build());
+			}
+			if (config.getCapabilities().enableFileEdit()) {
+				capBuilder.setFileEdit(FileEditToolConfig.newBuilder().setEnabled(true).build());
+			}
+			if (config.getCapabilities().enableListDir()) {
+				capBuilder.setListDir(ListDirToolConfig.newBuilder().setEnabled(true).build());
+			}
+			if (config.getCapabilities().enableGrepSearch()) {
+				capBuilder.setGrepSearch(GrepSearchToolConfig.newBuilder().setEnabled(true).build());
+			}
+			if (config.getCapabilities().enableGenerateImage()) {
+				capBuilder.setGenerateImage(GenerateImageToolConfig.newBuilder().setEnabled(true).build());
+			}
+			boolean scheduleActive = config.getCapabilities().enableSchedule();
+			if (scheduleActive) {
+				capBuilder.setSchedule(ScheduleToolConfig.newBuilder().setEnabled(true).build());
+			}
+			if (config.getCapabilities().enableRunWorkflow()) {
+				capBuilder.setRunWorkflow(RunWorkflowToolConfig.newBuilder().setEnabled(true).build());
+			}
+			if (runCommandActive || scheduleActive) {
+				capBuilder.setManageTask(ManageTaskToolConfig.newBuilder().setEnabled(true).build());
+			}
+			configBuilder.setHarnessSideTools(capBuilder.build());
+		}
+
+		return configBuilder.build();
+	}
+
+	private static Skill toProtoSkill(InlineSkill inlineSkill) {
+		Skill.Builder sb = Skill.newBuilder().setName(inlineSkill.name()).setSkillId(inlineSkill.name())
+				.setDescription(inlineSkill.description()).setContent(inlineSkill.content());
+		if (inlineSkill.allowedTools() != null && !inlineSkill.allowedTools().isEmpty()) {
+			sb.addAllAllowedTools(inlineSkill.allowedTools());
+		}
+		if (inlineSkill.metadata() != null && !inlineSkill.metadata().isEmpty()) {
+			sb.putAllMetadata(inlineSkill.metadata());
+		}
+		return sb.build();
 	}
 
 	/**
@@ -1321,6 +1469,11 @@ public class Agent implements AutoCloseable, TriggerContext {
 		this.hasStructuredOutput = false;
 		this.turnStartUsage = this.cumulativeUsage;
 		this.currentUsage = null;
+		this.lastWorkflowProgress = null;
+		this.lastWorkflowStepId = null;
+		this.sawRunWorkflowStep = false;
+		this.runWorkflowStepError = null;
+		this.mainTrajectoryId = null;
 
 		StringBuilder combinedText = new StringBuilder();
 		for (AgentInput input : inputs) {
@@ -1355,6 +1508,156 @@ public class Agent implements AutoCloseable, TriggerContext {
 			this.currentChatFuture.completeExceptionally(e);
 		}
 		return currentChatFuture;
+	}
+
+	/**
+	 * Internal entry point for {@link BetaOperations#runWorkflow} to validate and
+	 * execute a Python workflow script via the {@code run_workflow} tool.
+	 *
+	 * @param workflow
+	 *            optional {@link WorkflowDefinition}
+	 * @param scriptPath
+	 *            optional path string to an existing {@code .py} script
+	 * @param description
+	 *            optional human-readable description
+	 * @param onProgress
+	 *            optional progress callback
+	 * @return CompletableFuture resolving to {@link WorkflowResult}
+	 */
+	@Beta
+	public CompletableFuture<WorkflowResult> runWorkflowInternal(WorkflowDefinition workflow, String scriptPath,
+			String description, Consumer<WorkflowProgress> onProgress) {
+		CapabilitiesConfig caps = config.getCapabilities();
+		if (caps == null || !caps.enableSubagents() || !caps.enableRunWorkflow()) {
+			throw new IllegalArgumentException(
+					"BuiltinTools.RUN_WORKFLOW is not enabled on this Agent. Ensure enableSubagents=true and enableRunWorkflow=true.");
+		}
+		if ((workflow == null && scriptPath == null) || (workflow != null && scriptPath != null)) {
+			throw new IllegalArgumentException("Specify exactly one of workflow or scriptPath.");
+		}
+
+		Path workspaceBase = null;
+		if (config.getWorkspaceDir() != null) {
+			workspaceBase = config.getWorkspaceDir();
+		} else if (config.getWorkspaces() != null && !config.getWorkspaces().isEmpty()) {
+			workspaceBase = Paths.get(config.getWorkspaces().get(0));
+		}
+
+		final Path resolvedScriptPath;
+		final Path tempFileToCleanup;
+		if (scriptPath != null) {
+			if (scriptPath.isBlank()) {
+				throw new IllegalArgumentException("scriptPath must not be empty.");
+			}
+			Path candidate = Paths.get(scriptPath);
+			if (!candidate.isAbsolute() && workspaceBase != null) {
+				candidate = workspaceBase.resolve(candidate);
+			}
+			resolvedScriptPath = candidate.toAbsolutePath().normalize();
+			if (!Files.isRegularFile(resolvedScriptPath)) {
+				throw new IllegalArgumentException("Workflow script not found: " + resolvedScriptPath);
+			}
+			String source;
+			try {
+				source = Files.readString(resolvedScriptPath, StandardCharsets.UTF_8);
+			} catch (Exception e) {
+				throw new IllegalArgumentException("Failed to read workflow script: " + resolvedScriptPath, e);
+			}
+			Workflows.validateWorkflowSource(source);
+			tempFileToCleanup = null;
+		} else {
+			Workflows.validateWorkflowSource(workflow.source());
+			String safeName = workflow.name().replaceAll("[^A-Za-z0-9_]", "_");
+			if (safeName.isEmpty()) {
+				safeName = "workflow";
+			}
+			Path targetDir = workspaceBase != null ? workspaceBase : Paths.get(System.getProperty("java.io.tmpdir"));
+			try {
+				Files.createDirectories(targetDir);
+				tempFileToCleanup = Files.createTempFile(targetDir, ".agy_workflow_" + safeName + "_", ".py")
+						.toAbsolutePath().normalize();
+				Files.writeString(tempFileToCleanup, workflow.source(), StandardCharsets.UTF_8);
+				resolvedScriptPath = tempFileToCleanup;
+			} catch (Exception e) {
+				return CompletableFuture.failedFuture(e);
+			}
+		}
+
+		String effectiveDescription = (description != null && !description.isBlank())
+				? description
+				: (workflow != null && workflow.description() != null && !workflow.description().isBlank()
+						? workflow.description()
+						: "Execute workflow "
+								+ (workflow != null ? workflow.name() : resolvedScriptPath.getFileName()));
+		String prompt = String.format("Run the workflow script at `%s` (%s) using the `run_workflow` tool.",
+				resolvedScriptPath, effectiveDescription);
+
+		this.currentWorkflowProgressConsumer = onProgress;
+		CompletableFuture<AgentResponse> turnFuture;
+		try {
+			turnFuture = chat(prompt);
+		} catch (Throwable t) {
+			this.currentWorkflowProgressConsumer = null;
+			deleteTempWorkflowFile(tempFileToCleanup);
+			throw t;
+		}
+
+		return turnFuture.handle((resp, err) -> {
+			this.currentWorkflowProgressConsumer = null;
+			deleteTempWorkflowFile(tempFileToCleanup);
+			WorkflowProgress finalProgress = this.lastWorkflowProgress;
+			String wfStepId = this.lastWorkflowStepId;
+			String stepError = this.runWorkflowStepError;
+			boolean sawStep = this.sawRunWorkflowStep;
+			String argsJson = "{\"script_path\":\""
+					+ resolvedScriptPath.toString().replace("\\", "\\\\").replace("\"", "\\\"") + "\"}";
+			if (stepError != null) {
+				throw new ToolExecutionError("run_workflow", argsJson, null, null, wfStepId, stepError, err);
+			}
+			if (err != null) {
+				if (err instanceof RuntimeException re) {
+					throw re;
+				}
+				throw new RuntimeException(err);
+			}
+			if (!sawStep) {
+				throw new ToolExecutionError("run_workflow", argsJson, null, null, null,
+						"The model did not invoke the run_workflow tool.", null);
+			}
+			String wfScriptPath = finalProgress != null && !finalProgress.scriptPath().isEmpty()
+					? finalProgress.scriptPath()
+					: resolvedScriptPath.toString();
+			String wfScript = finalProgress != null ? finalProgress.script() : "";
+			String wfDesc = finalProgress != null && !finalProgress.description().isEmpty()
+					? finalProgress.description()
+					: effectiveDescription;
+			String wfOutput = finalProgress != null ? finalProgress.output() : "";
+			String respText = resp != null && resp.text() != null ? resp.text() : "";
+			return new WorkflowResult(wfScriptPath, wfScript, wfDesc, wfOutput, respText, resp);
+		});
+	}
+
+	private static void deleteTempWorkflowFile(Path tempFile) {
+		if (tempFile != null) {
+			try {
+				Files.deleteIfExists(tempFile);
+			} catch (Exception ignored) {
+			}
+		}
+	}
+
+	static String normalizeFileUri(String uriOrPath) {
+		if (uriOrPath == null || !uriOrPath.startsWith("file://")) {
+			return uriOrPath;
+		}
+		try {
+			URI uri = URI.create(uriOrPath);
+			if ("file".equalsIgnoreCase(uri.getScheme()) && uri.getPath() != null) {
+				return uri.getPath();
+			}
+		} catch (Exception ignored) {
+		}
+		return URLDecoder.decode(uriOrPath.substring("file://".length()), StandardCharsets.UTF_8);
 	}
 
 	private CompletableFuture<Void> triggerSessionStart() {
@@ -1577,12 +1880,25 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 			if (payload.has("stepUpdate")) {
 				JsonNode stepUpdate = payload.get("stepUpdate");
+				String stepTrajectoryId = stepUpdate.has("trajectoryId")
+						? stepUpdate.path("trajectoryId").asText("")
+						: stepUpdate.path("trajectory_id").asText("");
+				String parentTrajectoryId = stepUpdate.has("parentTrajectoryId")
+						? stepUpdate.path("parentTrajectoryId").asText("")
+						: stepUpdate.path("parent_trajectory_id").asText("");
+				int depth = stepUpdate.path("depth").asInt(0);
+				if (this.mainTrajectoryId == null && !stepTrajectoryId.isEmpty() && depth == 0
+						&& parentTrajectoryId.isEmpty()) {
+					this.mainTrajectoryId = stepTrajectoryId;
+				}
+				boolean isSubagentStep = depth > 0 || !parentTrajectoryId.isEmpty() || (this.mainTrajectoryId != null
+						&& !stepTrajectoryId.isEmpty() && !stepTrajectoryId.equals(this.mainTrajectoryId));
 
 				if (stepUpdate.has("cascadeId")) {
 					this.conversationId = stepUpdate.get("cascadeId").asText();
 				}
 
-				if (stepUpdate.has("finish")) {
+				if (!isSubagentStep && stepUpdate.has("finish")) {
 					String outputString = stepUpdate.get("finish").path("outputString").asText("");
 					if (!outputString.isEmpty()) {
 						hasStructuredOutput = true;
@@ -1593,7 +1909,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 					}
 				}
 
-				if (stepUpdate.has("textDelta") || stepUpdate.has("thinkingDelta")) {
+				if (!isSubagentStep && (stepUpdate.has("textDelta") || stepUpdate.has("thinkingDelta"))) {
 					String source = stepUpdate.path("source").asText("");
 					if (!"SOURCE_USER".equals(source) && !"SOURCE_SYSTEM".equals(source)) {
 						String target = stepUpdate.path("target").asText("");
@@ -1645,7 +1961,68 @@ public class Agent implements AutoCloseable, TriggerContext {
 					}
 				}
 
-				if (stepUpdate.has("state") && "STATE_ERROR".equals(stepUpdate.path("state").asText())) {
+				if (!isSubagentStep && (stepUpdate.has("runWorkflow") || stepUpdate.has("run_workflow"))) {
+					this.sawRunWorkflowStep = true;
+					JsonNode rw = stepUpdate.has("runWorkflow")
+							? stepUpdate.get("runWorkflow")
+							: stepUpdate.get("run_workflow");
+					String rawScriptPath = rw.has("scriptPath")
+							? rw.path("scriptPath").asText("")
+							: rw.path("script_path").asText("");
+					String scriptPath = normalizeFileUri(rawScriptPath);
+					String script = rw.path("script").asText("");
+					String description = rw.path("description").asText("");
+					String output = rw.path("output").asText("");
+					WorkflowProgress prev = this.lastWorkflowProgress;
+					if (scriptPath.isEmpty() && prev != null) {
+						scriptPath = prev.scriptPath();
+					}
+					if (script.isEmpty() && prev != null) {
+						script = prev.script();
+					}
+					if (description.isEmpty() && prev != null) {
+						description = prev.description();
+					}
+					if (output.isEmpty() && prev != null) {
+						output = prev.output();
+					}
+					String stepState = stepUpdate.path("state").asText("");
+					String stepId = null;
+					String trajId = stepUpdate.has("trajectoryId")
+							? stepUpdate.path("trajectoryId").asText(null)
+							: (stepUpdate.has("trajectory_id") ? stepUpdate.path("trajectory_id").asText(null) : null);
+					if (trajId != null && (stepUpdate.has("stepIndex") || stepUpdate.has("step_index"))) {
+						int idx = stepUpdate.has("stepIndex")
+								? stepUpdate.path("stepIndex").asInt(0)
+								: stepUpdate.path("step_index").asInt(0);
+						stepId = trajId + ":" + idx;
+					}
+					WorkflowProgress progress = new WorkflowProgress(scriptPath, script, description, output);
+					this.lastWorkflowProgress = progress;
+					this.lastWorkflowStepId = stepId;
+					Consumer<WorkflowProgress> progressConsumer = this.currentWorkflowProgressConsumer;
+					if (progressConsumer != null) {
+						try {
+							progressConsumer.accept(progress);
+						} catch (Exception e) {
+							log.warn("Error in workflow progress callback", e);
+						}
+					}
+					if ("STATE_ERROR".equals(stepState)) {
+						String errMsg = stepUpdate.has("errorMessage")
+								? stepUpdate.path("errorMessage").asText("")
+								: stepUpdate.path("error_message").asText("");
+						if (errMsg.isEmpty() && !output.isEmpty()) {
+							errMsg = output;
+						}
+						this.runWorkflowStepError = errMsg.isEmpty() ? "Workflow execution failed" : errMsg;
+					}
+				}
+
+				if (!isSubagentStep && stepUpdate.has("state")
+						&& "STATE_ERROR".equals(stepUpdate.path("state").asText())
+						&& !(stepUpdate.has("runWorkflow") || stepUpdate.has("run_workflow"))
+						&& (this.goProcess == null || "SOURCE_SYSTEM".equals(stepUpdate.path("source").asText("")))) {
 					String errorMessage = stepUpdate.path("errorMessage").asText("Unknown error");
 					String errorCode = stepUpdate.has("errorCode") ? stepUpdate.path("errorCode").asText(null) : null;
 					if (currentChatFuture != null && !currentChatFuture.isDone()) {
@@ -1677,6 +2054,8 @@ public class Agent implements AutoCloseable, TriggerContext {
 							toolName = "invoke_subagent";
 						else if (req.has("runCommand"))
 							toolName = "run_command";
+						else if (req.has("runWorkflow") || req.has("run_workflow"))
+							toolName = "run_workflow";
 						else if (req.has("fileEdit"))
 							toolName = "file_edit";
 						else if (req.has("finish"))
@@ -1756,7 +2135,6 @@ public class Agent implements AutoCloseable, TriggerContext {
 				CompletableFuture<HookResult> hookFuture = CompletableFuture.completedFuture(HookResult.allowed());
 
 				if ("LIFECYCLE_HOOK_PRE_TURN".equals(typeStr) && req.has("preTurnArgs")) {
-					System.out.println("HOOK REQUEST PRE TURN: " + req.toString());
 					StringBuilder promptBuilder = new StringBuilder();
 					JsonNode parts = req.get("preTurnArgs").path("userInput").path("parts");
 					if (parts.isArray()) {
@@ -1789,6 +2167,9 @@ public class Agent implements AutoCloseable, TriggerContext {
 								: null;
 						ToolCall call = new ToolCall(toolName, jsonMapper.readTree(argumentsJson), callId, stepId,
 								serverName);
+						if ("run_workflow".equals(call.name())) {
+							this.sawRunWorkflowStep = true;
+						}
 						hookFuture = triggerPreToolCallDecide(call);
 					} catch (Exception e) {
 					}
@@ -1938,70 +2319,79 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 			if (payload.has("trajectoryStateUpdate")) {
 				JsonNode tsu = payload.get("trajectoryStateUpdate");
-				String state = tsu.path("state").asText();
-				String error = tsu.path("error").asText("");
-				String errorCode = tsu.has("errorCode") ? tsu.path("errorCode").asText(null) : null;
-				if (!error.isEmpty() && !"STATE_RUNNING".equals(state)) {
-					if (currentChatFuture != null && !currentChatFuture.isDone()) {
-						currentChatFuture.completeExceptionally(new AgentExecutionException(error, errorCode));
-						currentChatFuture = null;
-						currentChunkConsumer = null;
-						if (currentThoughtsPublisher != null) {
-							currentThoughtsPublisher.close();
-							currentThoughtsPublisher = null;
-						}
-						if (currentToolCallsPublisher != null) {
-							currentToolCallsPublisher.close();
-							currentToolCallsPublisher = null;
-						}
-					}
-				} else if ("STATE_IDLE".equals(state) || "STATE_FULLY_IDLE".equals(state)) {
-					if (currentChatFuture != null && !currentChatFuture.isDone()) {
-						if (clientCancelled) {
-							currentChatFuture.completeExceptionally(new AgentCancelledException());
-							if (currentThoughtsPublisher != null) {
-								currentThoughtsPublisher.closeExceptionally(new AgentCancelledException());
-							}
-							if (currentToolCallsPublisher != null) {
-								currentToolCallsPublisher.closeExceptionally(new AgentCancelledException());
-							}
-						} else {
-							UsageMetadata finalUsage = currentUsage;
-							if (finalUsage == null && cumulativeUsage != null) {
-								UsageMetadata diff = (turnStartUsage != null)
-										? cumulativeUsage.subtract(turnStartUsage)
-										: cumulativeUsage;
-								if (diff.totalTokenCount() > 0) {
-									finalUsage = diff;
-								}
-							}
-							currentChatFuture
-									.complete(new AgentResponse(currentText != null ? currentText.toString() : "",
-											currentThoughts != null ? currentThoughts.toString() : "", finalUsage));
+				String tsuTrajectoryId = tsu.has("trajectoryId")
+						? tsu.path("trajectoryId").asText("")
+						: tsu.path("trajectory_id").asText("");
+				boolean isSubagentTrajectory = this.mainTrajectoryId != null && !tsuTrajectoryId.isEmpty()
+						&& !tsuTrajectoryId.equals(this.mainTrajectoryId);
+				if (!isSubagentTrajectory) {
+					String state = tsu.path("state").asText();
+					String error = tsu.path("error").asText("");
+					String errorCode = tsu.has("errorCode") ? tsu.path("errorCode").asText(null) : null;
+					boolean isTurnIdle = "STATE_FULLY_IDLE".equals(state)
+							|| (goProcess == null && "STATE_IDLE".equals(state));
+					if (!error.isEmpty() && !"STATE_RUNNING".equals(state)) {
+						if (currentChatFuture != null && !currentChatFuture.isDone()) {
+							currentChatFuture.completeExceptionally(new AgentExecutionException(error, errorCode));
+							currentChatFuture = null;
+							currentChunkConsumer = null;
 							if (currentThoughtsPublisher != null) {
 								currentThoughtsPublisher.close();
+								currentThoughtsPublisher = null;
 							}
 							if (currentToolCallsPublisher != null) {
 								currentToolCallsPublisher.close();
+								currentToolCallsPublisher = null;
 							}
 						}
-						currentChatFuture = null;
-						currentChunkConsumer = null;
-						currentThoughtsPublisher = null;
-						currentToolCallsPublisher = null;
-					}
-				} else if ("STATE_CANCELLED".equals(state)) {
-					if (currentChatFuture != null && !currentChatFuture.isDone()) {
-						currentChatFuture.completeExceptionally(new AgentCancelledException());
-						currentChatFuture = null;
-						currentChunkConsumer = null;
-						if (currentThoughtsPublisher != null) {
-							currentThoughtsPublisher.closeExceptionally(new AgentCancelledException());
+					} else if (isTurnIdle) {
+						if (currentChatFuture != null && !currentChatFuture.isDone()) {
+							if (clientCancelled) {
+								currentChatFuture.completeExceptionally(new AgentCancelledException());
+								if (currentThoughtsPublisher != null) {
+									currentThoughtsPublisher.closeExceptionally(new AgentCancelledException());
+								}
+								if (currentToolCallsPublisher != null) {
+									currentToolCallsPublisher.closeExceptionally(new AgentCancelledException());
+								}
+							} else {
+								UsageMetadata finalUsage = currentUsage;
+								if (finalUsage == null && cumulativeUsage != null) {
+									UsageMetadata diff = (turnStartUsage != null)
+											? cumulativeUsage.subtract(turnStartUsage)
+											: cumulativeUsage;
+									if (diff.totalTokenCount() > 0) {
+										finalUsage = diff;
+									}
+								}
+								currentChatFuture
+										.complete(new AgentResponse(currentText != null ? currentText.toString() : "",
+												currentThoughts != null ? currentThoughts.toString() : "", finalUsage));
+								if (currentThoughtsPublisher != null) {
+									currentThoughtsPublisher.close();
+								}
+								if (currentToolCallsPublisher != null) {
+									currentToolCallsPublisher.close();
+								}
+							}
+							currentChatFuture = null;
+							currentChunkConsumer = null;
 							currentThoughtsPublisher = null;
-						}
-						if (currentToolCallsPublisher != null) {
-							currentToolCallsPublisher.closeExceptionally(new AgentCancelledException());
 							currentToolCallsPublisher = null;
+						}
+					} else if ("STATE_CANCELLED".equals(state)) {
+						if (currentChatFuture != null && !currentChatFuture.isDone()) {
+							currentChatFuture.completeExceptionally(new AgentCancelledException());
+							currentChatFuture = null;
+							currentChunkConsumer = null;
+							if (currentThoughtsPublisher != null) {
+								currentThoughtsPublisher.closeExceptionally(new AgentCancelledException());
+								currentThoughtsPublisher = null;
+							}
+							if (currentToolCallsPublisher != null) {
+								currentToolCallsPublisher.closeExceptionally(new AgentCancelledException());
+								currentToolCallsPublisher = null;
+							}
 						}
 					}
 				}
@@ -2013,9 +2403,13 @@ public class Agent implements AutoCloseable, TriggerContext {
 				String name = toolCallNode.path("name").asText();
 				String argsJsonString = toolCallNode.path("argumentsJson").asText();
 				JsonNode args = jsonMapper.readTree(argsJsonString);
+				ToolCall parsedCall = new ToolCall(name, args, callId.isEmpty() ? null : callId, null, null);
+				if ("run_workflow".equals(parsedCall.name())) {
+					this.sawRunWorkflowStep = true;
+				}
 
 				if (currentToolCallsPublisher != null) {
-					currentToolCallsPublisher.submit(new ToolCall(name, args));
+					currentToolCallsPublisher.submit(parsedCall);
 				}
 				if ("finish".equals(name)) {
 					if (currentText != null) {
@@ -2033,8 +2427,6 @@ public class Agent implements AutoCloseable, TriggerContext {
 					}
 					return;
 				}
-
-				ToolCall parsedCall = new ToolCall(name, args);
 
 				Policy.Decision decision = evaluatePolicies(name, args);
 				if (decision == Policy.Decision.DENY) {

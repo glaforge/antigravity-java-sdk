@@ -28,23 +28,22 @@ import static org.junit.jupiter.api.Assertions.*;
 public class WebToolsTest {
 
 	@Test
+	@Retry(2)
 	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testWebTools() throws Exception {
-		TestUtils.retry(2, () -> {
-			CapabilitiesConfig capabilities = CapabilitiesConfig.builder().enableWebSearch(true).enableUrlReading(true)
-					.build();
-			AgentConfig config = AgentConfig.builder().modelName("gemini-3.6-flash").capabilities(capabilities).build();
+		CapabilitiesConfig capabilities = CapabilitiesConfig.builder().enableWebSearch(true).enableUrlReading(true)
+				.build();
+		AgentConfig config = AgentConfig.builder().modelName("gemini-3.8-flash").capabilities(capabilities).build();
 
-			try (Agent agent = new Agent(config)) {
-				CompletableFuture<AgentResponse> future = agent
-						.chat("Search the web for the current weather in New York City. Give a short summary.");
-				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
-				AgentResponse response = future.get();
+		try (Agent agent = new Agent(config)) {
+			CompletableFuture<AgentResponse> future = agent
+					.chat("Search the web for the current weather in New York City. Give a short summary.");
+			await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
+			AgentResponse response = future.get();
 
-				assertNotNull(response);
-				assertNotNull(response.text());
-				assertTrue(response.text().length() > 0);
-			}
-		});
+			assertNotNull(response);
+			assertNotNull(response.text());
+			assertTrue(response.text().length() > 0);
+		}
 	}
 }

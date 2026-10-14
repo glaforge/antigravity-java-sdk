@@ -19,16 +19,44 @@ import java.nio.file.Path;
 import java.util.Objects;
 
 /**
- * Represents a source directory containing Agent Skill definitions.
+ * Represents a source for Agent Skill definitions — either a filesystem
+ * directory path or an in-memory {@link InlineSkill}.
  *
  * @param directoryPath
  *            the absolute or relative path to the directory hosting skill
- *            definitions
+ *            definitions, or null if backed by an {@link InlineSkill}
+ * @param inlineSkill
+ *            an in-memory skill definition, or null if backed by a directory
  */
-public record SkillSource(String directoryPath) {
+public record SkillSource(String directoryPath, InlineSkill inlineSkill) {
 
 	public SkillSource {
-		Objects.requireNonNull(directoryPath, "directoryPath must not be null");
+		if (directoryPath == null && inlineSkill == null) {
+			throw new NullPointerException("Either directoryPath or inlineSkill must be provided");
+		}
+		if (directoryPath != null && inlineSkill != null) {
+			throw new IllegalArgumentException("SkillSource cannot specify both directoryPath and inlineSkill");
+		}
+	}
+
+	/**
+	 * Creates a directory-backed SkillSource.
+	 *
+	 * @param directoryPath
+	 *            the directory path
+	 */
+	public SkillSource(String directoryPath) {
+		this(Objects.requireNonNull(directoryPath, "directoryPath must not be null"), null);
+	}
+
+	/**
+	 * Creates an in-memory SkillSource from an {@link InlineSkill}.
+	 *
+	 * @param inlineSkill
+	 *            the inline skill definition
+	 */
+	public SkillSource(InlineSkill inlineSkill) {
+		this(null, Objects.requireNonNull(inlineSkill, "inlineSkill must not be null"));
 	}
 
 	/**
@@ -52,5 +80,16 @@ public record SkillSource(String directoryPath) {
 	 */
 	public static SkillSource fromDirectory(String directoryPath) {
 		return new SkillSource(directoryPath);
+	}
+
+	/**
+	 * Creates a SkillSource from an in-memory {@link InlineSkill}.
+	 *
+	 * @param inlineSkill
+	 *            the inline skill
+	 * @return a new SkillSource
+	 */
+	public static SkillSource fromInlineSkill(InlineSkill inlineSkill) {
+		return new SkillSource(inlineSkill);
 	}
 }

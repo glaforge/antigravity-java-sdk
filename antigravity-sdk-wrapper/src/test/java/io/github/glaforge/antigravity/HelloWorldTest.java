@@ -37,33 +37,54 @@ public class HelloWorldTest {
 	}
 
 	@Test
+	@Retry(2)
 	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testWeatherAgent() throws Exception {
-		TestUtils.retry(2, () -> {
-			WeatherTools tools = new WeatherTools();
-			try (Agent agent = Agent.builder().instructions("""
-					You are a helpful weather assistant.
-					You MUST use the get_weather tool to fetch weather and NEVER use bash commands.
-					""").modelName("gemini-3.6-flash").addTool(tools)
-					.generation(GenerationConfig.builder().temperature(0.5).build()).build()) {
-				System.out.println("Agent initialized successfully!");
+		WeatherTools tools = new WeatherTools();
+		try (Agent agent = Agent.builder().instructions("""
+				You are a helpful weather assistant.
+				You MUST use the get_weather tool to fetch weather and NEVER use bash commands.
+				""").modelName("gemini-3.8-flash").addTool(tools)
+				.generation(GenerationConfig.builder().temperature(0.5).build()).build()) {
+			System.out.println("Agent initialized successfully!");
 
-				System.out.println("Sending prompt...");
-				CompletableFuture<AgentResponse> future = agent.chat("What is the weather in Tokyo right now?");
+			System.out.println("Sending prompt...");
+			CompletableFuture<AgentResponse> future = agent.chat("What is the weather in Tokyo right now?");
 
-				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
-				AgentResponse response = future.get();
+			await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
+			AgentResponse response = future.get();
 
-				System.out.println("\n--- Agent Response ---");
-				System.out.println(response.text());
-				System.out.println("----------------------\n");
+			System.out.println("\n--- Agent Response ---");
+			System.out.println(response.text());
+			System.out.println("----------------------\n");
 
-				assertNotNull(response);
-				assertNotNull(response.text());
-				assertTrue(response.text().contains("22.5"), "Response should contain the temperature");
-				assertTrue(response.text().contains("Celsius") || response.text().contains("Sunny"),
-						"Response should contain weather conditions");
-			}
-		});
+			assertNotNull(response);
+			assertNotNull(response.text());
+			assertTrue(response.text().contains("22.5"), "Response should contain the temperature");
+			assertTrue(response.text().contains("Celsius") || response.text().contains("Sunny"),
+					"Response should contain weather conditions");
+		}
+	}
+
+	@Test
+	@Retry(2)
+	@Timeout(value = 240, unit = TimeUnit.SECONDS)
+	public void testGemini4ArgonAgent() throws Exception {
+		WeatherTools tools = new WeatherTools();
+		try (Agent agent = Agent.builder().instructions("""
+				You are a helpful weather assistant powered by Gemini 4 Argon.
+				You MUST use the get_weather tool to fetch weather and NEVER use bash commands.
+				""").modelName("gemini-4-argon").addTool(tools).build()) {
+			CompletableFuture<AgentResponse> future = agent.chat("What is the weather in Paris right now?");
+
+			await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+			AgentResponse response = future.get(5, TimeUnit.SECONDS);
+
+			assertNotNull(response);
+			assertNotNull(response.text());
+			assertTrue(response.text().contains("22.5"), "Response should contain the temperature");
+			assertTrue(response.text().contains("Celsius") || response.text().contains("Sunny"),
+					"Response should contain weather conditions");
+		}
 	}
 }

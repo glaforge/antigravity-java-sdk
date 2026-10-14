@@ -141,6 +141,24 @@ public class LiteRTAgentConfig {
 	}
 
 	/**
+	 * Returns the configured skill directory paths.
+	 *
+	 * @return list of skill paths
+	 */
+	public List<String> getSkillsPaths() {
+		return agentConfig.getSkillsPaths();
+	}
+
+	/**
+	 * Returns the configured in-memory skills.
+	 *
+	 * @return list of inline skills
+	 */
+	public List<InlineSkill> getInlineSkills() {
+		return agentConfig.getInlineSkills();
+	}
+
+	/**
 	 * Creates a new Builder for LiteRTAgentConfig.
 	 *
 	 * @return a new Builder instance
@@ -356,6 +374,54 @@ public class LiteRTAgentConfig {
 		 */
 		public Builder conversationId(String conversationId) {
 			this.agentConfigBuilder.conversationId(conversationId);
+			return this;
+		}
+
+		/**
+		 * Adds a skill directory path.
+		 *
+		 * @param skillPath
+		 *            skill directory path
+		 * @return this builder
+		 */
+		public Builder addSkillPath(String skillPath) {
+			this.agentConfigBuilder.addSkillPath(skillPath);
+			return this;
+		}
+
+		/**
+		 * Sets the list of skill directory paths.
+		 *
+		 * @param skillsPaths
+		 *            skill directory paths
+		 * @return this builder
+		 */
+		public Builder skillsPaths(List<String> skillsPaths) {
+			this.agentConfigBuilder.skillsPaths(skillsPaths);
+			return this;
+		}
+
+		/**
+		 * Adds an in-memory {@link InlineSkill}.
+		 *
+		 * @param inlineSkill
+		 *            inline skill definition
+		 * @return this builder
+		 */
+		public Builder addInlineSkill(InlineSkill inlineSkill) {
+			this.agentConfigBuilder.addInlineSkill(inlineSkill);
+			return this;
+		}
+
+		/**
+		 * Sets the list of in-memory {@link InlineSkill} definitions.
+		 *
+		 * @param inlineSkills
+		 *            inline skill definitions
+		 * @return this builder
+		 */
+		public Builder inlineSkills(List<InlineSkill> inlineSkills) {
+			this.agentConfigBuilder.inlineSkills(inlineSkills);
 			return this;
 		}
 

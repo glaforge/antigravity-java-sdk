@@ -32,52 +32,51 @@ import static org.junit.jupiter.api.Assertions.*;
 public class InteractiveAskQuestionTest {
 
 	@Test
+	@Retry(2)
 	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testAskQuestionInteraction() throws Exception {
-		TestUtils.retry(2, () -> {
-			AtomicReference<InteractionRequest> capturedRequest = new AtomicReference<>();
+		AtomicReference<InteractionRequest> capturedRequest = new AtomicReference<>();
 
-			AgentHook mockAskHook = new OnInteractionHook() {
-				@Override
-				public CompletableFuture<List<InteractionAnswer>> onInteraction(InteractionRequest request) {
-					capturedRequest.set(request);
+		AgentHook mockAskHook = new OnInteractionHook() {
+			@Override
+			public CompletableFuture<List<InteractionAnswer>> onInteraction(InteractionRequest request) {
+				capturedRequest.set(request);
 
-					InteractionAnswer answer = InteractionAnswer.builder().addSelectedChoiceIndex(1)
-							.freeformResponse("I pick blue").build();
+				InteractionAnswer answer = InteractionAnswer.builder().addSelectedChoiceIndex(1)
+						.freeformResponse("I pick blue").build();
 
-					return CompletableFuture.completedFuture(List.of(answer));
-				}
-			};
-
-			AgentConfig config = AgentConfig.builder().modelName("gemini-3.6-flash")
-					.agentBehavior(AgentBehavior.INTERACTIVE)
-					.instructions(
-							"""
-									You are a helpful assistant.
-									When the user asks you to ask a multiple choice question, invoke the ask_question tool with the requested options.
-									After receiving the user's answer, tell them what choice they made.
-									""")
-					.capabilities(CapabilitiesConfig.builder().allowUserQuestions(true).build()).addHook(mockAskHook)
-					.build();
-
-			try (Agent agent = new Agent(config)) {
-				AgentInput prompt = new AgentInput.Text(
-						"Ask me a multiple choice question with 3 options: red, blue, green. Then tell me what I chose.");
-				CompletableFuture<AgentResponse> responseFuture = agent.chat(List.of(prompt));
-
-				await().atMost(90, TimeUnit.SECONDS).until(responseFuture::isDone);
-				AgentResponse response = responseFuture.get();
-
-				assertNotNull(capturedRequest.get(), "Agent should have requested interaction");
-
-				assertTrue(capturedRequest.get().questions().size() > 0, "Should have at least one question");
-				InteractionRequest.Question q = capturedRequest.get().questions().get(0);
-
-				assertEquals(3, q.choices().size());
-
-				assertTrue(response.text().toLowerCase().contains("blue"),
-						"Agent should acknowledge the choice 'blue' we sent back");
+				return CompletableFuture.completedFuture(List.of(answer));
 			}
-		});
+		};
+
+		AgentConfig config = AgentConfig.builder().modelName("gemini-3.8-flash")
+				.agentBehavior(AgentBehavior.INTERACTIVE)
+				.instructions(
+						"""
+								You are a helpful assistant.
+								When the user asks you to ask a multiple choice question, invoke the ask_question tool with the requested options.
+								After receiving the user's answer, tell them what choice they made.
+								""")
+				.capabilities(CapabilitiesConfig.builder().allowUserQuestions(true).build()).addHook(mockAskHook)
+				.build();
+
+		try (Agent agent = new Agent(config)) {
+			AgentInput prompt = new AgentInput.Text(
+					"Ask me a multiple choice question with 3 options: red, blue, green. Then tell me what I chose.");
+			CompletableFuture<AgentResponse> responseFuture = agent.chat(List.of(prompt));
+
+			await().atMost(90, TimeUnit.SECONDS).until(responseFuture::isDone);
+			AgentResponse response = responseFuture.get();
+
+			assertNotNull(capturedRequest.get(), "Agent should have requested interaction");
+
+			assertTrue(capturedRequest.get().questions().size() > 0, "Should have at least one question");
+			InteractionRequest.Question q = capturedRequest.get().questions().get(0);
+
+			assertEquals(3, q.choices().size());
+
+			assertTrue(response.text().toLowerCase().contains("blue"),
+					"Agent should acknowledge the choice 'blue' we sent back");
+		}
 	}
 }

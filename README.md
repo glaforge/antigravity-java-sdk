@@ -917,6 +917,91 @@ try (Agent agent = new Agent(config)) {
 }
 ```
 
+### 28. Gemini 4 Argon Support, Inline Skills, Beta Workflows & MCP Enhancements (v0.1.22)
+
+- **Gemini 4 Argon & Native Harness v0.1.22**: Updated `localharness` binaries and protocol definitions (`0.1.22`) with support for Gemini 4 Argon models.
+- **In-Memory Inline Skills (`InlineSkill`)**: Define self-contained skills directly in memory (with `name`, `description`, `content`, `files`, `license`, `compatibility`, `metadata`, and `allowedTools`) without requiring external filesystem directories. Supports both top-level agents (`.addInlineSkill(...)` / `.inlineSkills(...)`) and subagent overrides (`SubagentSkillsConfig.override(InlineSkill...)`). Mutual exclusivity between `inlineSkills` and `skillsPaths` is enforced at build time.
+- **Declarative Multi-Step Workflows (`Workflows`, `WorkflowDefinition`, `agent.beta().runWorkflow(...)`)**: Author, validate, and execute multi-step workflows via the `run_workflow` tool:
+  - Build workflows from Python workflow scripts (`Workflows.define(name, description, source)`) or fluently in Java (`Workflows.builder(name).phase(...).agent(...).logExpr(...).build()`).
+  - Execute workflows with real-time progress callbacks (`Consumer<WorkflowProgress>`) returning a structured `WorkflowResult` (`output`, `text`, `response`, `progress`).
+- **`BuiltinTools.INVOKE_SUBAGENT` & `RUN_WORKFLOW`**: Renamed `START_SUBAGENT` to `INVOKE_SUBAGENT` (`"invoke_subagent"`, keeping `START_SUBAGENT` as a `@Deprecated` alias) with automatic legacy `"start_subagent"` normalization in `ToolCall` and `Policies`. Added `BuiltinTools.RUN_WORKFLOW` (`"run_workflow"`).
+- **MCP Server Filtering, Timeouts & Eager Tool Loading**: `McpServerConfig` (`stdio`, `sse`, `http` / `streamableHttp`) now supports `.withName(...)`, `.withEnv(...)` (for stdio), `.withTimeoutSeconds(...)`, `.withEnabledTools(...)` / `.withDisabledTools(...)` (mutually exclusive), and `.withForceAllToolsEager(true)`. Cap MCP tool output size via `CapabilitiesConfig.builder().mcpMaxOutputBytes(65536)`.
+- **Generation & Compaction Controls**:
+  - `GenerationConfig.builder().maxOutputTokens(4096)` sets `max_output_tokens` on the Gemini model endpoint (validated positive).
+  - `CompactionConfig.builder().useModelReportedTokenCount(true)` uses model-reported prompt token counts to trigger context compaction.
+  - `UsageMetadata` adds `.negate()` and `.subtractFrom(...)`.
+
+```java
+// 1. Define an in-memory InlineSkill
+InlineSkill reviewSkill = InlineSkill.builder()
+    .name("code-review")
+    .description("Reviews Java 21 code for concurrency and null safety")
+    .content("# Code Review Guidelines\nAlways verify virtual thread pinning and record immutability.")
+    .addAllowedTool("view_file")
+    .addMetadata("team", "platform")
+    .build();
+
+// 2. Configure MCP server with tool allowlist, timeout, and eager loading
+McpServerConfig mcp = McpServerConfig.stdio("npx", List.of("-y", "@modelcontextprotocol/server-filesystem", "."))
+    .withName("fs-mcp")
+    .withTimeoutSeconds(30.0)
+    .withEnabledTools(List.of("read_file", "list_directory"))
+    .withForceAllToolsEager(true);
+
+// 3. Configure agent with inline skills, workflow capability, and maxOutputTokens
+AgentConfig config = AgentConfig.builder()
+    .instructions("Orchestrator with inline skills and workflow execution.")
+    .addInlineSkill(reviewSkill)
+    .addMcpServer(mcp)
+    .generation(GenerationConfig.builder()
+        .thinkingLevel(ThinkingLevel.HIGH)
+        .maxOutputTokens(8192)
+        .build())
+    .capabilities(CapabilitiesConfig.builder()
+        .enableSubagents(true)
+        .enableRunWorkflow(true)
+        .mcpMaxOutputBytes(65_536)
+        .build())
+    .compactionConfig(CompactionConfig.builder()
+        .tokenThreshold(50_000)
+        .useModelReportedTokenCount(true)
+        .build())
+    .build();
+
+// 4a. Author and run a multi-step workflow fluently in Java (with typed Java record schema)
+record AuditSummary(boolean passed, String report) {}
+
+WorkflowDefinition workflow = Workflows.builder("audit_workflow")
+    .description("Audit codebase and summarize findings")
+    .phase("Analysis")
+    .agent("findings", "Inspect repository structure and key classes", AuditSummary.class, "Researcher")
+    .logExpr("findings")
+    .build();
+
+try (Agent agent = new Agent(config)) {
+    WorkflowResult result = agent.beta()
+        .runWorkflow(workflow, progress -> System.out.println("Workflow output: " + progress.output()))
+        .get(120, TimeUnit.SECONDS);
+    System.out.println("Final workflow output:\n" + result.output());
+
+    // 4b. Or execute a handwritten Python workflow script (.py file or source) using agy_workflow
+    Path scriptPath = Path.of("pipeline.py");
+    /*
+     * from agy_workflow import WorkflowContext, workflow
+     *
+     * @workflow(description="Shell + subagent pipeline")
+     * def my_pipeline(ctx: WorkflowContext):
+     *     uname = ctx.shell("uname -s")
+     *     res = ctx.agent(f"Goal: {ctx.prompt}. OS: {uname.stdout.strip()}", role="Analyst")
+     *     return f"Result: {res}"
+     */
+    WorkflowResult scriptResult = agent.beta()
+        .runWorkflow(scriptPath, "Verify host OS", progress -> System.out.println(progress.state()))
+        .get(120, TimeUnit.SECONDS);
+    System.out.println("Script output:\n" + scriptResult.output());
+}
+```
+
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](LICENSE).
@@ -924,5 +1009,3 @@ This project is licensed under the [Apache License, Version 2.0](LICENSE).
 ## Disclaimer
 
 **This is not an officially supported Google product.** It is a community-driven, experimental port created for educational and development purposes.
-
-

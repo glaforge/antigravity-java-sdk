@@ -239,6 +239,9 @@ CapabilitiesConfig capabilities = CapabilitiesConfig.builder()
 | `.enableGenerateImage(true)` | `generate_image` | Generates images using Imagen/Gemini models (customizable with `.imageModelName()`). |
 | `.allowUserQuestions(true)` | `ask_question` | Allows the agent to ask the user clarifying multi-choice questions. |
 | `.enableSubagents(true)` | `invoke_subagent`, `define_subagent`, etc. | Allows the agent to define, spawn, and delegate tasks to subagents. |
+| `.enableSchedule(true)` | `schedule`, `manage_task` | Enables one-shot timers and recurring cron schedules. |
+| `.enableRunWorkflow(true)` | `run_workflow` | Enables multi-step workflow execution via `agent.beta().runWorkflow(...)` (pair with `.enableSubagents(true)`). |
+| `.mcpMaxOutputBytes(bytes)` | *(MCP tools)* | Caps the maximum byte length of MCP tool outputs. |
 
 ---
 
@@ -1001,4 +1004,116 @@ public class MyTools {
 }
 ```
 
+---
 
+## 19. Inline Skills, Beta Workflows & MCP Enhancements (v0.1.22)
+
+### In-Memory Inline Skills (`InlineSkill`)
+Define skills directly in memory without filesystem directories. Note that `inlineSkills` and `skillsPaths` are mutually exclusive in `AgentConfig`, `LiteRTAgentConfig`, `LocalOpenAIAgentConfig`, and `SubagentOverrideSkillsConfig`.
+
+```java
+import io.github.glaforge.antigravity.AgentConfig;
+import io.github.glaforge.antigravity.InlineSkill;
+import io.github.glaforge.antigravity.SubagentConfig;
+import io.github.glaforge.antigravity.SubagentSkillsConfig;
+
+InlineSkill reviewSkill = InlineSkill.builder()
+    .name("code-review")
+    .description("Reviews Java 21 code for thread safety and records")
+    .content("# Code Review\nCheck for virtual thread pinning and immutable records.")
+    .addFile("examples/good.java", "public record User(String id) {}")
+    .addAllowedTool("view_file")
+    .addMetadata("visibility", "internal")
+    .build();
+
+// Override subagent skills with inline skills:
+SubagentConfig subagent = SubagentConfig.builder()
+    .name("reviewer")
+    .description("Code reviewer")
+    .skillsConfig(SubagentSkillsConfig.override(reviewSkill))
+    .build();
+
+AgentConfig config = AgentConfig.builder()
+    .addInlineSkill(reviewSkill)
+    .addSubagent(subagent)
+    .build();
+```
+
+### Declarative Multi-Step Workflows (`Workflows`, `WorkflowDefinition`, `agent.beta().runWorkflow(...)`)
+Enable both `enableSubagents(true)` and `enableRunWorkflow(true)` in `CapabilitiesConfig` to execute workflows via `agent.beta().runWorkflow(...)`:
+
+```java
+import io.github.glaforge.antigravity.CapabilitiesConfig;
+import io.github.glaforge.antigravity.beta.WorkflowDefinition;
+import io.github.glaforge.antigravity.beta.WorkflowResult;
+import io.github.glaforge.antigravity.beta.Workflows;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+// Option A: Fluent Java builder (supports Java classes/records or Map schemas via SchemaGenerator)
+public record SecuritySummary(boolean passed, List<String> endpoints) {}
+
+WorkflowDefinition wf = Workflows.builder("security_audit")
+    .description("Run a multi-phase security audit")
+    .phase("Discovery")
+    .agent("summary", "List all authentication endpoints", SecuritySummary.class, "Scanner")
+    .logExpr("summary")
+    .build();
+
+// Option B: From a handwritten Python agy_workflow script (source or .py file)
+WorkflowDefinition scriptWf = Workflows.fromSource("custom_wf", """
+    from agy_workflow import WorkflowContext, workflow
+
+    @workflow(description="Custom shell + subagent pipeline")
+    def custom_wf(ctx: WorkflowContext):
+        uname = ctx.shell("uname -s")
+        res = ctx.agent(f"Goal: {ctx.prompt}. OS: {uname.stdout.strip()}", role="Analyst")
+        return f"Done: {res}"
+    """);
+
+AgentConfig config = AgentConfig.builder()
+    .capabilities(CapabilitiesConfig.builder()
+        .enableSubagents(true)
+        .enableRunWorkflow(true)
+        .build())
+    .build();
+
+try (Agent agent = new Agent(config)) {
+    // Run a WorkflowDefinition (or pass Path.of("my_workflow.py") directly)
+    WorkflowResult result = agent.beta()
+        .runWorkflow(wf, progress -> System.out.println("Step output: " + progress.output()))
+        .get(120, TimeUnit.SECONDS);
+    System.out.println(result.output());
+}
+```
+
+### MCP Server Filtering, Timeouts, Eager Loading & Output Cap
+Configure per-server tool allowlists/denylists, connection timeouts, eager tool loading, and global MCP output byte limits:
+
+```java
+import io.github.glaforge.antigravity.CapabilitiesConfig;
+import io.github.glaforge.antigravity.McpServerConfig;
+import java.util.List;
+import java.util.Map;
+
+McpServerConfig mcp = McpServerConfig.stdio("python3", List.of("-m", "my_mcp_server"))
+    .withName("analytics-mcp")
+    .withEnv(Map.of("API_KEY", "secret"))
+    .withTimeoutSeconds(45.0)
+    .withEnabledTools(List.of("query_metrics", "list_tables")) // Mutually exclusive with withDisabledTools(...)
+    .withForceAllToolsEager(true);
+
+CapabilitiesConfig caps = CapabilitiesConfig.builder()
+    .mcpMaxOutputBytes(65_536) // Positive byte limit for MCP tool responses
+    .build();
+```
+
+### `BuiltinTools.INVOKE_SUBAGENT`, `RUN_WORKFLOW` & Legacy Normalization
+- `BuiltinTools.INVOKE_SUBAGENT` (`"invoke_subagent"`) replaces `START_SUBAGENT` (retained as a `@Deprecated` alias).
+- `BuiltinTools.RUN_WORKFLOW` (`"run_workflow"`) identifies the workflow execution tool.
+- `ToolCall` and `Policies` (`allowTool`, `denyTool`, `allowTools`, `denyTools`) automatically normalize legacy `"start_subagent"` tool names to `"invoke_subagent"` for builtin tools while preserving MCP tool names that have a `serverName`.
+
+### Generation `maxOutputTokens` & Compaction `useModelReportedTokenCount`
+- `GenerationConfig.builder().maxOutputTokens(4096)` sets `max_output_tokens` on the Gemini endpoint (throws `IllegalArgumentException` if `<= 0`).
+- `CompactionConfig.builder().useModelReportedTokenCount(true)` configures context compaction to use the model-reported token count.
+- `UsageMetadata` provides `.negate()` and `.subtractFrom(...)`.

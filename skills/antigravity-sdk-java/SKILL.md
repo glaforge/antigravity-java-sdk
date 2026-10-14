@@ -1,6 +1,6 @@
 ---
 name: antigravity-sdk-java
-description: Guidelines, API reference, patterns, and best practices for building, configuring, hosting, and executing AI agents in Java using the Antigravity SDK for Java (Java 21). Use when creating Java AI agents, configuring agent skills with addSkillPath or SubagentSkillsConfig, setting up custom tools with @Tool, ToolContext, or Optional<ToolContext>, managing session persistence, handling turn cancellation, configuring security policies, using reactive streams, handling MCP servers, setting up bulk lifecycle hooks, accessing experimental APIs via agent.beta(), or handling multimodal inputs (documents/PDFs, audio, video, images).
+description: Guidelines, API reference, patterns, and best practices for building, configuring, hosting, and executing AI agents in Java using the Antigravity SDK for Java (Java 21). Use when creating Java AI agents, configuring agent skills with addSkillPath, InlineSkill, or SubagentSkillsConfig, authoring or running multi-step workflows via Workflows and agent.beta().runWorkflow(...), setting up custom tools with @Tool, ToolContext, or Optional<ToolContext>, managing session persistence, handling turn cancellation, configuring security policies, using reactive streams, handling MCP servers, setting up bulk lifecycle hooks, or handling multimodal inputs (documents/PDFs, audio, video, images).
 license: Apache-2.0
 ---
 
@@ -25,7 +25,7 @@ Before executing tasks with the Antigravity Java SDK, verify the environment:
 
 Use the following reference guide based on the user prompt:
 
-- **Core API, Skills & Multimodal**: For `AgentConfig`, `Agent.builder()`, `.eval()` benchmark preset, custom subagent model targeting and skill inheritance (`SubagentConfig`, `SubagentSkillsConfig`), compaction configuration and summary prompt overrides (`CompactionConfig`), experimental beta namespace (`@Beta`, `agent.beta()`), local backend parity (`LocalOpenAIAgentConfig`, `LiteRTAgentConfig`), session continuation modes (`SessionContinuationMode`), Agent Skills (`SkillsConfig`, `SkillSource`, `addSkillPath`), `AgentExecutionException` with `errorCode`, MCP servers, multimodal inputs (`AgentInput.Document`, `AgentInput.Audio`, `AgentInput.Video`, `AgentInput.Image`), `ToolContext` or `Optional<ToolContext>`, `RetryConfig`, `DebugConfig`, or `BuiltinTools` (including `SCHEDULE`, `MANAGE_TASK`, and `deprecated()`), read [API Reference](references/api-reference.md).
+- **Core API, Skills, Workflows & Multimodal**: For `AgentConfig`, `Agent.builder()`, `.eval()` benchmark preset, custom subagent model targeting and skill inheritance (`SubagentConfig`, `SubagentSkillsConfig`), in-memory skills (`InlineSkill`), declarative workflows (`Workflows`, `WorkflowDefinition`, `WorkflowResult`, `WorkflowProgress`, `agent.beta().runWorkflow(...)`), compaction configuration (`CompactionConfig`, `summaryPromptOverride`, `useModelReportedTokenCount`), generation limits (`GenerationConfig.maxOutputTokens`), local backend parity (`LocalOpenAIAgentConfig`, `LiteRTAgentConfig`), session continuation modes (`SessionContinuationMode`), Agent Skills (`SkillsConfig`, `SkillSource`, `addSkillPath`, `addInlineSkill`), `AgentExecutionException` with `errorCode`, MCP servers (`McpServerConfig` with tool filtering, timeouts, eager loading, and `mcpMaxOutputBytes`), multimodal inputs (`AgentInput.Document`, `AgentInput.Audio`, `AgentInput.Video`, `AgentInput.Image`), `ToolContext` or `Optional<ToolContext>`, `RetryConfig`, `DebugConfig`, or `BuiltinTools` (including `INVOKE_SUBAGENT`, `RUN_WORKFLOW`, `SCHEDULE`, `MANAGE_TASK`, and `deprecated()`), read [API Reference](references/api-reference.md).
 - **Security & Hooks**: For policy rules (`allowTools`, `denyIf`, `askUser` with `UserConfirmationCallback` justification, `confirmRunCommand`, `denyAll` with reason, `workspaceOnly`, automatic containment disabling with `allowAll`), bulk hook registration (`hooks`, `addHooks`), `PreTurnHook`, `PostTurnHook`, `PreToolCallDecideHook` (with structured `HookResult.allowedWithModifiedArgs`), `PostToolCallHook`, `OnSessionStartHook`, `OnSessionEndHook`, or `OnToolErrorHook` with `ToolExecutionError`, read [Security Policies & Lifecycle Hooks](references/security-and-hooks.md).
 - **Streaming & Reactive**: For `Flow.Publisher`, Spring WebFlux / RxJava 3 integration, or streaming internal thoughts via `AgentStream`, read [Streaming & Reactive Integration](references/streaming-and-reactive.md).
 
@@ -394,6 +394,48 @@ try (Agent agent = new Agent(config)) {
     AgentResponse r1 = agent.chat("Turn 1").get(60, TimeUnit.SECONDS);
     AgentResponse r2 = agent.chat("Turn 2").get(60, TimeUnit.SECONDS);
     UsageMetadata combined = r1.usage().add(r2.usage());
+}
+```
+
+### 16. In-Memory Inline Skills, Multi-Step Workflows & MCP Filtering (v0.1.22)
+
+- **In-Memory Skills (`InlineSkill`)**: Define self-contained skills in memory without external directories via `.addInlineSkill(...)` or `SubagentSkillsConfig.override(InlineSkill...)`. (`inlineSkills` and `skillsPaths` are mutually exclusive).
+- **Multi-Step Workflows (`Workflows`, `agent.beta().runWorkflow(...)`)**: Orchestrate deterministic Python-backed pipelines combining subagents (`ctx.agent(...)`) and shell commands (`ctx.shell(...)`). Build workflows in Java with `Workflows.builder(...)` (supporting Java `Class<?>` / `record` schemas) or run `.py` workflow scripts directly. Requires `enableSubagents(true)` and `enableRunWorkflow(true)` in `CapabilitiesConfig`.
+- **MCP Tool Filtering & Eager Loading**: Filter MCP server tools with `.withEnabledTools(...)` or `.withDisabledTools(...)`, set `.withTimeoutSeconds(...)`, force eager loading via `.withForceAllToolsEager(true)`, and cap output size via `CapabilitiesConfig.builder().mcpMaxOutputBytes(...)`.
+
+```java
+import io.github.glaforge.antigravity.InlineSkill;
+import io.github.glaforge.antigravity.beta.WorkflowDefinition;
+import io.github.glaforge.antigravity.beta.WorkflowResult;
+import io.github.glaforge.antigravity.beta.Workflows;
+
+public record AuditReport(String summary, int score) {}
+
+InlineSkill inlineSkill = InlineSkill.builder()
+    .name("java-conventions")
+    .description("Java 21 coding conventions")
+    .content("# Conventions\nUse records for immutable data carriers.")
+    .build();
+
+WorkflowDefinition workflow = Workflows.builder("code_audit")
+    .description("Run multi-step audit")
+    .phase("Inspect")
+    .agent("report", "Summarize architecture", AuditReport.class, "Auditor")
+    .logExpr("report")
+    .build();
+
+AgentConfig config = AgentConfig.builder()
+    .addInlineSkill(inlineSkill)
+    .capabilities(CapabilitiesConfig.builder()
+        .enableSubagents(true)
+        .enableRunWorkflow(true)
+        .build())
+    .build();
+
+try (Agent agent = new Agent(config)) {
+    WorkflowResult result = agent.beta()
+        .runWorkflow(workflow, p -> System.out.println(p.output()))
+        .get(120, TimeUnit.SECONDS);
 }
 ```
 

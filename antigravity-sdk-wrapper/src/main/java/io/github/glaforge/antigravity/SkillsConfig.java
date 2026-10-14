@@ -55,6 +55,21 @@ public record SkillsConfig(boolean enabled, List<SkillSource> skills) {
 	}
 
 	/**
+	 * Creates a default enabled SkillsConfig from a list of in-memory
+	 * {@link InlineSkill} definitions.
+	 *
+	 * @param inlineSkills
+	 *            the inline skills
+	 * @return a new SkillsConfig
+	 */
+	public static SkillsConfig ofInlineSkills(List<InlineSkill> inlineSkills) {
+		if (inlineSkills == null) {
+			return new SkillsConfig(true, List.of());
+		}
+		return new SkillsConfig(true, inlineSkills.stream().map(SkillSource::fromInlineSkill).toList());
+	}
+
+	/**
 	 * Builder for {@link SkillsConfig}.
 	 */
 	public static class Builder {
@@ -69,6 +84,22 @@ public record SkillsConfig(boolean enabled, List<SkillSource> skills) {
 		public Builder addSkill(SkillSource skill) {
 			if (skill != null) {
 				this.skills.add(skill);
+			}
+			return this;
+		}
+
+		public Builder addInlineSkill(InlineSkill inlineSkill) {
+			if (inlineSkill != null) {
+				this.skills.add(SkillSource.fromInlineSkill(inlineSkill));
+			}
+			return this;
+		}
+
+		public Builder inlineSkills(List<InlineSkill> inlineSkills) {
+			if (inlineSkills != null) {
+				for (InlineSkill s : inlineSkills) {
+					addInlineSkill(s);
+				}
 			}
 			return this;
 		}

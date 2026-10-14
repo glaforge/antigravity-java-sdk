@@ -45,11 +45,50 @@ package io.github.glaforge.antigravity;
  *            "gemini-3.1-flash-lite-image")
  * @param runCommandConfig
  *            optional configuration for the builtin {@code run_command} tool
+ * @param enableSchedule
+ *            true if the schedule tool is enabled
+ * @param enableRunWorkflow
+ *            true if the run_workflow tool is enabled
+ * @param mcpMaxOutputBytes
+ *            optional maximum output bytes for MCP tool responses (must be > 0
+ *            when specified)
  */
 public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuestions, boolean enableWebSearch,
 		boolean enableUrlReading, boolean enableShell, boolean enableViewFile, boolean enableWriteFile,
 		boolean enableFileEdit, boolean enableListDir, boolean enableGrepSearch, boolean enableGenerateImage,
-		String imageModelName, RunCommandConfig runCommandConfig, boolean enableSchedule) {
+		String imageModelName, RunCommandConfig runCommandConfig, boolean enableSchedule, boolean enableRunWorkflow,
+		Integer mcpMaxOutputBytes) {
+
+	public CapabilitiesConfig {
+		if (mcpMaxOutputBytes != null && mcpMaxOutputBytes <= 0) {
+			throw new IllegalArgumentException("mcpMaxOutputBytes must be positive, got: " + mcpMaxOutputBytes);
+		}
+	}
+
+	/**
+	 * Secondary constructor for backward compatibility with 15 parameters.
+	 */
+	public CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuestions, boolean enableWebSearch,
+			boolean enableUrlReading, boolean enableShell, boolean enableViewFile, boolean enableWriteFile,
+			boolean enableFileEdit, boolean enableListDir, boolean enableGrepSearch, boolean enableGenerateImage,
+			String imageModelName, RunCommandConfig runCommandConfig, boolean enableSchedule,
+			boolean enableRunWorkflow) {
+		this(enableSubagents, allowUserQuestions, enableWebSearch, enableUrlReading, enableShell, enableViewFile,
+				enableWriteFile, enableFileEdit, enableListDir, enableGrepSearch, enableGenerateImage, imageModelName,
+				runCommandConfig, enableSchedule, enableRunWorkflow, null);
+	}
+
+	/**
+	 * Secondary constructor for backward compatibility with 14 parameters.
+	 */
+	public CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuestions, boolean enableWebSearch,
+			boolean enableUrlReading, boolean enableShell, boolean enableViewFile, boolean enableWriteFile,
+			boolean enableFileEdit, boolean enableListDir, boolean enableGrepSearch, boolean enableGenerateImage,
+			String imageModelName, RunCommandConfig runCommandConfig, boolean enableSchedule) {
+		this(enableSubagents, allowUserQuestions, enableWebSearch, enableUrlReading, enableShell, enableViewFile,
+				enableWriteFile, enableFileEdit, enableListDir, enableGrepSearch, enableGenerateImage, imageModelName,
+				runCommandConfig, enableSchedule, false, null);
+	}
 
 	/**
 	 * Secondary constructor for backward compatibility with 13 parameters.
@@ -87,7 +126,7 @@ public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuest
 			String imageModelName, RunCommandConfig runCommandConfig) {
 		this(enableSubagents, allowUserQuestions, enableWebSearch, enableUrlReading, enableShell, enableViewFile,
 				enableWriteFile, enableFileEdit, enableListDir, enableGrepSearch, enableGenerateImage, imageModelName,
-				runCommandConfig, false);
+				runCommandConfig, false, false, null);
 	}
 
 	/**
@@ -192,6 +231,8 @@ public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuest
 		private String imageModelName = AgentConfig.DEFAULT_IMAGE_GENERATION_MODEL;
 		private RunCommandConfig runCommandConfig;
 		private boolean enableSchedule = true;
+		private boolean enableRunWorkflow = false;
+		private Integer mcpMaxOutputBytes;
 
 		/**
 		 * Enables or disables subagents.
@@ -362,6 +403,33 @@ public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuest
 		}
 
 		/**
+		 * Enables or disables the builtin {@code run_workflow} tool.
+		 *
+		 * @param enableRunWorkflow
+		 *            true to enable
+		 * @return this builder
+		 */
+		public Builder enableRunWorkflow(boolean enableRunWorkflow) {
+			this.enableRunWorkflow = enableRunWorkflow;
+			return this;
+		}
+
+		/**
+		 * Sets the maximum byte limit for MCP tool call output before truncation.
+		 *
+		 * @param mcpMaxOutputBytes
+		 *            positive byte limit
+		 * @return this builder
+		 */
+		public Builder mcpMaxOutputBytes(Integer mcpMaxOutputBytes) {
+			if (mcpMaxOutputBytes != null && mcpMaxOutputBytes <= 0) {
+				throw new IllegalArgumentException("mcpMaxOutputBytes must be positive, got: " + mcpMaxOutputBytes);
+			}
+			this.mcpMaxOutputBytes = mcpMaxOutputBytes;
+			return this;
+		}
+
+		/**
 		 * Builds the CapabilitiesConfig.
 		 *
 		 * @return the config
@@ -369,7 +437,8 @@ public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuest
 		public CapabilitiesConfig build() {
 			return new CapabilitiesConfig(enableSubagents, allowUserQuestions, enableWebSearch, enableUrlReading,
 					enableShell, enableViewFile, enableWriteFile, enableFileEdit, enableListDir, enableGrepSearch,
-					enableGenerateImage, imageModelName, runCommandConfig, enableSchedule);
+					enableGenerateImage, imageModelName, runCommandConfig, enableSchedule, enableRunWorkflow,
+					mcpMaxOutputBytes);
 		}
 	}
 }

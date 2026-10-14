@@ -29,51 +29,49 @@ import static org.junit.jupiter.api.Assertions.*;
 public class PersistenceTest {
 
 	@Test
+	@Retry(2)
 	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testPersistence() throws Exception {
-		TestUtils.retry(2, () -> {
-			File tempDir = Files.createTempDirectory("antigravity-save-dir").toFile();
+		File tempDir = Files.createTempDirectory("antigravity-save-dir").toFile();
 
-			String conversationId;
+		String conversationId;
 
-			// Session 1: Establish context
-			AgentConfig config1 = AgentConfig.builder()
-					.instructions("You are a helpful assistant. Do NOT use any tools. Just reply directly.")
-					.saveDir(tempDir.getAbsolutePath()).build();
+		// Session 1: Establish context
+		AgentConfig config1 = AgentConfig.builder()
+				.instructions("You are a helpful assistant. Do NOT use any tools. Just reply directly.")
+				.saveDir(tempDir.getAbsolutePath()).build();
 
-			try (Agent agent1 = new Agent(config1)) {
-				CompletableFuture<AgentResponse> future1 = agent1
-						.chat("Please remember the secret code word is BANANA.");
-				await().atMost(90, TimeUnit.SECONDS).until(future1::isDone);
-				AgentResponse response1 = future1.get();
+		try (Agent agent1 = new Agent(config1)) {
+			CompletableFuture<AgentResponse> future1 = agent1.chat("Please remember the secret code word is BANANA.");
+			await().atMost(90, TimeUnit.SECONDS).until(future1::isDone);
+			AgentResponse response1 = future1.get();
 
-				System.out.println("Session 1 response: " + response1.text());
-				assertNotNull(response1.text());
+			System.out.println("Session 1 response: " + response1.text());
+			assertNotNull(response1.text());
 
-				conversationId = agent1.getConversationId();
-				System.out.println("Session 1 ended with Conversation ID: " + conversationId);
-			}
+			conversationId = agent1.getConversationId();
+			System.out.println("Session 1 ended with Conversation ID: " + conversationId);
+		}
 
-			assertNotNull(conversationId);
-			assertFalse(conversationId.isEmpty());
+		assertNotNull(conversationId);
+		assertFalse(conversationId.isEmpty());
 
-			// Give localharness a tiny bit of time to flush to disk?
-			Thread.sleep(1000);
+		// Give localharness a tiny bit of time to flush to disk?
+		Thread.sleep(1000);
 
-			// Session 2: Retrieve context
-			AgentConfig config2 = AgentConfig.builder()
-					.instructions("You are a helpful assistant. Do NOT use any tools. Just reply directly.")
-					.saveDir(tempDir.getAbsolutePath()).conversationId(conversationId).build();
+		// Session 2: Retrieve context
+		AgentConfig config2 = AgentConfig.builder()
+				.instructions("You are a helpful assistant. Do NOT use any tools. Just reply directly.")
+				.saveDir(tempDir.getAbsolutePath()).conversationId(conversationId).build();
 
-			try (Agent agent2 = new Agent(config2)) {
-				CompletableFuture<AgentResponse> future2 = agent2.chat("What is the secret code word?");
-				await().atMost(90, TimeUnit.SECONDS).until(future2::isDone);
-				AgentResponse response2 = future2.get();
+		try (Agent agent2 = new Agent(config2)) {
+			CompletableFuture<AgentResponse> future2 = agent2.chat("What is the secret code word?");
+			await().atMost(90, TimeUnit.SECONDS).until(future2::isDone);
+			AgentResponse response2 = future2.get();
 
-				System.out.println("Session 2 response: " + response2.text());
-				assertNotNull(response2.text());
-				assertTrue(response2.text().toLowerCase().contains("banana"));
-			}
-		});
+			System.out.println("Session 2 response: " + response2.text());
+			assertNotNull(response2.text());
+			assertTrue(response2.text().toLowerCase().contains("banana"));
+		}
 	}
 }

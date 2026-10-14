@@ -46,6 +46,7 @@ public class AgentConfig {
 	private final String modelName;
 	private final List<Object> toolInstances;
 	private final List<String> skillsPaths;
+	private final List<InlineSkill> inlineSkills;
 	private final SkillsConfig skillsConfig;
 	private final CapabilitiesConfig capabilities;
 	private final GenerationConfig generation;
@@ -74,12 +75,31 @@ public class AgentConfig {
 		this.instructions = builder.instructions;
 		this.modelName = builder.modelName;
 		this.toolInstances = new ArrayList<>(builder.toolInstances);
-		this.skillsPaths = new ArrayList<>(builder.skillsPaths);
+		List<String> allSkillsPaths = new ArrayList<>(builder.skillsPaths);
+		List<InlineSkill> allInlineSkills = new ArrayList<>(builder.inlineSkills);
+		if (builder.skillsConfig != null) {
+			for (SkillSource src : builder.skillsConfig.skills()) {
+				if (src.directoryPath() != null && !allSkillsPaths.contains(src.directoryPath())) {
+					allSkillsPaths.add(src.directoryPath());
+				}
+				if (src.inlineSkill() != null && !allInlineSkills.contains(src.inlineSkill())) {
+					allInlineSkills.add(src.inlineSkill());
+				}
+			}
+		}
+		if (!allSkillsPaths.isEmpty() && !allInlineSkills.isEmpty()) {
+			throw new IllegalArgumentException(
+					"combining inline_skills and skills_paths is not supported by LocalHarness; provide either inline_skills or skills_paths, not both.");
+		}
+		this.skillsPaths = allSkillsPaths;
+		this.inlineSkills = allInlineSkills;
 		if (builder.skillsConfig != null) {
 			this.skillsConfig = builder.skillsConfig;
-		} else if (!builder.skillsPaths.isEmpty()) {
+		} else if (!allInlineSkills.isEmpty()) {
+			this.skillsConfig = SkillsConfig.ofInlineSkills(allInlineSkills);
+		} else if (!allSkillsPaths.isEmpty()) {
 			this.skillsConfig = SkillsConfig.builder()
-					.skills(builder.skillsPaths.stream().map(SkillSource::fromDirectory).toList()).build();
+					.skills(allSkillsPaths.stream().map(SkillSource::fromDirectory).toList()).build();
 		} else {
 			this.skillsConfig = null;
 		}
@@ -143,6 +163,14 @@ public class AgentConfig {
 	 */
 	public List<String> getSkillsPaths() {
 		return Collections.unmodifiableList(skillsPaths);
+	}
+	/**
+	 * Returns the in-memory skill definitions.
+	 *
+	 * @return unmodifiable list of inline skills
+	 */
+	public List<InlineSkill> getInlineSkills() {
+		return Collections.unmodifiableList(inlineSkills);
 	}
 	/**
 	 * Returns the Agent Skills configuration.
@@ -416,6 +444,7 @@ public class AgentConfig {
 		private String modelName = DEFAULT_MODEL_NAME;
 		private List<Object> toolInstances = new ArrayList<>();
 		private List<String> skillsPaths = new ArrayList<>();
+		private List<InlineSkill> inlineSkills = new ArrayList<>();
 		private SkillsConfig skillsConfig;
 		private CapabilitiesConfig capabilities = CapabilitiesConfig.builder().build();
 		private GenerationConfig generation = null;
@@ -485,6 +514,50 @@ public class AgentConfig {
 		 */
 		public Builder addSkillPath(String skillPath) {
 			this.skillsPaths.add(skillPath);
+			return this;
+		}
+
+		/**
+		 * Sets the list of skill paths.
+		 *
+		 * @param skillsPaths
+		 *            list of skill directory paths
+		 * @return this builder
+		 */
+		public Builder skillsPaths(List<String> skillsPaths) {
+			this.skillsPaths.clear();
+			if (skillsPaths != null) {
+				this.skillsPaths.addAll(skillsPaths);
+			}
+			return this;
+		}
+
+		/**
+		 * Adds an in-memory {@link InlineSkill}.
+		 *
+		 * @param inlineSkill
+		 *            the inline skill definition
+		 * @return this builder
+		 */
+		public Builder addInlineSkill(InlineSkill inlineSkill) {
+			if (inlineSkill != null) {
+				this.inlineSkills.add(inlineSkill);
+			}
+			return this;
+		}
+
+		/**
+		 * Sets the list of in-memory {@link InlineSkill} definitions.
+		 *
+		 * @param inlineSkills
+		 *            list of inline skill definitions
+		 * @return this builder
+		 */
+		public Builder inlineSkills(List<InlineSkill> inlineSkills) {
+			this.inlineSkills.clear();
+			if (inlineSkills != null) {
+				this.inlineSkills.addAll(inlineSkills);
+			}
 			return this;
 		}
 
@@ -914,6 +987,20 @@ public class AgentConfig {
 		}
 
 		/**
+		 * Sets the primary workspace directory.
+		 *
+		 * @param workspaceDir
+		 *            the primary workspace directory path
+		 * @return this builder
+		 */
+		public Builder workspaceDir(Path workspaceDir) {
+			if (workspaceDir != null) {
+				this.workspaceDir = workspaceDir;
+			}
+			return this;
+		}
+
+		/**
 		 * Sets workspaces paths.
 		 *
 		 * @param workspaces
@@ -945,12 +1032,7 @@ public class AgentConfig {
 		 * @return this builder
 		 */
 		public Builder responseSchema(Class<?> targetClass) {
-			try {
-				ObjectNode schemaNode = SchemaGenerator.generateSchema(targetClass);
-				this.finishToolSchemaJson = SchemaGenerator.getMapper().writeValueAsString(schemaNode);
-			} catch (Exception e) {
-				throw new RuntimeException("Failed to generate JSON schema for class: " + targetClass.getName(), e);
-			}
+			this.finishToolSchemaJson = SchemaGenerator.generateSchemaJson(targetClass);
 			return this;
 		}
 

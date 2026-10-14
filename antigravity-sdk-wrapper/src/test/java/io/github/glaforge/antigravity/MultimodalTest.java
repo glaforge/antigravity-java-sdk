@@ -29,33 +29,32 @@ import static org.junit.jupiter.api.Assertions.*;
 public class MultimodalTest {
 
 	@Test
+	@Retry(2)
 	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testDocumentInput() throws Exception {
-		TestUtils.retry(2, () -> {
-			File tempDoc = File.createTempFile("sample_doc", ".txt");
-			tempDoc.deleteOnExit();
-			Files.writeString(tempDoc.toPath(), "The secret passcode is XYZ987.");
+		File tempDoc = File.createTempFile("sample_doc", ".txt");
+		tempDoc.deleteOnExit();
+		Files.writeString(tempDoc.toPath(), "The secret passcode is XYZ987.");
 
-			AgentConfig config = AgentConfig.builder().instructions("""
-					You are a helpful assistant that answers questions based on provided documents.
-					I am attaching a text document. You MUST read it and extract the passcode.
-					""").build();
+		AgentConfig config = AgentConfig.builder().instructions("""
+				You are a helpful assistant that answers questions based on provided documents.
+				I am attaching a text document. You MUST read it and extract the passcode.
+				""").build();
 
-			try (Agent agent = new Agent(config)) {
-				System.out.println("Sending multimodal input...");
-				CompletableFuture<AgentResponse> future = agent.chat(AgentInput.Text.of(
-						"I attached a document. Please read the text inside it. What is the secret passcode? Just reply with the passcode."),
-						new AgentInput.Document("text/plain", Files.readAllBytes(tempDoc.toPath()),
-								"Attached Document: secret_file.txt"));
+		try (Agent agent = new Agent(config)) {
+			System.out.println("Sending multimodal input...");
+			CompletableFuture<AgentResponse> future = agent.chat(AgentInput.Text.of(
+					"I attached a document. Please read the text inside it. What is the secret passcode? Just reply with the passcode."),
+					new AgentInput.Document("text/plain", Files.readAllBytes(tempDoc.toPath()),
+							"Attached Document: secret_file.txt"));
 
-				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
-				AgentResponse response = future.get();
+			await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
+			AgentResponse response = future.get();
 
-				System.out.println("Response: " + response.text());
-				assertNotNull(response.text());
-				assertTrue(response.text().contains("XYZ987"),
-						"Agent should have read the document and found the passcode.");
-			}
-		});
+			System.out.println("Response: " + response.text());
+			assertNotNull(response.text());
+			assertTrue(response.text().contains("XYZ987"),
+					"Agent should have read the document and found the passcode.");
+		}
 	}
 }

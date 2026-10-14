@@ -18,7 +18,7 @@ package io.github.glaforge.antigravity.triggers;
 import io.github.glaforge.antigravity.Agent;
 import io.github.glaforge.antigravity.AgentConfig;
 import io.github.glaforge.antigravity.AgentResponse;
-import io.github.glaforge.antigravity.TestUtils;
+import io.github.glaforge.antigravity.Retry;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -34,34 +34,33 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class TriggersTest {
 
 	@Test
+	@Retry(2)
 	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testBuiltInTrigger() throws Exception {
-		TestUtils.retry(2, () -> {
-			AtomicInteger triggerCount = new AtomicInteger(0);
+		AtomicInteger triggerCount = new AtomicInteger(0);
 
-			AgentConfig config = AgentConfig.builder().modelName("gemini-3.6-flash")
-					.instructions("You are a helpful assistant.")
-					.addTrigger(Triggers.every(300, TimeUnit.MILLISECONDS, ctx -> {
-						if (triggerCount.getAndIncrement() == 0) {
-							System.out.println("Trigger fired!");
-							ctx.fireTrigger("The user just sneezed. Say bless you.");
-						}
-					})).build();
+		AgentConfig config = AgentConfig.builder().modelName("gemini-3.8-flash")
+				.instructions("You are a helpful assistant.")
+				.addTrigger(Triggers.every(300, TimeUnit.MILLISECONDS, ctx -> {
+					if (triggerCount.getAndIncrement() == 0) {
+						System.out.println("Trigger fired!");
+						ctx.fireTrigger("The user just sneezed. Say bless you.");
+					}
+				})).build();
 
-			try (Agent agent = new Agent(config)) {
-				CompletableFuture<AgentResponse> future = agent.chat("What is 2+2?");
-				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
+		try (Agent agent = new Agent(config)) {
+			CompletableFuture<AgentResponse> future = agent.chat("What is 2+2?");
+			await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
 
-				AgentResponse response = future.get();
-				System.out.println(response.text());
-				assertTrue(response.text().toLowerCase().contains("bless you"), "Agent should have said bless you");
-				assertTrue(triggerCount.get() >= 2, "Trigger should have ticked multiple times");
-			}
+			AgentResponse response = future.get();
+			System.out.println(response.text());
+			assertTrue(response.text().toLowerCase().contains("bless you"), "Agent should have said bless you");
+			assertTrue(triggerCount.get() >= 2, "Trigger should have ticked multiple times");
+		}
 
-			// Wait briefly to ensure trigger is stopped
-			int countAfterClose = triggerCount.get();
-			await().pollDelay(600, TimeUnit.MILLISECONDS).atMost(1000, TimeUnit.MILLISECONDS)
-					.until(() -> triggerCount.get() == countAfterClose);
-		});
+		// Wait briefly to ensure trigger is stopped
+		int countAfterClose = triggerCount.get();
+		await().pollDelay(600, TimeUnit.MILLISECONDS).atMost(1000, TimeUnit.MILLISECONDS)
+				.until(() -> triggerCount.get() == countAfterClose);
 	}
 }

@@ -143,13 +143,7 @@ public class ToolDefinition {
 		 * @return this builder
 		 */
 		public Builder parametersSchema(Class<?> targetClass) {
-			try {
-				ObjectNode schemaNode = SchemaGenerator.generateSchema(targetClass);
-				this.parametersJsonSchema = SchemaGenerator.getMapper().writeValueAsString(schemaNode);
-			} catch (Exception e) {
-				throw new RuntimeException(
-						"Failed to generate JSON schema for tool parameters: " + targetClass.getName(), e);
-			}
+			this.parametersJsonSchema = SchemaGenerator.generateSchemaJson(targetClass);
 			return this;
 		}
 

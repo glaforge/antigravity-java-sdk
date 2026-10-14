@@ -38,6 +38,12 @@ import java.util.List;
 public record GenerationConfig(Double temperature, Double topP, Integer topK, Integer maxOutputTokens,
 		List<String> stopSequences, ThinkingLevel thinkingLevel, ServiceTier serviceTier) {
 
+	public GenerationConfig {
+		if (maxOutputTokens != null && maxOutputTokens <= 0) {
+			throw new IllegalArgumentException("maxOutputTokens must be positive, got: " + maxOutputTokens);
+		}
+	}
+
 	/**
 	 * Secondary constructor for backward compatibility without serviceTier.
 	 *

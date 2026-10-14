@@ -31,30 +31,29 @@ import java.nio.file.Path;
 public class SlashCommandsTest {
 
 	@Test
+	@Retry(2)
 	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testSlashCommand() throws Exception {
-		TestUtils.retry(2, () -> {
-			Path tempDir = Files.createTempDirectory("antigravity-slash-test");
-			AgentConfig config = AgentConfig.builder().modelName("gemini-3.6-flash").appDataDir(tempDir.toString())
-					.capabilities(CapabilitiesConfig.builder().enableWriteFile(true).enableViewFile(true).build())
-					.addPolicy(new Policy() {
-						@Override
-						public Decision evaluate(String toolName, JsonNode arguments) {
-							return Decision.ALLOW;
-						}
-					}).build();
+		Path tempDir = Files.createTempDirectory("antigravity-slash-test");
+		AgentConfig config = AgentConfig.builder().modelName("gemini-3.8-flash").appDataDir(tempDir.toString())
+				.capabilities(CapabilitiesConfig.builder().enableWriteFile(true).enableViewFile(true).build())
+				.addPolicy(new Policy() {
+					@Override
+					public Decision evaluate(String toolName, JsonNode arguments) {
+						return Decision.ALLOW;
+					}
+				}).build();
 
-			try (Agent agent = new Agent(config)) {
-				// Using the /plan slash command programmatically
-				AgentInput slashCommand = AgentInput.SlashCommand.of("plan");
-				AgentInput textPrompt = AgentInput.Text.of("Write a python script that prints numbers 1 to 10.");
+		try (Agent agent = new Agent(config)) {
+			// Using the /plan slash command programmatically
+			AgentInput slashCommand = AgentInput.SlashCommand.of("plan");
+			AgentInput textPrompt = AgentInput.Text.of("Write a python script that prints numbers 1 to 10.");
 
-				CompletableFuture<AgentResponse> future = agent.chat(List.of(slashCommand, textPrompt));
-				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
-				AgentResponse response = future.get();
-				assertNotNull(response);
-				assertNotNull(response.text());
-			}
-		});
+			CompletableFuture<AgentResponse> future = agent.chat(List.of(slashCommand, textPrompt));
+			await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
+			AgentResponse response = future.get();
+			assertNotNull(response);
+			assertNotNull(response.text());
+		}
 	}
 }

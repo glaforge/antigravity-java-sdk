@@ -115,4 +115,28 @@ public sealed interface SubagentSkillsConfig
 	static SubagentOverrideSkillsConfig override(String... skillsPaths) {
 		return new SubagentOverrideSkillsConfig(List.of(skillsPaths));
 	}
+
+	/**
+	 * Overrides and replaces parent skills with the specified in-memory
+	 * {@link InlineSkill} definitions.
+	 *
+	 * @param inlineSkills
+	 *            in-memory skill definitions
+	 * @return override skills config
+	 */
+	static SubagentOverrideSkillsConfig override(InlineSkill... inlineSkills) {
+		return SubagentOverrideSkillsConfig.ofInlineSkills(inlineSkills);
+	}
+
+	/**
+	 * Overrides and replaces parent skills with the specified list of in-memory
+	 * {@link InlineSkill} definitions.
+	 *
+	 * @param inlineSkills
+	 *            in-memory skill definitions
+	 * @return override skills config
+	 */
+	static SubagentOverrideSkillsConfig overrideInlineSkills(List<InlineSkill> inlineSkills) {
+		return SubagentOverrideSkillsConfig.ofInlineSkills(inlineSkills);
+	}
 }

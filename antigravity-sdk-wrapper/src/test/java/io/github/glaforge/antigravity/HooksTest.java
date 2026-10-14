@@ -41,60 +41,59 @@ public class HooksTest {
 	}
 
 	@Test
+	@Retry(2)
 	@Timeout(value = 240, unit = TimeUnit.SECONDS)
 	public void testLifecycleHooksOrder() throws Exception {
-		TestUtils.retry(2, () -> {
-			List<String> events = new ArrayList<>();
+		List<String> events = new ArrayList<>();
 
-			OnSessionStartHook startHook = () -> {
-				events.add("start");
-				return CompletableFuture.completedFuture(null);
-			};
-			OnSessionEndHook endHook = () -> {
-				events.add("end");
-				return CompletableFuture.completedFuture(null);
-			};
-			PreTurnHook preTurnHook = (prompt, context) -> {
-				events.add("pre_turn:" + prompt);
-				return CompletableFuture.completedFuture(HookResult.allowed());
-			};
-			PostTurnHook postTurnHook = (resp, context) -> {
-				events.add("post_turn");
-				return CompletableFuture.completedFuture(null);
-			};
-			PreToolCallDecideHook preToolHook = (call, context) -> {
-				events.add("pre_tool:" + call.name());
-				return CompletableFuture.completedFuture(HookResult.allowed());
-			};
-			PostToolCallHook postToolHook = (call, result, context) -> {
-				events.add("post_tool:" + result);
-				return CompletableFuture.completedFuture(null);
-			};
+		OnSessionStartHook startHook = () -> {
+			events.add("start");
+			return CompletableFuture.completedFuture(null);
+		};
+		OnSessionEndHook endHook = () -> {
+			events.add("end");
+			return CompletableFuture.completedFuture(null);
+		};
+		PreTurnHook preTurnHook = (prompt, context) -> {
+			events.add("pre_turn:" + prompt);
+			return CompletableFuture.completedFuture(HookResult.allowed());
+		};
+		PostTurnHook postTurnHook = (resp, context) -> {
+			events.add("post_turn");
+			return CompletableFuture.completedFuture(null);
+		};
+		PreToolCallDecideHook preToolHook = (call, context) -> {
+			events.add("pre_tool:" + call.name());
+			return CompletableFuture.completedFuture(HookResult.allowed());
+		};
+		PostToolCallHook postToolHook = (call, result, context) -> {
+			events.add("post_tool:" + result);
+			return CompletableFuture.completedFuture(null);
+		};
 
-			AgentConfig config = AgentConfig.builder().modelName("gemini-3.6-flash").instructions("""
-					You are a helpful assistant.
-					If the user asks you to echo, you must call the echo tool EXACTLY ONCE.
-					After the tool returns, immediately reply to the user with the result and finish the turn.
-					""").addTool(new EchoTool()).addHook(startHook).addHook(endHook).addHook(preTurnHook)
-					.addHook(postTurnHook).addHook(preToolHook).addHook(postToolHook).build();
+		AgentConfig config = AgentConfig.builder().modelName("gemini-3.8-flash").instructions("""
+				You are a helpful assistant.
+				If the user asks you to echo, you must call the echo tool EXACTLY ONCE.
+				After the tool returns, immediately reply to the user with the result and finish the turn.
+				""").addTool(new EchoTool()).addHook(startHook).addHook(endHook).addHook(preTurnHook)
+				.addHook(postTurnHook).addHook(preToolHook).addHook(postToolHook).build();
 
-			try (Agent agent = new Agent(config)) {
-				CompletableFuture<AgentResponse> future = agent.chat("Please echo: hello");
-				await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
-				AgentResponse response = future.get();
-				assertNotNull(response.text());
-			}
+		try (Agent agent = new Agent(config)) {
+			CompletableFuture<AgentResponse> future = agent.chat("Please echo: hello");
+			await().atMost(90, TimeUnit.SECONDS).until(future::isDone);
+			AgentResponse response = future.get();
+			assertNotNull(response.text());
+		}
 
-			System.out.println("Events: " + events);
+		System.out.println("Events: " + events);
 
-			assertEquals("start", events.get(0));
-			assertEquals("pre_turn:Please echo: hello", events.get(1));
-			assertEquals("pre_tool:echo", events.get(2));
-			String postToolEvent = events.get(3).toLowerCase();
-			assertTrue(postToolEvent.startsWith("post_tool:") && postToolEvent.contains("echo"));
-			assertTrue(events.contains("post_turn"));
-			assertTrue(events.contains("end"));
-		});
+		assertEquals("start", events.get(0));
+		assertEquals("pre_turn:Please echo: hello", events.get(1));
+		assertEquals("pre_tool:echo", events.get(2));
+		String postToolEvent = events.get(3).toLowerCase();
+		assertTrue(postToolEvent.startsWith("post_tool:") && postToolEvent.contains("echo"));
+		assertTrue(events.contains("post_turn"));
+		assertTrue(events.contains("end"));
 	}
 
 	@Test

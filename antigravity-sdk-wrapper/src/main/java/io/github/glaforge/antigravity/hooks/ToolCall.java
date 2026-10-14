@@ -16,6 +16,7 @@
 package io.github.glaforge.antigravity.hooks;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.github.glaforge.antigravity.BuiltinTools;
 
 /**
  * Represents a tool call with its arguments and correlation identifiers.
@@ -32,6 +33,10 @@ import com.fasterxml.jackson.databind.JsonNode;
  *            optional MCP server name for MCP tools
  */
 public record ToolCall(String name, JsonNode args, String id, String stepId, String serverName) {
+
+	public ToolCall {
+		name = BuiltinTools.normalizeToolName(name, serverName);
+	}
 
 	/**
 	 * Convenience constructor for backward compatibility.

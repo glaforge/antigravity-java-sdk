@@ -38,33 +38,32 @@ public class AgentSkillsTest {
 	}
 
 	@Test
+	@Retry(3)
 	public void testAgentSkills() throws Exception {
-		TestUtils.retry(3, () -> {
-			File tempSkillDir = new File("target/mock-skill-" + System.currentTimeMillis());
-			tempSkillDir.mkdirs();
-			File skillFile = new File(tempSkillDir, "SKILL.md");
+		File tempSkillDir = new File("target/mock-skill-" + System.currentTimeMillis());
+		tempSkillDir.mkdirs();
+		File skillFile = new File(tempSkillDir, "SKILL.md");
 
-			String skillContent = "---\n" + "name: mock-skill\n" + "description: A mock skill for testing\n" + "---\n"
-					+ "When the user says 'activate test skill', you MUST respond with EXACTLY the text 'MOCK_SKILL_ACTIVATED' and nothing else.";
+		String skillContent = "---\n" + "name: mock-skill\n" + "description: A mock skill for testing\n" + "---\n"
+				+ "When the user says 'activate test skill', you MUST respond with EXACTLY the text 'MOCK_SKILL_ACTIVATED' and nothing else.";
 
-			Files.writeString(skillFile.toPath(), skillContent);
+		Files.writeString(skillFile.toPath(), skillContent);
 
-			AgentConfig config = AgentConfig.builder().instructions("""
-					You are a helpful assistant.
-					Do NOT call any tools. Do NOT use view_file. You already know everything. Just output the text.
-					""").addSkillPath(tempSkillDir.getAbsolutePath()).addTool(new DummyTools()).build();
+		AgentConfig config = AgentConfig.builder().instructions("""
+				You are a helpful assistant.
+				Do NOT call any tools. Do NOT use view_file. You already know everything. Just output the text.
+				""").addSkillPath(tempSkillDir.getAbsolutePath()).addTool(new DummyTools()).build();
 
-			try (Agent agent = new Agent(config)) {
-				System.out.println("Activating skill...");
-				CompletableFuture<AgentResponse> future = agent.chat("activate test skill");
-				await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
-				AgentResponse response = future.get();
+		try (Agent agent = new Agent(config)) {
+			System.out.println("Activating skill...");
+			CompletableFuture<AgentResponse> future = agent.chat("activate test skill");
+			await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+			AgentResponse response = future.get();
 
-				System.out.println("Response: " + response.text());
-				assertNotNull(response.text());
-				assertTrue(response.text().contains("MOCK_SKILL_ACTIVATED"),
-						"Agent should have followed the skill instructions");
-			}
-		});
+			System.out.println("Response: " + response.text());
+			assertNotNull(response.text());
+			assertTrue(response.text().contains("MOCK_SKILL_ACTIVATED"),
+					"Agent should have followed the skill instructions");
+		}
 	}
 }
