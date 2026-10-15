@@ -36,6 +36,7 @@ public class SlashCommandsTest {
 	public void testSlashCommand() throws Exception {
 		Path tempDir = Files.createTempDirectory("antigravity-slash-test");
 		AgentConfig config = AgentConfig.builder().modelName("gemini-3.8-flash").appDataDir(tempDir.toString())
+				.workspaceDir(tempDir).addWorkspace(tempDir.toString())
 				.capabilities(CapabilitiesConfig.builder().enableWriteFile(true).enableViewFile(true).build())
 				.addPolicy(new Policy() {
 					@Override
