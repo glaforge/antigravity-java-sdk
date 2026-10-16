@@ -32,7 +32,7 @@ Add the core wrapper dependency. The native binary is downloaded automatically o
 <dependency>
     <groupId>io.github.glaforge.antigravity</groupId>
     <artifactId>antigravity-sdk-wrapper</artifactId>
-    <version>0.3.0</version>
+    <version>0.3.1</version>
 </dependency>
 ```
 
@@ -44,14 +44,14 @@ For offline environments, add the `antigravity-sdk-harness` dependency with the 
 <dependency>
     <groupId>io.github.glaforge.antigravity</groupId>
     <artifactId>antigravity-sdk-wrapper</artifactId>
-    <version>0.3.0</version>
+    <version>0.3.1</version>
 </dependency>
 
 <!-- Platform-specific harness binary (e.g. osx-aarch64, linux-x86_64, windows-x86_64) -->
 <dependency>
     <groupId>io.github.glaforge.antigravity</groupId>
     <artifactId>antigravity-sdk-harness</artifactId>
-    <version>0.3.0</version>
+    <version>0.3.1</version>
     <classifier>${os.detected.classifier}</classifier>
 </dependency>
 ```
@@ -62,10 +62,10 @@ For offline environments, add the `antigravity-sdk-harness` dependency with the 
 
 ```groovy
 // Standard
-implementation 'io.github.glaforge.antigravity:antigravity-sdk-wrapper:0.3.0'
+implementation 'io.github.glaforge.antigravity:antigravity-sdk-wrapper:0.3.1'
 
 // Offline (macOS Apple Silicon example)
-runtimeOnly 'io.github.glaforge.antigravity:antigravity-sdk-harness:0.3.0:osx-aarch64'
+runtimeOnly 'io.github.glaforge.antigravity:antigravity-sdk-harness:0.3.1:osx-aarch64'
 ```
 
 ## Features & Usage

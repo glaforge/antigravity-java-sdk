@@ -540,6 +540,55 @@ public final class Workflows {
 		}
 
 		/**
+		 * Appends an {@code <assignTo> = await parallel(<itemsExpr>, <fnExpr>)} step to
+		 * the workflow.
+		 *
+		 * @param assignTo
+		 *            variable name to store the parallel results list (or null to not
+		 *            assign)
+		 * @param itemsExpr
+		 *            expression or variable name evaluating to the items collection
+		 * @param fnExpr
+		 *            step function or lambda expression to execute concurrently for
+		 *            each item
+		 * @return this builder
+		 */
+		public Builder parallel(String assignTo, String itemsExpr, String fnExpr) {
+			return appendCollectionStep("parallel", assignTo, itemsExpr, fnExpr);
+		}
+
+		/**
+		 * Appends an {@code <assignTo> = await pipeline(<itemsExpr>, <fnExpr>)} step to
+		 * the workflow.
+		 *
+		 * @param assignTo
+		 *            variable name to store the pipeline results list (or null to not
+		 *            assign)
+		 * @param itemsExpr
+		 *            expression or variable name evaluating to the items collection
+		 * @param fnExpr
+		 *            step function or lambda expression to execute sequentially for
+		 *            each item
+		 * @return this builder
+		 */
+		public Builder pipeline(String assignTo, String itemsExpr, String fnExpr) {
+			return appendCollectionStep("pipeline", assignTo, itemsExpr, fnExpr);
+		}
+
+		private Builder appendCollectionStep(String primitive, String assignTo, String itemsExpr, String fnExpr) {
+			Objects.requireNonNull(itemsExpr, "itemsExpr must not be null");
+			Objects.requireNonNull(fnExpr, "fnExpr must not be null");
+			StringBuilder call = new StringBuilder();
+			if (assignTo != null && !assignTo.isBlank()) {
+				call.append(assignTo.trim()).append(" = ");
+			}
+			call.append("await ").append(primitive).append("(").append(itemsExpr.trim()).append(", ")
+					.append(fnExpr.trim()).append(")");
+			lines.add(call.toString());
+			return this;
+		}
+
+		/**
 		 * Appends a raw statement line to the workflow script.
 		 *
 		 * @param statement

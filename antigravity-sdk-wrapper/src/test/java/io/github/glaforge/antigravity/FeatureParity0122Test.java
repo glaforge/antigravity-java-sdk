@@ -150,11 +150,14 @@ public class FeatureParity0122Test {
 		assertThrows(IllegalArgumentException.class,
 				() -> CapabilitiesConfig.builder().mcpMaxOutputBytes(-1024).build());
 
-		CapabilitiesConfig caps = CapabilitiesConfig.builder().enableSubagents(true).enableRunWorkflow(true)
-				.mcpMaxOutputBytes(65536).build();
+		CapabilitiesConfig caps = CapabilitiesConfig.builder().enableSubagents(true).mcpMaxOutputBytes(65536).build();
 
 		assertTrue(caps.enableRunWorkflow());
 		assertEquals(65536, caps.mcpMaxOutputBytes());
+
+		CapabilitiesConfig disabledWfCaps = CapabilitiesConfig.builder().enableSubagents(true).enableRunWorkflow(false)
+				.build();
+		assertFalse(disabledWfCaps.enableRunWorkflow());
 
 		AgentConfig cfg = AgentConfig.builder().capabilities(caps).build();
 		Agent agent = new Agent(cfg, false);

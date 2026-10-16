@@ -82,6 +82,7 @@ public class WorkflowsTest {
 				.agent("findings", "Extract findings", listOfFindingsType)
 				.agent("raw_map", "Summarize", Map.of("type", "string"))
 				.agent("full_map", "Detailed step", Map.of("type", "integer"), "Counter", "self", "share")
+				.parallel("par_res", "findings", "step_fn").pipeline("pipe_res", "par_res", "step_fn")
 				.statement("workflows.log(findings, raw_map, full_map)").build();
 
 		String src = wf.source();
@@ -89,6 +90,8 @@ public class WorkflowsTest {
 		assertTrue(src.contains("raw_map = await agent(\"Summarize\", schema={\"type\":\"string\"})"));
 		assertTrue(src.contains(
 				"full_map = await agent(\"Detailed step\", schema={\"type\":\"integer\"}, role=\"Counter\", type_name=\"self\", workspace=\"share\")"));
+		assertTrue(src.contains("par_res = await parallel(findings, step_fn)"));
+		assertTrue(src.contains("pipe_res = await pipeline(par_res, step_fn)"));
 		assertTrue(src.contains("log(findings, raw_map, full_map)"));
 		assertFalse(src.contains("workflows.log"));
 	}

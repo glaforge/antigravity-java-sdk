@@ -1050,7 +1050,7 @@ AgentConfig config = AgentConfig.builder()
 ```
 
 ### Declarative Multi-Step Workflows (`Workflows`, `WorkflowDefinition`, `agent.beta().runWorkflow(...)`)
-Enable both `enableSubagents(true)` and `enableRunWorkflow(true)` in `CapabilitiesConfig` to execute workflows via `agent.beta().runWorkflow(...)`:
+Enable `enableSubagents(true)` in `CapabilitiesConfig` (which enables `run_workflow` by default unless `enableRunWorkflow(false)` is explicitly set) to execute workflows via `agent.beta().runWorkflow(...)`:
 
 ```java
 import io.github.glaforge.antigravity.CapabilitiesConfig;
@@ -1060,7 +1060,7 @@ import io.github.glaforge.antigravity.beta.Workflows;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-// Option A: Fluent Java builder (supports Java classes/records or Map schemas via SchemaGenerator)
+// Option A: Fluent Java builder (supports phase, log, logExpr, agent, parallel, pipeline, and statement)
 public record SecuritySummary(boolean passed, List<String> endpoints) {}
 
 WorkflowDefinition wf = Workflows.builder("security_audit")
@@ -1083,8 +1083,7 @@ WorkflowDefinition scriptWf = Workflows.fromSource("custom_wf", """
 
 AgentConfig config = AgentConfig.builder()
     .capabilities(CapabilitiesConfig.builder()
-        .enableSubagents(true)
-        .enableRunWorkflow(true)
+        .enableSubagents(true) // Automatically enables run_workflow by default
         .build())
     .build();
 

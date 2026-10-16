@@ -87,7 +87,7 @@ public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuest
 			String imageModelName, RunCommandConfig runCommandConfig, boolean enableSchedule) {
 		this(enableSubagents, allowUserQuestions, enableWebSearch, enableUrlReading, enableShell, enableViewFile,
 				enableWriteFile, enableFileEdit, enableListDir, enableGrepSearch, enableGenerateImage, imageModelName,
-				runCommandConfig, enableSchedule, false, null);
+				runCommandConfig, enableSchedule, enableSubagents, null);
 	}
 
 	/**
@@ -231,7 +231,7 @@ public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuest
 		private String imageModelName = AgentConfig.DEFAULT_IMAGE_GENERATION_MODEL;
 		private RunCommandConfig runCommandConfig;
 		private boolean enableSchedule = true;
-		private boolean enableRunWorkflow = false;
+		private Boolean enableRunWorkflow;
 		private Integer mcpMaxOutputBytes;
 
 		/**
@@ -435,9 +435,10 @@ public record CapabilitiesConfig(boolean enableSubagents, boolean allowUserQuest
 		 * @return the config
 		 */
 		public CapabilitiesConfig build() {
+			boolean effectiveRunWorkflow = enableRunWorkflow != null ? enableRunWorkflow : enableSubagents;
 			return new CapabilitiesConfig(enableSubagents, allowUserQuestions, enableWebSearch, enableUrlReading,
 					enableShell, enableViewFile, enableWriteFile, enableFileEdit, enableListDir, enableGrepSearch,
-					enableGenerateImage, imageModelName, runCommandConfig, enableSchedule, enableRunWorkflow,
+					enableGenerateImage, imageModelName, runCommandConfig, enableSchedule, effectiveRunWorkflow,
 					mcpMaxOutputBytes);
 		}
 	}
