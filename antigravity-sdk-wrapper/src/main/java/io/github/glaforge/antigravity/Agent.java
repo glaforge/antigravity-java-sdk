@@ -2520,14 +2520,19 @@ public class Agent implements AutoCloseable, TriggerContext {
 		}
 
 		if (goProcess != null && goProcess.isAlive()) {
-			boolean exited = goProcess.waitFor(2, TimeUnit.SECONDS);
-			if (!exited) {
-				goProcess.getOutputStream().close();
-				exited = goProcess.waitFor(3, TimeUnit.SECONDS);
-			}
+			try {
+				boolean exited = goProcess.waitFor(2, TimeUnit.SECONDS);
+				if (!exited) {
+					goProcess.getOutputStream().close();
+					exited = goProcess.waitFor(3, TimeUnit.SECONDS);
+				}
 
-			if (!exited) {
+				if (!exited) {
+					goProcess.destroyForcibly();
+				}
+			} catch (InterruptedException e) {
 				goProcess.destroyForcibly();
+				Thread.currentThread().interrupt();
 			}
 		}
 		toolExecutor.shutdown();

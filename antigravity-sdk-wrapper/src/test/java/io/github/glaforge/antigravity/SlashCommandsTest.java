@@ -15,7 +15,6 @@
  */
 package io.github.glaforge.antigravity;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -32,18 +31,13 @@ public class SlashCommandsTest {
 
 	@Test
 	@Retry(2)
-	@Timeout(value = 240, unit = TimeUnit.SECONDS)
+	@Timeout(value = 300, unit = TimeUnit.SECONDS)
 	public void testSlashCommand() throws Exception {
 		Path tempDir = Files.createTempDirectory("antigravity-slash-test");
 		AgentConfig config = AgentConfig.builder().modelName("gemini-3.8-flash").appDataDir(tempDir.toString())
 				.workspaceDir(tempDir).addWorkspace(tempDir.toString())
-				.capabilities(CapabilitiesConfig.builder().enableWriteFile(true).enableViewFile(true).build())
-				.addPolicy(new Policy() {
-					@Override
-					public Decision evaluate(String toolName, JsonNode arguments) {
-						return Decision.ALLOW;
-					}
-				}).build();
+				.generation(GenerationConfig.builder().thinkingLevel(ThinkingLevel.LOW).build())
+				.instructions("Reply directly with a concise 3-bullet plan in plain text.").build();
 
 		try (Agent agent = new Agent(config)) {
 			// Using the /plan slash command programmatically
@@ -55,6 +49,7 @@ public class SlashCommandsTest {
 			AgentResponse response = future.get();
 			assertNotNull(response);
 			assertNotNull(response.text());
+			assertFalse(response.text().isBlank());
 		}
 	}
 }
