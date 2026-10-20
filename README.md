@@ -72,7 +72,7 @@ runtimeOnly 'io.github.glaforge.antigravity:antigravity-sdk-harness:0.3.1:osx-aa
 
 This SDK achieves full feature parity with the Python SDK. Below are examples of what you can do.
 
-### 1. Basic Agent Setup
+### 1. Basic Agent Setup & Authentication (`GEMINI_API_KEY` / Vertex AI)
 
 Configure an agent with a system prompt and execute a turn.
 
@@ -84,6 +84,40 @@ AgentConfig config = AgentConfig.builder()
 try (Agent agent = new Agent(config)) {
     AgentResponse response = agent.chat("Hello, who are you?").get(120, TimeUnit.SECONDS);
     System.out.println(response.text());
+}
+```
+
+#### API Key Resolution & Vertex AI
+`Agent` resolves the Gemini API key in the following priority order:
+1. Explicit `.apiKey("...")` on `AgentConfig.builder()` or `Agent.builder()`
+2. `GEMINI_API_KEY` entry in `.environmentVariables(Map.of("GEMINI_API_KEY", "..."))` / `.addEnvironmentVariable("GEMINI_API_KEY", "...")`
+3. Java system property `System.getProperty("GEMINI_API_KEY")`
+4. Process environment variable `System.getenv("GEMINI_API_KEY")`
+5. A `.local.env` file in the current or parent working directory (`GEMINI_API_KEY=...`)
+
+To run against **Vertex AI** (using Application Default Credentials or Express Mode API keys), enable `.vertex(true)` with `.project(...)` and `.location(...)` (or set `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, and `GOOGLE_CLOUD_LOCATION`):
+
+```java
+AgentConfig vertexConfig = AgentConfig.builder()
+    .instructions("Enterprise assistant running on Vertex AI.")
+    .vertex(true)
+    .project("my-gcp-project")
+    .location("us-central1")
+    .build();
+```
+
+#### Conversation History & Multi-Turn Persistence
+When resuming a persisted conversation from `<saveDir>/<conversationId>.db` via `.conversationId(id)` (or across live turns), you can inspect the full step-by-step trajectory using `agent.getHistory()` (`List<ConversationStep>`):
+
+```java
+try (Agent agent = Agent.builder()
+        .saveDir("/tmp/antigravity-sessions")
+        .conversationId(existingConversationId)
+        .sessionContinuationMode(SessionContinuationMode.CREATE_OR_RESUME)
+        .build()) {
+    for (ConversationStep step : agent.getHistory()) {
+        System.out.printf("[%s] %s: %s%n", step.id(), step.source(), step.content());
+    }
 }
 ```
 

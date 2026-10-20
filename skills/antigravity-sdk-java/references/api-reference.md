@@ -20,8 +20,11 @@ import java.util.Map;
 AgentConfig config = AgentConfig.builder()
     .instructions("System instructions for the agent model.")
     .modelName("gemini-3.8-flash") // Default model selection
-    .conversationId("session-123") // Resume existing session context
-    .environmentVariables(Map.of("CUSTOM_ENV_VAR", "value")) // Custom process environment
+    .apiKey("optional-explicit-api-key") // Or via GEMINI_API_KEY env / system property / environmentVariables
+    .vertex(false) // Set true (with .project(...) and .location(...)) for Vertex AI
+    .conversationId("session-123") // Resume existing session context (populates agent.getHistory())
+    .workspaceDir(Path.of("/path/to/workspace")) // Sets process working dir & default FilesystemWorkspace
+    .environmentVariables(Map.of("CUSTOM_ENV_VAR", "value")) // Custom process & InputConfig environment
     .addSkillPath("/path/to/my-agent-skill") // Register file-based agent skill
     .generation(GenerationConfig.builder()
         .temperature(0.2)

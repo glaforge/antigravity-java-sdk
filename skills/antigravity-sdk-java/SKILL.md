@@ -17,9 +17,14 @@ Before executing tasks with the Antigravity Java SDK, verify the environment:
   - Offline / Air-Gapped (optional): `io.github.glaforge:antigravity-sdk-harness` with matching platform classifier (e.g. `osx-aarch64`, `linux-x86_64`, or `all`).
 - **Java 24+ / GraalVM Runtimes**: When using Java 24+ or GraalVM (JEP 471), silence Protobuf `sun.misc.Unsafe` deprecation warnings by adding `--sun-misc-unsafe-memory-access=allow` to `.mvn/jvm.config`.
 - **Harness Logging**: The native Go harness stdout/stderr streams are piped to SLF4J (`DEBUG` for info/stdout, `WARN` for warnings, `ERROR` for errors), keeping the console clean by default. Enable `DEBUG` on `io.github.glaforge.antigravity.Agent` to inspect harness internals.
-- **API Key Setup**: A valid `GEMINI_API_KEY` environment variable is required to access Gemini models.
+- **API Key Setup**: A valid Gemini API key is required to access Gemini Developer API models. It is resolved in priority order:
+  1. Explicit `.apiKey("...")` on `AgentConfig.builder()` or `Agent.builder()`
+  2. `.environmentVariables(Map.of("GEMINI_API_KEY", "..."))` / `.addEnvironmentVariable("GEMINI_API_KEY", "...")`
+  3. Java system property `-DGEMINI_API_KEY=...`
+  4. Environment variable `GEMINI_API_KEY`
+  5. `.local.env` file (`GEMINI_API_KEY=...`)
   - If credentials are missing, actively help the user get set up by providing the Google AI Studio link: `https://aistudio.google.com/app/api-keys`.
-- **Vertex AI (Gemini Enterprise Agent Platform)**: Uses Application Default Credentials (ADC). Instruct the user to run `gcloud auth application-default login` and set environment variables `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION`.
+- **Vertex AI (Gemini Enterprise Agent Platform)**: Configure `.vertex(true).project("...").location("...")` on `AgentConfig.builder()` / `Agent.builder()` (or set `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, and `GOOGLE_CLOUD_LOCATION` with Application Default Credentials via `gcloud auth application-default login`).
 
 ## Routing Table
 
@@ -295,9 +300,9 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
-### 11. Multi-Turn Session Persistence
+### 11. Multi-Turn Session Persistence & Conversation History
 
-Agents maintain conversation state in the underlying Go harness. To persist and resume conversations across application restarts, user requests, or microservice boundaries, capture the `conversationId` and provide it to the next agent:
+Agents maintain conversation state in the underlying Go harness (`<saveDir>/<conversationId>.db`). To persist and resume conversations across application restarts, user requests, or microservice boundaries, capture the `conversationId` and provide it to the next agent. Historical and live steps are exposed via `agent.getHistory()` (`List<ConversationStep>`) and can be cleared in memory via `agent.clearHistory()`:
 
 ```java
 String conversationId;
@@ -308,13 +313,17 @@ try (Agent agent = new Agent(AgentConfig.builder().instructions("Helpful assista
     conversationId = agent.getConversationId(); // Persist this ID in database or session
 }
 
-// Turn 2: Resume previous conversation context
+// Turn 2: Resume previous conversation context and inspect history
 AgentConfig resumeConfig = AgentConfig.builder()
     .instructions("Helpful assistant.")
     .conversationId(conversationId)
     .build();
 
 try (Agent agent = new Agent(resumeConfig)) {
+    // Historical steps from <saveDir>/<conversationId>.db are loaded on initialization
+    for (ConversationStep step : agent.getHistory()) {
+        System.out.println(step.source() + ": " + step.content());
+    }
     AgentResponse response = agent.chat("What is my name?").get(120, TimeUnit.SECONDS);
     System.out.println(response.text()); // "Guillaume"
 }

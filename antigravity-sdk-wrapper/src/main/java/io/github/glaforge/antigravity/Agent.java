@@ -120,6 +120,33 @@ public class Agent implements AutoCloseable, TriggerContext {
 	private volatile boolean sawRunWorkflowStep;
 	private volatile String runWorkflowStepError;
 	private volatile String mainTrajectoryId;
+	private final List<ConversationStep> history = Collections.synchronizedList(new ArrayList<>());
+	private final ConcurrentMap<String, Integer> activeTurnStepIndexMap = new ConcurrentHashMap<>();
+
+	/**
+	 * Returns an unmodifiable snapshot of the conversation step history. When a
+	 * session is resumed via {@code conversationId}, this includes historical steps
+	 * returned by {@code localharness} during conversation initialization as well
+	 * as steps recorded during active turns.
+	 *
+	 * @return unmodifiable list of conversation steps
+	 */
+	public List<ConversationStep> getHistory() {
+		synchronized (history) {
+			return Collections.unmodifiableList(new ArrayList<>(history));
+		}
+	}
+
+	/**
+	 * Clears the accumulated in-memory conversation step history. The active
+	 * session remains open.
+	 */
+	public void clearHistory() {
+		synchronized (history) {
+			history.clear();
+			activeTurnStepIndexMap.clear();
+		}
+	}
 
 	/**
 	 * Returns the OS command sandbox status reported at handshake, if any.
@@ -536,6 +563,18 @@ public class Agent implements AutoCloseable, TriggerContext {
 		}
 
 		/**
+		 * Sets the primary workspace directory.
+		 *
+		 * @param workspaceDir
+		 *            the primary workspace directory path
+		 * @return this builder
+		 */
+		public Builder workspaceDir(Path workspaceDir) {
+			configBuilder.workspaceDir(workspaceDir);
+			return this;
+		}
+
+		/**
 		 * Sets workspaces paths.
 		 *
 		 * @param workspaces
@@ -556,6 +595,92 @@ public class Agent implements AutoCloseable, TriggerContext {
 		 */
 		public Builder addWorkspace(String workspace) {
 			configBuilder.addWorkspace(workspace);
+			return this;
+		}
+
+		/**
+		 * Sets the base URL for local Gemma/OpenAI or custom endpoints.
+		 *
+		 * @param baseUrl
+		 *            the base URL
+		 * @return this builder
+		 */
+		public Builder baseUrl(String baseUrl) {
+			configBuilder.baseUrl(baseUrl);
+			return this;
+		}
+
+		/**
+		 * Sets custom environment variables for the agent process.
+		 *
+		 * @param environmentVariables
+		 *            map of key-value environment variables
+		 * @return this builder
+		 */
+		public Builder environmentVariables(Map<String, String> environmentVariables) {
+			configBuilder.environmentVariables(environmentVariables);
+			return this;
+		}
+
+		/**
+		 * Adds a single custom environment variable for the agent process.
+		 *
+		 * @param key
+		 *            environment variable key
+		 * @param value
+		 *            environment variable value
+		 * @return this builder
+		 */
+		public Builder addEnvironmentVariable(String key, String value) {
+			configBuilder.addEnvironmentVariable(key, value);
+			return this;
+		}
+
+		/**
+		 * Sets the explicit API key for Gemini or Vertex AI Express Mode.
+		 *
+		 * @param apiKey
+		 *            the API key string
+		 * @return this builder
+		 */
+		public Builder apiKey(String apiKey) {
+			configBuilder.apiKey(apiKey);
+			return this;
+		}
+
+		/**
+		 * Enables or disables the Vertex AI backend.
+		 *
+		 * @param vertex
+		 *            true to use Vertex AI, false to use the Gemini Developer API
+		 * @return this builder
+		 */
+		public Builder vertex(Boolean vertex) {
+			configBuilder.vertex(vertex);
+			return this;
+		}
+
+		/**
+		 * Sets the GCP project ID for Vertex AI.
+		 *
+		 * @param project
+		 *            the GCP project ID
+		 * @return this builder
+		 */
+		public Builder project(String project) {
+			configBuilder.project(project);
+			return this;
+		}
+
+		/**
+		 * Sets the GCP location/region for Vertex AI (e.g. {@code "us-central1"}).
+		 *
+		 * @param location
+		 *            the GCP location
+		 * @return this builder
+		 */
+		public Builder location(String location) {
+			configBuilder.location(location);
 			return this;
 		}
 
@@ -776,7 +901,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 		if (config.getEnvironmentVariables() != null && !config.getEnvironmentVariables().isEmpty()) {
 			pb.environment().putAll(config.getEnvironmentVariables());
 		}
-		String resolvedApiKey = resolveGeminiApiKey();
+		String resolvedApiKey = resolveGeminiApiKey(config);
 		if (resolvedApiKey != null && !resolvedApiKey.isEmpty()) {
 			pb.environment().putIfAbsent("GEMINI_API_KEY", resolvedApiKey);
 		}
@@ -793,7 +918,11 @@ public class Agent implements AutoCloseable, TriggerContext {
 			}
 			new File(storageDir).mkdirs();
 
-			InputConfig inputConfig = InputConfig.newBuilder().setStorageDirectory(storageDir).build();
+			InputConfig.Builder inputConfigBuilder = InputConfig.newBuilder().setStorageDirectory(storageDir);
+			if (config.getEnvironmentVariables() != null && !config.getEnvironmentVariables().isEmpty()) {
+				inputConfigBuilder.putAllEnv(config.getEnvironmentVariables());
+			}
+			InputConfig inputConfig = inputConfigBuilder.build();
 
 			byte[] serializedInput = inputConfig.toByteArray();
 			ByteBuffer lengthBuffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN)
@@ -944,6 +1073,25 @@ public class Agent implements AutoCloseable, TriggerContext {
 		triggerSessionStart().join();
 	}
 
+	HarnessConfig buildHarnessConfig() {
+		String resolved = resolveGeminiApiKey(config);
+		return buildHarnessConfig(resolved != null ? resolved : "placeholder");
+	}
+
+	private static GeminiModelOptions buildGeminiModelOptions(GenerationConfig gen) {
+		GeminiModelOptions.Builder optionsBuilder = GeminiModelOptions.newBuilder();
+		if (gen.thinkingLevel() != null) {
+			optionsBuilder.setThinkingLevel(gen.thinkingLevel().getValue());
+		}
+		if (gen.serviceTier() != null) {
+			optionsBuilder.setServiceTier(gen.serviceTier().getValue());
+		}
+		if (gen.maxOutputTokens() != null) {
+			optionsBuilder.setMaxOutputTokens(gen.maxOutputTokens());
+		}
+		return optionsBuilder.build();
+	}
+
 	HarnessConfig buildHarnessConfig(String apiKey) {
 		HarnessConfig.Builder configBuilder = HarnessConfig.newBuilder().setCascadeId(config.getConversationId())
 				.setAppDataDir(config.getAppDataDir() != null ? config.getAppDataDir() : "");
@@ -952,22 +1100,34 @@ public class Agent implements AutoCloseable, TriggerContext {
 				.setName(config.getModelName() != null ? config.getModelName() : "gemma-local")
 				.addTypes(ModelType.MODEL_TYPE_TEXT);
 
-		if (config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()) {
+		if (config.isVertex()) {
+			VertexEndpoint.Builder vertexBuilder = VertexEndpoint.newBuilder();
+			if (config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()) {
+				vertexBuilder.setBaseUrl(config.getBaseUrl());
+			}
+			if (config.getProject() != null && !config.getProject().isEmpty()) {
+				vertexBuilder.setProject(config.getProject());
+			}
+			if (config.getLocation() != null && !config.getLocation().isEmpty()) {
+				vertexBuilder.setLocation(config.getLocation());
+			}
+			if (config.getApiKey() != null && !config.getApiKey().isEmpty()) {
+				vertexBuilder.setApiKey(config.getApiKey());
+			}
+			if (config.getGeneration() != null) {
+				vertexBuilder.setOptions(buildGeminiModelOptions(config.getGeneration()));
+			}
+			modelConfigBuilder.setVertexEndpoint(vertexBuilder.build());
+		} else if (config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()) {
 			modelConfigBuilder.setGemmaEndpoint(GemmaEndpoint.newBuilder().setBaseUrl(config.getBaseUrl()).build());
 		} else {
-			GeminiAPIEndpoint.Builder apiEndpointBuilder = GeminiAPIEndpoint.newBuilder().setApiKey(apiKey);
+			String effectiveKey = (config.getApiKey() != null && !config.getApiKey().isEmpty())
+					? config.getApiKey()
+					: (apiKey != null ? apiKey : resolveGeminiApiKey(config));
+			GeminiAPIEndpoint.Builder apiEndpointBuilder = GeminiAPIEndpoint.newBuilder()
+					.setApiKey(effectiveKey != null ? effectiveKey : "placeholder");
 			if (config.getGeneration() != null) {
-				GeminiModelOptions.Builder optionsBuilder = GeminiModelOptions.newBuilder();
-				if (config.getGeneration().thinkingLevel() != null) {
-					optionsBuilder.setThinkingLevel(config.getGeneration().thinkingLevel().getValue());
-				}
-				if (config.getGeneration().serviceTier() != null) {
-					optionsBuilder.setServiceTier(config.getGeneration().serviceTier().getValue());
-				}
-				if (config.getGeneration().maxOutputTokens() != null) {
-					optionsBuilder.setMaxOutputTokens(config.getGeneration().maxOutputTokens());
-				}
-				apiEndpointBuilder.setOptions(optionsBuilder.build());
+				apiEndpointBuilder.setOptions(buildGeminiModelOptions(config.getGeneration()));
 			}
 			modelConfigBuilder.setGeminiApiEndpoint(apiEndpointBuilder.build());
 		}
@@ -1474,6 +1634,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 		this.sawRunWorkflowStep = false;
 		this.runWorkflowStepError = null;
 		this.mainTrajectoryId = null;
+		this.activeTurnStepIndexMap.clear();
 
 		StringBuilder combinedText = new StringBuilder();
 		for (AgentInput input : inputs) {
@@ -1835,6 +1996,17 @@ public class Agent implements AutoCloseable, TriggerContext {
 						}
 					}
 				}
+
+				JsonNode historyNode = initResp.get("history");
+				if (historyNode != null && historyNode.isArray()) {
+					synchronized (this.history) {
+						this.history.clear();
+						this.activeTurnStepIndexMap.clear();
+						for (JsonNode stepNode : historyNode) {
+							this.history.add(parseConversationStep(stepNode, null));
+						}
+					}
+				}
 			}
 
 			if (payload.has("usageUpdate") || payload.has("usage_update")) {
@@ -1878,8 +2050,11 @@ public class Agent implements AutoCloseable, TriggerContext {
 				}
 			}
 
-			if (payload.has("stepUpdate")) {
-				JsonNode stepUpdate = payload.get("stepUpdate");
+			if (payload.has("stepUpdate") || payload.has("step_update")) {
+				JsonNode stepUpdate = payload.has("stepUpdate")
+						? payload.get("stepUpdate")
+						: payload.get("step_update");
+				recordStepUpdateInHistory(stepUpdate);
 				String stepTrajectoryId = stepUpdate.has("trajectoryId")
 						? stepUpdate.path("trajectoryId").asText("")
 						: stepUpdate.path("trajectory_id").asText("");
@@ -2560,9 +2735,30 @@ public class Agent implements AutoCloseable, TriggerContext {
 		return this.currentThoughts != null ? this.currentThoughts.toString() : "";
 	}
 
-	private static String resolveGeminiApiKey() {
-		String envKey = System.getenv("GEMINI_API_KEY");
+	static String resolveGeminiApiKey() {
+		return resolveGeminiApiKey(null);
+	}
+
+	static String resolveGeminiApiKey(AgentConfig config) {
+		if (config != null) {
+			if (config.getApiKey() != null && !config.getApiKey().isEmpty()) {
+				return config.getApiKey();
+			}
+			if (config.getEnvironmentVariables() != null) {
+				String cfgEnvKey = config.getEnvironmentVariables().get("GEMINI_API_KEY");
+				if (cfgEnvKey != null && !cfgEnvKey.isEmpty()) {
+					return cfgEnvKey;
+				}
+			}
+		}
 		String propKey = System.getProperty("GEMINI_API_KEY");
+		if (propKey != null && !propKey.isEmpty()) {
+			return propKey;
+		}
+		String envKey = System.getenv("GEMINI_API_KEY");
+		if (envKey != null && !envKey.isEmpty()) {
+			return envKey;
+		}
 		String localEnvKey = null;
 		try {
 			Path envPath = Paths.get(".local.env");
@@ -2579,7 +2775,224 @@ public class Agent implements AutoCloseable, TriggerContext {
 			}
 		} catch (Exception e) {
 		}
-		return propKey != null ? propKey : (envKey != null ? envKey : localEnvKey);
+		return localEnvKey;
+	}
+
+	private static final Map<String, String> STEP_TOOL_FIELD_MAP = Map.ofEntries(Map.entry("createFile", "create_file"),
+			Map.entry("create_file", "create_file"), Map.entry("editFile", "edit_file"),
+			Map.entry("edit_file", "edit_file"), Map.entry("findFile", "find_file"),
+			Map.entry("find_file", "find_file"), Map.entry("listDirectory", "list_dir"),
+			Map.entry("list_directory", "list_dir"), Map.entry("runCommand", "run_command"),
+			Map.entry("run_command", "run_command"), Map.entry("searchDirectory", "search_dir"),
+			Map.entry("search_directory", "search_dir"), Map.entry("viewFile", "view_file"),
+			Map.entry("view_file", "view_file"), Map.entry("invokeSubagent", "invoke_subagent"),
+			Map.entry("invoke_subagent", "invoke_subagent"), Map.entry("runWorkflow", "run_workflow"),
+			Map.entry("run_workflow", "run_workflow"), Map.entry("generateImage", "generate_image"),
+			Map.entry("generate_image", "generate_image"), Map.entry("searchWeb", "search_web"),
+			Map.entry("search_web", "search_web"), Map.entry("readUrlContent", "read_url_content"),
+			Map.entry("read_url_content", "read_url_content"), Map.entry("finish", "finish"),
+			Map.entry("skillLookup", "skill_lookup"), Map.entry("skill_lookup", "skill_lookup"));
+
+	private void recordStepUpdateInHistory(JsonNode stepUpdate) {
+		if (stepUpdate == null || !stepUpdate.isObject()) {
+			return;
+		}
+		String trajId = stepUpdate.has("trajectoryId")
+				? stepUpdate.path("trajectoryId").asText("")
+				: stepUpdate.path("trajectory_id").asText("");
+		int stepIdx = stepUpdate.has("stepIndex")
+				? stepUpdate.path("stepIndex").asInt(0)
+				: stepUpdate.path("step_index").asInt(0);
+		boolean hasExplicitKey = !trajId.isEmpty() || stepUpdate.has("stepIndex") || stepUpdate.has("step_index");
+		String stepKey = hasExplicitKey
+				? (trajId + ":" + stepIdx)
+				: ("live:" + stepUpdate.path("source").asText("") + ":" + stepUpdate.path("target").asText(""));
+
+		synchronized (this.history) {
+			Integer existingIdx = this.activeTurnStepIndexMap.get(stepKey);
+			ConversationStep prev = (existingIdx != null && existingIdx >= 0 && existingIdx < this.history.size())
+					? this.history.get(existingIdx)
+					: null;
+			ConversationStep updated = parseConversationStep(stepUpdate, prev);
+			if (prev != null) {
+				this.history.set(existingIdx, updated);
+			} else {
+				this.activeTurnStepIndexMap.put(stepKey, this.history.size());
+				this.history.add(updated);
+			}
+		}
+	}
+
+	ConversationStep parseConversationStep(JsonNode stepNode, ConversationStep prev) {
+		String trajId = stepNode.has("trajectoryId")
+				? stepNode.path("trajectoryId").asText("")
+				: stepNode.path("trajectory_id").asText("");
+		if (trajId.isEmpty() && prev != null) {
+			trajId = prev.trajectoryId();
+		}
+		String parentTrajId = stepNode.has("parentTrajectoryId")
+				? stepNode.path("parentTrajectoryId").asText("")
+				: stepNode.path("parent_trajectory_id").asText("");
+		if (parentTrajId.isEmpty() && prev != null) {
+			parentTrajId = prev.parentTrajectoryId();
+		}
+		int depth = stepNode.has("depth") ? stepNode.path("depth").asInt(0) : (prev != null ? prev.depth() : 0);
+		int stepIdx = stepNode.has("stepIndex")
+				? stepNode.path("stepIndex").asInt(0)
+				: (stepNode.has("step_index")
+						? stepNode.path("step_index").asInt(0)
+						: (prev != null ? prev.stepIndex() : 0));
+		String id = !trajId.isEmpty() ? (trajId + ":" + stepIdx) : String.valueOf(stepIdx);
+
+		String source = stepNode.path("source").asText("");
+		if (source.isEmpty()) {
+			source = prev != null ? prev.source() : "SOURCE_UNSPECIFIED";
+		}
+		String state = stepNode.path("state").asText("");
+		if (state.isEmpty()) {
+			state = prev != null ? prev.state() : "STATE_UNSPECIFIED";
+		}
+		String target = stepNode.path("target").asText("");
+		if (target.isEmpty()) {
+			target = prev != null ? prev.target() : "TARGET_UNSPECIFIED";
+		}
+
+		String text = stepNode.path("text").asText("");
+		if (text.isEmpty()) {
+			text = stepNode.has("requestText")
+					? stepNode.path("requestText").asText("")
+					: stepNode.path("request_text").asText("");
+		}
+		String textDelta = stepNode.has("textDelta")
+				? stepNode.path("textDelta").asText("")
+				: stepNode.path("text_delta").asText("");
+		String content;
+		if (!text.isEmpty()) {
+			content = text;
+		} else if (prev != null && !prev.content().isEmpty()) {
+			content = prev.content() + textDelta;
+		} else {
+			content = textDelta;
+		}
+
+		String thinking = stepNode.path("thinking").asText("");
+		String thinkingDelta = stepNode.has("thinkingDelta")
+				? stepNode.path("thinkingDelta").asText("")
+				: stepNode.path("thinking_delta").asText("");
+		String fullThinking;
+		if (!thinking.isEmpty()) {
+			fullThinking = thinking;
+		} else if (prev != null && !prev.thinking().isEmpty()) {
+			fullThinking = prev.thinking() + thinkingDelta;
+		} else {
+			fullThinking = thinkingDelta;
+		}
+
+		List<ToolCall> toolCalls = new ArrayList<>();
+		for (Map.Entry<String, String> entry : STEP_TOOL_FIELD_MAP.entrySet()) {
+			if (stepNode.has(entry.getKey()) && stepNode.get(entry.getKey()).isObject()) {
+				toolCalls.add(new ToolCall(entry.getValue(), stepNode.get(entry.getKey()), id, id, null));
+				break;
+			}
+		}
+		if (toolCalls.isEmpty() && (stepNode.has("mcpTool") || stepNode.has("mcp_tool"))) {
+			JsonNode mcpNode = stepNode.has("mcpTool") ? stepNode.get("mcpTool") : stepNode.get("mcp_tool");
+			if (mcpNode != null && mcpNode.isObject()) {
+				String serverName = mcpNode.has("serverName")
+						? mcpNode.path("serverName").asText("")
+						: mcpNode.path("server_name").asText("");
+				String toolName = mcpNode.has("toolName")
+						? mcpNode.path("toolName").asText("")
+						: mcpNode.path("tool_name").asText("");
+				JsonNode argsNode = extractStepToolArgs(mcpNode);
+				if (!toolName.isEmpty()) {
+					toolCalls.add(new ToolCall(toolName, argsNode, id, id, serverName.isEmpty() ? null : serverName));
+				}
+			}
+		}
+		if (toolCalls.isEmpty() && (stepNode.has("customTool") || stepNode.has("custom_tool"))) {
+			JsonNode ctNode = stepNode.has("customTool") ? stepNode.get("customTool") : stepNode.get("custom_tool");
+			if (ctNode != null && ctNode.isObject()) {
+				JsonNode tcNode = ctNode.has("toolCall")
+						? ctNode.get("toolCall")
+						: (ctNode.has("tool_call") ? ctNode.get("tool_call") : ctNode);
+				if (tcNode != null && tcNode.isObject()) {
+					String toolName = tcNode.path("name").asText("");
+					String callId = tcNode.path("id").asText("");
+					JsonNode argsNode = extractStepToolArgs(tcNode);
+					if (!toolName.isEmpty()) {
+						toolCalls.add(new ToolCall(toolName, argsNode, callId.isEmpty() ? id : callId, id, null));
+					}
+				}
+			}
+		}
+		if (toolCalls.isEmpty() && prev != null && !prev.toolCalls().isEmpty()) {
+			toolCalls.addAll(prev.toolCalls());
+		}
+
+		String structuredOutput = prev != null ? prev.structuredOutput() : null;
+		if (stepNode.has("finish") && stepNode.get("finish").isObject()) {
+			JsonNode fin = stepNode.get("finish");
+			String outStr = fin.has("outputString")
+					? fin.path("outputString").asText("")
+					: fin.path("output_string").asText("");
+			if (!outStr.isEmpty()) {
+				structuredOutput = outStr;
+			}
+		}
+
+		WorkflowProgress wfProgress = prev != null ? prev.workflowProgress() : null;
+		if (stepNode.has("runWorkflow") || stepNode.has("run_workflow")) {
+			JsonNode rw = stepNode.has("runWorkflow") ? stepNode.get("runWorkflow") : stepNode.get("run_workflow");
+			if (rw != null && rw.isObject()) {
+				String rawScriptPath = rw.has("scriptPath")
+						? rw.path("scriptPath").asText("")
+						: rw.path("script_path").asText("");
+				String scriptPath = normalizeFileUri(rawScriptPath);
+				String script = rw.path("script").asText("");
+				String desc = rw.path("description").asText("");
+				String out = rw.path("output").asText("");
+				wfProgress = new WorkflowProgress(scriptPath, script, desc, out);
+			}
+		}
+
+		String errorMsg = "";
+		if (stepNode.has("error") && stepNode.get("error").isObject()) {
+			JsonNode errNode = stepNode.get("error");
+			errorMsg = errNode.has("errorMessage")
+					? errNode.path("errorMessage").asText("")
+					: errNode.path("error_message").asText("");
+		}
+		if (errorMsg.isEmpty()) {
+			errorMsg = stepNode.has("errorMessage")
+					? stepNode.path("errorMessage").asText("")
+					: stepNode.path("error_message").asText("");
+		}
+		if (errorMsg.isEmpty() && prev != null) {
+			errorMsg = prev.error();
+		}
+
+		boolean completeResponse = "SOURCE_MODEL".equals(source) && "STATE_DONE".equals(state) && !content.isEmpty()
+				&& "TARGET_USER".equals(target);
+
+		return new ConversationStep(id, stepIdx, trajId, parentTrajId, depth, source, state, target, content,
+				fullThinking, toolCalls, errorMsg, completeResponse, structuredOutput, wfProgress);
+	}
+
+	private JsonNode extractStepToolArgs(JsonNode node) {
+		if (node.has("arguments") && node.get("arguments").isObject()) {
+			return node.get("arguments");
+		}
+		String argsJson = node.has("argumentsJson")
+				? node.path("argumentsJson").asText("")
+				: node.path("arguments_json").asText("");
+		if (!argsJson.isEmpty()) {
+			try {
+				return jsonMapper.readTree(argsJson);
+			} catch (Exception ignored) {
+			}
+		}
+		return jsonMapper.createObjectNode();
 	}
 
 	/**

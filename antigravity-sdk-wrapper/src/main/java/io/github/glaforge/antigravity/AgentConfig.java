@@ -70,6 +70,10 @@ public class AgentConfig {
 	private final CompactionConfig compactionConfig;
 	private final List<SubagentConfig> subagents;
 	private final SessionContinuationMode sessionContinuationMode;
+	private final String apiKey;
+	private final Boolean vertex;
+	private final String project;
+	private final String location;
 
 	private AgentConfig(Builder builder) {
 		this.instructions = builder.instructions;
@@ -105,11 +109,22 @@ public class AgentConfig {
 		}
 		this.capabilities = builder.capabilities != null ? builder.capabilities : CapabilitiesConfig.builder().build();
 		this.generation = builder.generation;
-		this.workspaceDir = builder.workspaceDir;
-		this.workspaces = new ArrayList<>(builder.workspaces);
+		if (!builder.workspaces.isEmpty()) {
+			this.workspaces = new ArrayList<>(builder.workspaces);
+			this.workspaceDir = builder.workspaceDirSet ? builder.workspaceDir : Path.of(this.workspaces.get(0));
+		} else if (!builder.workspacesExplicitlySet && builder.workspaceDir != null) {
+			this.workspaceDir = builder.workspaceDir;
+			this.workspaces = new ArrayList<>(List.of(builder.workspaceDir.toAbsolutePath().normalize().toString()));
+		} else {
+			this.workspaceDir = builder.workspaceDir;
+			this.workspaces = new ArrayList<>(builder.workspaces);
+		}
 		this.hooks = new ArrayList<>(builder.hooks);
 		this.triggers = new ArrayList<>(builder.triggers);
 		this.saveDir = builder.saveDir;
+		if (builder.appDataDir != null && !builder.appDataDir.isEmpty() && !Path.of(builder.appDataDir).isAbsolute()) {
+			throw new IllegalArgumentException("appDataDir must be an absolute path, got '" + builder.appDataDir + "'");
+		}
 		this.appDataDir = builder.appDataDir;
 		this.conversationId = builder.conversationId;
 		this.policies = new ArrayList<>(builder.policies);
@@ -125,6 +140,23 @@ public class AgentConfig {
 		this.compactionConfig = builder.compactionConfig;
 		this.subagents = new ArrayList<>(builder.subagents);
 		this.sessionContinuationMode = builder.sessionContinuationMode;
+		this.apiKey = builder.apiKey;
+		if (builder.vertex != null) {
+			this.vertex = builder.vertex;
+		} else if (isTruthyEnv("GOOGLE_GENAI_USE_VERTEXAI", this.environmentVariables)
+				|| isTruthyEnv("GOOGLE_GENAI_USE_ENTERPRISE", this.environmentVariables)) {
+			this.vertex = Boolean.TRUE;
+		} else {
+			this.vertex = null;
+		}
+		boolean hydrateAmbientVertex = Boolean.TRUE.equals(this.vertex)
+				&& (this.baseUrl == null || this.baseUrl.isEmpty()) && (this.apiKey == null || this.apiKey.isEmpty());
+		this.project = hydrateAmbientVertex
+				? hydrateVertexProject(builder.project, this.environmentVariables)
+				: builder.project;
+		this.location = hydrateAmbientVertex
+				? hydrateVertexLocation(builder.location, this.environmentVariables)
+				: builder.location;
 		if (this.sessionContinuationMode == SessionContinuationMode.RESUME
 				&& (this.conversationId == null || this.conversationId.isBlank())) {
 			throw new IllegalArgumentException(
@@ -382,12 +414,73 @@ public class AgentConfig {
 	}
 
 	/**
+	 * Returns the explicitly configured API key, if any.
+	 *
+	 * @return the API key, or null if not explicitly configured
+	 */
+	public String getApiKey() {
+		return apiKey;
+	}
+
+	/**
+	 * Returns whether the Vertex AI backend is enabled.
+	 *
+	 * @return true if Vertex AI is enabled, false if explicitly disabled, or null
+	 *         if unspecified
+	 */
+	public Boolean getVertex() {
+		return vertex;
+	}
+
+	/**
+	 * Returns true if the Vertex AI backend is enabled.
+	 *
+	 * @return true if Vertex AI is enabled
+	 */
+	public boolean isVertex() {
+		return Boolean.TRUE.equals(vertex);
+	}
+
+	/**
+	 * Returns the configured or hydrated GCP project ID for Vertex AI.
+	 *
+	 * @return the GCP project ID, or null
+	 */
+	public String getProject() {
+		return project;
+	}
+
+	/**
+	 * Returns the configured or hydrated GCP location/region for Vertex AI.
+	 *
+	 * @return the GCP location, or null
+	 */
+	public String getLocation() {
+		return location;
+	}
+
+	/**
 	 * Creates a new AgentConfig with standardized evaluation presets applied.
 	 *
 	 * @return a new AgentConfig configured for evaluations and benchmarks
 	 */
 	public static AgentConfig eval() {
 		return builder().eval().build();
+	}
+
+	private static boolean isTruthyEnv(String key, Map<String, String> customEnv) {
+		String val = customEnv != null ? customEnv.get(key) : null;
+		if (val == null) {
+			val = System.getProperty(key);
+		}
+		if (val == null) {
+			val = System.getenv(key);
+		}
+		if (val == null) {
+			return false;
+		}
+		String normalized = val.trim().toLowerCase();
+		return "true".equals(normalized) || "1".equals(normalized);
 	}
 
 	/**
@@ -399,8 +492,22 @@ public class AgentConfig {
 	 * @return the hydrated project ID
 	 */
 	public static String hydrateVertexProject(String explicitProject) {
+		return hydrateVertexProject(explicitProject, null);
+	}
+
+	static String hydrateVertexProject(String explicitProject, Map<String, String> customEnv) {
 		if (explicitProject != null && !explicitProject.isEmpty()) {
 			return explicitProject;
+		}
+		if (customEnv != null) {
+			String envProj = customEnv.get("GOOGLE_CLOUD_PROJECT");
+			if (envProj != null && !envProj.isEmpty()) {
+				return envProj;
+			}
+		}
+		String propProj = System.getProperty("GOOGLE_CLOUD_PROJECT");
+		if (propProj != null && !propProj.isEmpty()) {
+			return propProj;
 		}
 		return System.getenv("GOOGLE_CLOUD_PROJECT");
 	}
@@ -414,8 +521,26 @@ public class AgentConfig {
 	 * @return the hydrated location
 	 */
 	public static String hydrateVertexLocation(String explicitLocation) {
+		return hydrateVertexLocation(explicitLocation, null);
+	}
+
+	static String hydrateVertexLocation(String explicitLocation, Map<String, String> customEnv) {
 		if (explicitLocation != null && !explicitLocation.isEmpty()) {
 			return explicitLocation;
+		}
+		if (customEnv != null) {
+			String envLoc = customEnv.get("GOOGLE_CLOUD_LOCATION");
+			if (envLoc != null && !envLoc.isEmpty()) {
+				return envLoc;
+			}
+			String envReg = customEnv.get("GOOGLE_CLOUD_REGION");
+			if (envReg != null && !envReg.isEmpty()) {
+				return envReg;
+			}
+		}
+		String propLoc = System.getProperty("GOOGLE_CLOUD_LOCATION");
+		if (propLoc != null && !propLoc.isEmpty()) {
+			return propLoc;
 		}
 		String loc = System.getenv("GOOGLE_CLOUD_LOCATION");
 		if (loc != null && !loc.isEmpty()) {
@@ -449,7 +574,9 @@ public class AgentConfig {
 		private CapabilitiesConfig capabilities = CapabilitiesConfig.builder().build();
 		private GenerationConfig generation = null;
 		private Path workspaceDir = Path.of(System.getProperty("user.dir"));
+		private boolean workspaceDirSet = false;
 		private List<String> workspaces = new ArrayList<>();
+		private boolean workspacesExplicitlySet = false;
 		private List<AgentHook> hooks = new ArrayList<>();
 		private List<AgentTrigger> triggers = new ArrayList<>();
 		private String saveDir = System.getProperty("java.io.tmpdir") + "/antigravity-java";
@@ -468,6 +595,10 @@ public class AgentConfig {
 		private CompactionConfig compactionConfig;
 		private List<SubagentConfig> subagents = new ArrayList<>();
 		private SessionContinuationMode sessionContinuationMode;
+		private String apiKey;
+		private Boolean vertex;
+		private String project;
+		private String location;
 
 		/**
 		 * Sets the instructions.
@@ -996,6 +1127,7 @@ public class AgentConfig {
 		public Builder workspaceDir(Path workspaceDir) {
 			if (workspaceDir != null) {
 				this.workspaceDir = workspaceDir;
+				this.workspaceDirSet = true;
 			}
 			return this;
 		}
@@ -1008,7 +1140,8 @@ public class AgentConfig {
 		 * @return this builder
 		 */
 		public Builder workspaces(List<String> workspaces) {
-			this.workspaces = new ArrayList<>(workspaces);
+			this.workspacesExplicitlySet = true;
+			this.workspaces = workspaces != null ? new ArrayList<>(workspaces) : new ArrayList<>();
 			return this;
 		}
 
@@ -1020,6 +1153,7 @@ public class AgentConfig {
 		 * @return this builder
 		 */
 		public Builder addWorkspace(String workspace) {
+			this.workspacesExplicitlySet = true;
 			this.workspaces.add(workspace);
 			return this;
 		}
@@ -1208,6 +1342,54 @@ public class AgentConfig {
 		 */
 		public Builder sessionContinuationMode(SessionContinuationMode sessionContinuationMode) {
 			this.sessionContinuationMode = sessionContinuationMode;
+			return this;
+		}
+
+		/**
+		 * Sets the explicit API key for Gemini or Vertex AI Express Mode.
+		 *
+		 * @param apiKey
+		 *            the API key string
+		 * @return this builder
+		 */
+		public Builder apiKey(String apiKey) {
+			this.apiKey = apiKey;
+			return this;
+		}
+
+		/**
+		 * Enables or disables the Vertex AI backend.
+		 *
+		 * @param vertex
+		 *            true to use Vertex AI, false to use the Gemini Developer API
+		 * @return this builder
+		 */
+		public Builder vertex(Boolean vertex) {
+			this.vertex = vertex;
+			return this;
+		}
+
+		/**
+		 * Sets the GCP project ID for Vertex AI.
+		 *
+		 * @param project
+		 *            the GCP project ID
+		 * @return this builder
+		 */
+		public Builder project(String project) {
+			this.project = project;
+			return this;
+		}
+
+		/**
+		 * Sets the GCP location/region for Vertex AI (e.g. {@code "us-central1"}).
+		 *
+		 * @param location
+		 *            the GCP location
+		 * @return this builder
+		 */
+		public Builder location(String location) {
+			this.location = location;
 			return this;
 		}
 
