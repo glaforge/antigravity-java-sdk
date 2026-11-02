@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -33,22 +32,106 @@ import java.util.regex.Pattern;
 public final class Workflows {
 
 	private static final Pattern QUALIFIER_PATTERN = Pattern
-			.compile("\\b(?:beta\\.)?workflows?\\.(phase|log|agent|parallel|pipeline)\\b");
-	private static final Pattern IMPORT_PATTERN = Pattern
-			.compile("(?m)^\\s*(?:import\\s+\\S+|from\\s+\\S+\\s+import\\b)");
-	private static final Pattern WHILE_PATTERN = Pattern.compile("(?m)^\\s*while\\b");
+			.compile("\\b(?:beta\\.)?workflows?\\.(phase|log|agent|parallel|pipeline|call_tool|ToolError|args)\\b");
 	private static final Pattern YIELD_PATTERN = Pattern.compile("(?m)(?:^|\\s)yield(?:\\s+from)?\\b");
 	private static final Pattern TOP_LEVEL_RETURN_PATTERN = Pattern.compile("(?m)^return\\b");
-	private static final Pattern PRIVATE_ATTR_PATTERN = Pattern.compile("\\.(_[a-zA-Z0-9_]*)\\b");
-	private static final Pattern DUNDER_NAME_PATTERN = Pattern.compile("(?<![.\\w])(__[a-zA-Z0-9_]+)\\b");
+	private static final Pattern PRINT_CALL_PATTERN = Pattern
+			.compile("(?<![.\\w])(?:(?:__)?builtins(?:__)?\\.)?print\\s*\\(");
+
+	/**
+	 * Compile-time stub for the {@code args} dictionary injected into workflow
+	 * scripts when runtime arguments are passed to {@code runWorkflow}.
+	 */
+	public static final Map<String, Object> ARGS = Map.of();
+
+	/**
+	 * Raised inside a workflow script when a {@code call_tool} invocation fails or
+	 * is denied.
+	 */
+	@Beta
+	public static class ToolError extends WorkflowException {
+		private final String tool;
+		private final String toolMessage;
+
+		/**
+		 * Creates a new ToolError for the given tool name and error message.
+		 *
+		 * @param tool
+		 *            name of the tool that failed or was denied
+		 * @param message
+		 *            error message returned by the harness
+		 */
+		public ToolError(String tool, String message) {
+			super(tool + ": " + message);
+			this.tool = tool;
+			this.toolMessage = message;
+		}
+
+		/**
+		 * Returns the name of the tool that failed or was denied.
+		 *
+		 * @return tool name
+		 */
+		public String tool() {
+			return tool;
+		}
+
+		/**
+		 * Returns the error message returned by the harness.
+		 *
+		 * @return error message
+		 */
+		public String toolMessage() {
+			return toolMessage;
+		}
+	}
 
 	private Workflows() {
 	}
 
-	private static IllegalStateException outsideRuntimeError(String name) {
+	static IllegalStateException outsideRuntimeError(String name) {
 		return new IllegalStateException("workflows." + name
 				+ "() is a compile-time stub for the `run_workflow` tool and cannot be called directly in the host Java process. "
 				+ "Use Workflows.define(...) or Workflows.builder(...) and execute the workflow via agent.beta().runWorkflow(...).");
+	}
+
+	/**
+	 * Compile-time stub returning the {@code args} dictionary exposed to workflow
+	 * scripts.
+	 *
+	 * @return empty compile-time stub map
+	 */
+	public static Map<String, Object> args() {
+		return ARGS;
+	}
+
+	/**
+	 * Compile-time stub: invokes an agent tool programmatically and returns its
+	 * output.
+	 *
+	 * @param name
+	 *            non-empty tool name
+	 * @return never returns (throws outside runtime)
+	 */
+	public static String callTool(String name) {
+		return callTool(name, Map.of());
+	}
+
+	/**
+	 * Compile-time stub: invokes an agent tool programmatically with keyword
+	 * arguments and returns its output.
+	 *
+	 * @param name
+	 *            non-empty tool name
+	 * @param toolArgs
+	 *            tool arguments map
+	 * @return never returns (throws outside runtime)
+	 */
+	public static String callTool(String name, Map<String, Object> toolArgs) {
+		if (name == null || name.isBlank()) {
+			throw new IllegalArgumentException("call_tool: name must be a non-empty string");
+		}
+		throw outsideRuntimeError("call_tool");
 	}
 
 	/**
@@ -76,6 +159,18 @@ public final class Workflows {
 	}
 
 	/**
+	 * Compile-time stub: defines a multi-turn workflow subagent with standing
+	 * instructions.
+	 *
+	 * @param prompt
+	 *            standing instructions or task prompt
+	 * @return never returns (throws outside runtime)
+	 */
+	public static WorkflowAgent agent(String prompt) {
+		throw outsideRuntimeError("agent");
+	}
+
+	/**
 	 * Compile-time stub: runs a workflow subagent with the given prompt and schema.
 	 *
 	 * @param prompt
@@ -84,7 +179,7 @@ public final class Workflows {
 	 *            JSON schema map
 	 * @return never returns (throws outside runtime)
 	 */
-	public static Object agent(String prompt, Map<String, Object> schema) {
+	public static WorkflowAgent agent(String prompt, Map<String, Object> schema) {
 		throw outsideRuntimeError("agent");
 	}
 
@@ -104,7 +199,7 @@ public final class Workflows {
 	 *            workspace mode ("inherit", "branch", "share")
 	 * @return never returns (throws outside runtime)
 	 */
-	public static Object agent(String prompt, Map<String, Object> schema, String role, String typeName,
+	public static WorkflowAgent agent(String prompt, Map<String, Object> schema, String role, String typeName,
 			String workspace) {
 		throw outsideRuntimeError("agent");
 	}
@@ -119,7 +214,7 @@ public final class Workflows {
 	 *            Java type or class to generate the JSON schema from
 	 * @return never returns (throws outside runtime)
 	 */
-	public static Object agent(String prompt, Type schemaType) {
+	public static WorkflowAgent agent(String prompt, Type schemaType) {
 		throw outsideRuntimeError("agent");
 	}
 
@@ -139,7 +234,7 @@ public final class Workflows {
 	 *            workspace mode ("inherit", "branch", "share")
 	 * @return never returns (throws outside runtime)
 	 */
-	public static Object agent(String prompt, Type schemaType, String role, String typeName, String workspace) {
+	public static WorkflowAgent agent(String prompt, Type schemaType, String role, String typeName, String workspace) {
 		throw outsideRuntimeError("agent");
 	}
 
@@ -183,15 +278,13 @@ public final class Workflows {
 	}
 
 	/**
-	 * Validates workflow script source against {@code run_workflow} AST rules:
+	 * Validates workflow script source against {@code run_workflow} syntax rules:
 	 * <ul>
-	 * <li>Rejects {@code import} / {@code from ... import} statements</li>
-	 * <li>Rejects {@code while} loops (workflows must use bounded {@code for}
-	 * loops)</li>
+	 * <li>Rejects empty or blank scripts and unbalanced delimiters</li>
+	 * <li>Rejects calls to {@code print(...)} ({@code workflows.log(...)} should be
+	 * used instead)</li>
 	 * <li>Rejects top-level {@code return} and any {@code yield} /
 	 * {@code yield from}</li>
-	 * <li>Rejects {@code _}-prefixed attribute access and {@code __}-prefixed
-	 * dunder names</li>
 	 * </ul>
 	 *
 	 * @param source
@@ -208,23 +301,13 @@ public final class Workflows {
 		if (hasUnbalancedDelimiters(strippedStrings)) {
 			throw new WorkflowException("workflow syntax error: unbalanced delimiters");
 		}
-		if (IMPORT_PATTERN.matcher(strippedStrings).find()) {
-			throw new WorkflowException("import statements are not allowed in workflow scripts");
-		}
-		if (WHILE_PATTERN.matcher(strippedStrings).find()) {
-			throw new WorkflowException("while loops are not allowed in workflow scripts; use bounded for loops");
+		if (PRINT_CALL_PATTERN.matcher(strippedStrings).find()) {
+			throw new WorkflowException(
+					"print() is not allowed in workflow scripts; use workflows.log(...) to emit output");
 		}
 		if (TOP_LEVEL_RETURN_PATTERN.matcher(strippedStrings).find() || YIELD_PATTERN.matcher(strippedStrings).find()) {
 			throw new WorkflowException(
 					"return/yield statements are not allowed in workflow scripts; use workflows.log(...) to emit output");
-		}
-		Matcher attrMatcher = PRIVATE_ATTR_PATTERN.matcher(strippedStrings);
-		if (attrMatcher.find()) {
-			throw new WorkflowException("attribute '" + attrMatcher.group(1) + "' is not allowed in workflow scripts");
-		}
-		Matcher dunderMatcher = DUNDER_NAME_PATTERN.matcher(strippedStrings);
-		if (dunderMatcher.find()) {
-			throw new WorkflowException("name '" + dunderMatcher.group(1) + "' is not allowed in workflow scripts");
 		}
 	}
 
@@ -540,6 +623,174 @@ public final class Workflows {
 		}
 
 		/**
+		 * Appends an {@code <assignTo> = await call_tool("<toolName>", ...)} step to
+		 * invoke a tool programmatically with literal arguments.
+		 *
+		 * @param assignTo
+		 *            variable name to store the tool output (or null to not assign)
+		 * @param toolName
+		 *            name of the tool to invoke
+		 * @param toolArgs
+		 *            map of argument names to JSON-serializable literal values
+		 * @return this builder
+		 */
+		public Builder callTool(String assignTo, String toolName, Map<String, Object> toolArgs) {
+			if (toolName == null || toolName.isBlank()) {
+				throw new IllegalArgumentException("call_tool: toolName must be a non-empty string");
+			}
+			StringBuilder call = new StringBuilder();
+			if (assignTo != null && !assignTo.isBlank()) {
+				call.append(assignTo.trim()).append(" = ");
+			}
+			call.append("await call_tool(").append(quotePythonString(toolName));
+			if (toolArgs != null && !toolArgs.isEmpty()) {
+				for (Map.Entry<String, Object> entry : toolArgs.entrySet()) {
+					call.append(", ").append(entry.getKey()).append("=").append(toJsonValueLiteral(entry.getValue()));
+				}
+			}
+			call.append(")");
+			lines.add(call.toString());
+			return this;
+		}
+
+		/**
+		 * Appends an {@code <assignTo> = await call_tool("<toolName>", ...)} step to
+		 * invoke a tool programmatically with variable/expression arguments.
+		 *
+		 * @param assignTo
+		 *            variable name to store the tool output (or null to not assign)
+		 * @param toolName
+		 *            name of the tool to invoke
+		 * @param argExpressions
+		 *            map of argument names to Python expression strings
+		 * @return this builder
+		 */
+		public Builder callToolExpr(String assignTo, String toolName, Map<String, String> argExpressions) {
+			if (toolName == null || toolName.isBlank()) {
+				throw new IllegalArgumentException("call_tool: toolName must be a non-empty string");
+			}
+			StringBuilder call = new StringBuilder();
+			if (assignTo != null && !assignTo.isBlank()) {
+				call.append(assignTo.trim()).append(" = ");
+			}
+			call.append("await call_tool(").append(quotePythonString(toolName));
+			if (argExpressions != null && !argExpressions.isEmpty()) {
+				for (Map.Entry<String, String> entry : argExpressions.entrySet()) {
+					call.append(", ").append(entry.getKey()).append("=").append(entry.getValue());
+				}
+			}
+			call.append(")");
+			lines.add(call.toString());
+			return this;
+		}
+
+		/**
+		 * Appends a multi-turn workflow agent handle definition
+		 * ({@code <handleVar> = agent("<standingInstructions>", role="<role>")}).
+		 *
+		 * @param handleVar
+		 *            variable name for the reusable {@link WorkflowAgent} handle
+		 * @param standingInstructions
+		 *            standing system/task instructions for the agent
+		 * @param role
+		 *            optional role label
+		 * @return this builder
+		 */
+		public Builder defineAgent(String handleVar, String standingInstructions, String role) {
+			return defineAgent(handleVar, standingInstructions, role, null, null);
+		}
+
+		/**
+		 * Appends a multi-turn workflow agent handle definition with full options.
+		 *
+		 * @param handleVar
+		 *            variable name for the reusable {@link WorkflowAgent} handle
+		 * @param standingInstructions
+		 *            standing system/task instructions for the agent
+		 * @param role
+		 *            optional role label
+		 * @param typeName
+		 *            optional subagent type name (e.g. "self")
+		 * @param workspace
+		 *            optional workspace mode ("inherit", "branch", "share")
+		 * @return this builder
+		 */
+		public Builder defineAgent(String handleVar, String standingInstructions, String role, String typeName,
+				String workspace) {
+			if (handleVar == null || handleVar.isBlank()) {
+				throw new IllegalArgumentException("handleVar must not be blank");
+			}
+			Objects.requireNonNull(standingInstructions, "standingInstructions must not be null");
+			StringBuilder def = new StringBuilder();
+			def.append(handleVar.trim()).append(" = agent(").append(quotePythonString(standingInstructions));
+			if (role != null && !role.isBlank()) {
+				def.append(", role=").append(quotePythonString(role));
+			}
+			if (typeName != null && !typeName.isBlank()) {
+				def.append(", type_name=").append(quotePythonString(typeName));
+			}
+			if (workspace != null && !workspace.isBlank()) {
+				def.append(", workspace=").append(quotePythonString(workspace));
+			}
+			def.append(")");
+			lines.add(def.toString());
+			return this;
+		}
+
+		/**
+		 * Appends a turn invocation on a multi-turn workflow agent handle
+		 * ({@code <assignTo> = await <handleVar>("<prompt>", schema=...)}).
+		 *
+		 * @param assignTo
+		 *            variable name to store the turn output (or null to not assign)
+		 * @param handleVar
+		 *            variable name of the previously defined agent handle
+		 * @param prompt
+		 *            turn prompt
+		 * @param schema
+		 *            JSON schema map for the expected output
+		 * @return this builder
+		 */
+		public Builder callAgent(String assignTo, String handleVar, String prompt, Map<String, Object> schema) {
+			Map<String, Object> effectiveSchema = schema != null ? schema : Map.of("type", "string");
+			return appendCallAgentTurn(assignTo, handleVar, prompt, toJsonLiteral(effectiveSchema));
+		}
+
+		/**
+		 * Appends a turn invocation on a multi-turn workflow agent handle using a Java
+		 * type schema.
+		 *
+		 * @param assignTo
+		 *            variable name to store the turn output (or null to not assign)
+		 * @param handleVar
+		 *            variable name of the previously defined agent handle
+		 * @param prompt
+		 *            turn prompt
+		 * @param schemaType
+		 *            Java type or class to generate a JSON Schema from
+		 * @return this builder
+		 */
+		public Builder callAgent(String assignTo, String handleVar, String prompt, Type schemaType) {
+			Type effectiveType = schemaType != null ? schemaType : String.class;
+			return appendCallAgentTurn(assignTo, handleVar, prompt, SchemaGenerator.generateSchemaJson(effectiveType));
+		}
+
+		private Builder appendCallAgentTurn(String assignTo, String handleVar, String prompt, String schemaLiteral) {
+			if (handleVar == null || handleVar.isBlank()) {
+				throw new IllegalArgumentException("handleVar must not be blank");
+			}
+			Objects.requireNonNull(prompt, "prompt must not be null");
+			StringBuilder call = new StringBuilder();
+			if (assignTo != null && !assignTo.isBlank()) {
+				call.append(assignTo.trim()).append(" = ");
+			}
+			call.append("await ").append(handleVar.trim()).append("(").append(quotePythonString(prompt))
+					.append(", schema=").append(schemaLiteral).append(")");
+			lines.add(call.toString());
+			return this;
+		}
+
+		/**
 		 * Appends an {@code <assignTo> = await parallel(<itemsExpr>, <fnExpr>)} step to
 		 * the workflow.
 		 *
@@ -628,6 +879,20 @@ public final class Workflows {
 				return SchemaGenerator.getMapper().writeValueAsString(map);
 			} catch (JsonProcessingException e) {
 				throw new WorkflowException("Failed to serialize schema map", e);
+			}
+		}
+
+		private static String toJsonValueLiteral(Object val) {
+			if (val == null) {
+				return "None";
+			}
+			if (val instanceof Boolean b) {
+				return b ? "True" : "False";
+			}
+			try {
+				return SchemaGenerator.getMapper().writeValueAsString(val);
+			} catch (JsonProcessingException e) {
+				throw new WorkflowException("Failed to serialize tool argument value", e);
 			}
 		}
 	}

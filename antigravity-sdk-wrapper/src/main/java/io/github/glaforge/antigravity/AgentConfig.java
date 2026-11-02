@@ -43,6 +43,7 @@ public class AgentConfig {
 	public static final String DEFAULT_IMAGE_GENERATION_MODEL = "gemini-3.1-flash-lite-image";
 
 	private final String instructions;
+	private final CustomSystemInstructions customSystemInstructions;
 	private final String modelName;
 	private final List<Object> toolInstances;
 	private final List<String> skillsPaths;
@@ -77,6 +78,7 @@ public class AgentConfig {
 
 	private AgentConfig(Builder builder) {
 		this.instructions = builder.instructions;
+		this.customSystemInstructions = builder.customSystemInstructions;
 		this.modelName = builder.modelName;
 		this.toolInstances = new ArrayList<>(builder.toolInstances);
 		List<String> allSkillsPaths = new ArrayList<>(builder.skillsPaths);
@@ -171,6 +173,14 @@ public class AgentConfig {
 	 */
 	public String getInstructions() {
 		return instructions;
+	}
+	/**
+	 * Returns the custom replacement system instructions, if configured.
+	 *
+	 * @return the custom system instructions, or null if not set
+	 */
+	public CustomSystemInstructions getCustomSystemInstructions() {
+		return customSystemInstructions;
 	}
 	/**
 	 * Returns the model name.
@@ -566,6 +576,7 @@ public class AgentConfig {
 		public Builder() {
 		}
 		private String instructions = "";
+		private CustomSystemInstructions customSystemInstructions = null;
 		private String modelName = DEFAULT_MODEL_NAME;
 		private List<Object> toolInstances = new ArrayList<>();
 		private List<String> skillsPaths = new ArrayList<>();
@@ -610,6 +621,34 @@ public class AgentConfig {
 		public Builder instructions(String instructions) {
 			this.instructions = instructions;
 			return this;
+		}
+
+		/**
+		 * Sets replacement custom system instructions.
+		 *
+		 * @param customInstructions
+		 *            the custom system instructions
+		 * @return this builder
+		 */
+		public Builder customInstructions(CustomSystemInstructions customInstructions) {
+			this.customSystemInstructions = customInstructions;
+			if (customInstructions != null && (this.instructions == null || this.instructions.isEmpty())) {
+				this.instructions = customInstructions.text();
+			}
+			return this;
+		}
+
+		/**
+		 * Sets replacement custom system instructions with an optional section title.
+		 *
+		 * @param text
+		 *            the replacement prompt text
+		 * @param title
+		 *            optional prompt-section title (renders under {@code <title>} tags)
+		 * @return this builder
+		 */
+		public Builder customInstructions(String text, String title) {
+			return customInstructions(new CustomSystemInstructions(text, title));
 		}
 
 		/**

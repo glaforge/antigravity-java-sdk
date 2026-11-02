@@ -248,12 +248,12 @@ public class FeatureParity0122Test {
 		assertTrue(built.source().contains("\"passed\":{\"type\":\"boolean\"}"));
 		assertTrue(built.source().contains("\"required\":[\"passed\",\"summary\"]"));
 
-		// Invalid workflow constructs
-		assertThrows(WorkflowException.class, () -> Workflows.validateWorkflowSource("import os\nlog('hi')"));
-		assertThrows(WorkflowException.class, () -> Workflows.validateWorkflowSource("while True:\n    log('hi')"));
+		// Invalid workflow constructs (v0.1.23 relaxed import/while/_/dunder and banned
+		// print())
+		assertThrows(WorkflowException.class, () -> Workflows.validateWorkflowSource("print('hi')"));
 		assertThrows(WorkflowException.class, () -> Workflows.validateWorkflowSource("return 42"));
-		assertThrows(WorkflowException.class, () -> Workflows.validateWorkflowSource("x = obj._secret"));
-		assertThrows(WorkflowException.class, () -> Workflows.validateWorkflowSource("x = __import__('os')"));
+		assertThrows(WorkflowException.class, () -> Workflows.validateWorkflowSource("yield 1"));
+		assertThrows(WorkflowException.class, () -> Workflows.validateWorkflowSource("phase('unclosed'"));
 
 		// Verify file:// URI normalization
 		assertEquals("/tmp/test script.py", Agent.normalizeFileUri("file:///tmp/test%20script.py"));

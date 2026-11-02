@@ -1129,3 +1129,65 @@ CapabilitiesConfig caps = CapabilitiesConfig.builder()
 - `GenerationConfig.builder().maxOutputTokens(4096)` sets `max_output_tokens` on the Gemini endpoint (throws `IllegalArgumentException` if `<= 0`).
 - `CompactionConfig.builder().useModelReportedTokenCount(true)` configures context compaction to use the model-reported token count.
 - `UsageMetadata` provides `.negate()` and `.subtractFrom(...)`.
+
+---
+
+## 20. Workflow `callTool`, Multi-Turn `WorkflowAgent`, Runtime `args`, Titled Instructions & Schema/Media Enhancements (v0.1.23)
+
+### Workflow `callTool`, Multi-Turn `WorkflowAgent` & Runtime `args`
+Workflows can invoke parent agent tools directly (`call_tool`), maintain multi-turn subagent conversations (`WorkflowAgent`), and receive runtime JSON arguments (`args`):
+
+```java
+import io.github.glaforge.antigravity.beta.WorkflowDefinition;
+import io.github.glaforge.antigravity.beta.WorkflowResult;
+import io.github.glaforge.antigravity.beta.Workflows;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+WorkflowDefinition wf = Workflows.builder("multi_turn_review")
+    .description("Read target file and perform two-turn review")
+    .phase("Inspect")
+    .callTool("readme", "view_file", Map.of("Path", "README.md"))
+    .callToolExpr("dynamic_file", "view_file", Map.of("Path", "args.get('target', 'pom.xml')"))
+    .defineAgent("reviewer", "You are a senior Java architect.", "Architect", "self", "inherit")
+    .callAgent("turn1", "reviewer", "Identify key modules", String.class)
+    .callAgent("turn2", "reviewer", "Recommend improvements", String.class)
+    .logExpr("turn1", "turn2")
+    .build();
+
+try (Agent agent = new Agent(config)) {
+    WorkflowResult result = agent.beta()
+        .runWorkflow(wf, Map.of("target", "pom.xml"), p -> System.out.println(p.output()))
+        .get(120, TimeUnit.SECONDS);
+}
+```
+
+### Titled Custom System Instructions (`CustomSystemInstructions`)
+Attach an explicit title (used as the section header or XML tag name in the assembled system prompt) to custom instructions across `AgentConfig`, `Agent.Builder`, `LocalOpenAIAgentConfig`, and `LiteRTAgentConfig`:
+
+```java
+import io.github.glaforge.antigravity.AgentConfig;
+import io.github.glaforge.antigravity.CustomSystemInstructions;
+
+AgentConfig config = AgentConfig.builder()
+    .customInstructions("Always use Java 21 records for DTOs.", "CodingConventions")
+    // or: .customInstructions(CustomSystemInstructions.of("...", "CodingConventions"))
+    .build();
+```
+
+### Schema `readOnly` / `writeOnly` & Literal Metadata Preservation
+`@Param(readOnly = true, writeOnly = true)` and `@JsonProperty(access = READ_ONLY / WRITE_ONLY)` emit `readOnly` and `writeOnly` in generated JSON Schemas. `SchemaGenerator.normalizeSchema(...)` also converts `read_only` / `write_only` to camelCase and preserves literal string metadata fields (`title`, `description`, `summary`, `format`, `pattern`).
+
+```java
+import io.github.glaforge.antigravity.tools.Param;
+
+public record ApiTokenRecord(
+    @Param(description = "Unique token ID", readOnly = true) String id,
+    @Param(description = "Raw secret value", writeOnly = true) String secret
+) {}
+```
+
+### Deterministic Path Normalization (`ToolCall.canonicalPath()`) & `DiffFormatter`
+- `ToolCall` normalizes wire path arguments in-place in deterministic priority order (`path`, `file_path`, `filepath`, `directory_path`, `dir_path`, `target_directory`, `output_path`, `AbsolutePath`, `TargetFile`, `DirectoryPath`, `SearchPath`, `CodeContentFile`, `ScriptPath`) and exposes `toolCall.canonicalPath()`.
+- `DiffFormatter.formatDiffBlocks(blocks)` formats structured `edit_file` diff blocks into unified diff strings (`@@ -start +end @@`).
+- `AgentInput.Media` expands `~` home directories in `fromFile(String)` / `fromFile(Path)`, normalizes MIME strings case-insensitively, and provides `AgentInput.Media.fromData(byte[] data, String mimeType, String description)`.

@@ -315,6 +315,13 @@ public class SchemaGenerator {
 					fieldSchema.put("default", defaultValue);
 				}
 
+				if (isReadOnly(annotations)) {
+					fieldSchema.put("readOnly", true);
+				}
+				if (isWriteOnly(annotations)) {
+					fieldSchema.put("writeOnly", true);
+				}
+
 				properties.set(fieldName, fieldSchema);
 				if (isRequired(f.getGenericType(), annotations)) {
 					required.add(fieldName);
@@ -544,6 +551,86 @@ public class SchemaGenerator {
 		return true;
 	}
 
+	/**
+	 * Determines whether an annotated element is marked as readOnly.
+	 *
+	 * @param element
+	 *            the annotated element
+	 * @return true if readOnly, false otherwise
+	 */
+	public static boolean isReadOnly(AnnotatedElement element) {
+		return isReadOnly(Arrays.asList(element.getAnnotations()));
+	}
+
+	/**
+	 * Determines whether a list of annotations marks a property as readOnly.
+	 *
+	 * @param annotations
+	 *            the annotations to inspect
+	 * @return true if readOnly, false otherwise
+	 */
+	public static boolean isReadOnly(List<Annotation> annotations) {
+		for (Annotation ann : annotations) {
+			if (ann instanceof Param p && p.readOnly()) {
+				return true;
+			}
+			if (ann instanceof JsonProperty jp && jp.access() == JsonProperty.Access.READ_ONLY) {
+				return true;
+			}
+			if (isAnnotationNamed(ann, "io.swagger.v3.oas.annotations.media.Schema", "Schema")) {
+				Object accessMode = invokeObjectAttribute(ann, "accessMode");
+				if (accessMode != null && "READ_ONLY".equals(accessMode.toString())) {
+					return true;
+				}
+				Boolean ro = invokeBooleanAttribute(ann, "readOnly");
+				if (Boolean.TRUE.equals(ro)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Determines whether an annotated element is marked as writeOnly.
+	 *
+	 * @param element
+	 *            the annotated element
+	 * @return true if writeOnly, false otherwise
+	 */
+	public static boolean isWriteOnly(AnnotatedElement element) {
+		return isWriteOnly(Arrays.asList(element.getAnnotations()));
+	}
+
+	/**
+	 * Determines whether a list of annotations marks a property as writeOnly.
+	 *
+	 * @param annotations
+	 *            the annotations to inspect
+	 * @return true if writeOnly, false otherwise
+	 */
+	public static boolean isWriteOnly(List<Annotation> annotations) {
+		for (Annotation ann : annotations) {
+			if (ann instanceof Param p && p.writeOnly()) {
+				return true;
+			}
+			if (ann instanceof JsonProperty jp && jp.access() == JsonProperty.Access.WRITE_ONLY) {
+				return true;
+			}
+			if (isAnnotationNamed(ann, "io.swagger.v3.oas.annotations.media.Schema", "Schema")) {
+				Object accessMode = invokeObjectAttribute(ann, "accessMode");
+				if (accessMode != null && "WRITE_ONLY".equals(accessMode.toString())) {
+					return true;
+				}
+				Boolean wo = invokeBooleanAttribute(ann, "writeOnly");
+				if (Boolean.TRUE.equals(wo)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	private static boolean isIgnored(List<Annotation> annotations) {
 		for (Annotation ann : annotations) {
 			if (ann instanceof JsonIgnore ji && ji.value()) {
@@ -704,10 +791,11 @@ public class SchemaGenerator {
 			Map.entry("property_names", "propertyNames"), Map.entry("dependent_required", "dependentRequired"),
 			Map.entry("dependent_schemas", "dependentSchemas"),
 			Map.entry("unevaluated_properties", "unevaluatedProperties"),
-			Map.entry("unevaluated_items", "unevaluatedItems"));
+			Map.entry("unevaluated_items", "unevaluatedItems"), Map.entry("read_only", "readOnly"),
+			Map.entry("write_only", "writeOnly"));
 
 	private static final Set<String> LITERAL_KEYWORDS = Set.of("enum", "const", "default", "example", "examples",
-			"dependentRequired");
+			"dependentRequired", "title", "description", "summary", "format", "pattern");
 
 	/**
 	 * Recursively normalizes JSON Schema dictionaries for universal model

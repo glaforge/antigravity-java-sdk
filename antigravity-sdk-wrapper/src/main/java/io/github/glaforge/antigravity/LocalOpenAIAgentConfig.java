@@ -216,6 +216,32 @@ public class LocalOpenAIAgentConfig {
 		}
 
 		/**
+		 * Sets replacement custom system instructions.
+		 *
+		 * @param customInstructions
+		 *            the custom system instructions
+		 * @return this builder
+		 */
+		public Builder customInstructions(CustomSystemInstructions customInstructions) {
+			this.agentConfigBuilder.customInstructions(customInstructions);
+			return this;
+		}
+
+		/**
+		 * Sets replacement custom system instructions with an optional section title.
+		 *
+		 * @param text
+		 *            the replacement prompt text
+		 * @param title
+		 *            optional prompt-section title
+		 * @return this builder
+		 */
+		public Builder customInstructions(String text, String title) {
+			this.agentConfigBuilder.customInstructions(text, title);
+			return this;
+		}
+
+		/**
 		 * Adds a tool instance.
 		 *
 		 * @param toolInstance

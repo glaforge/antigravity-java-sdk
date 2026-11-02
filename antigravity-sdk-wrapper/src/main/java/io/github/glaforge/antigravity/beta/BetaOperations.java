@@ -17,6 +17,7 @@ package io.github.glaforge.antigravity.beta;
 
 import io.github.glaforge.antigravity.Agent;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -106,7 +107,43 @@ public final class BetaOperations {
 	 */
 	public CompletableFuture<WorkflowResult> runWorkflow(WorkflowDefinition workflow, String description,
 			Consumer<WorkflowProgress> onProgress) {
-		return agent.runWorkflowInternal(workflow, null, description, onProgress);
+		return runWorkflow(workflow, description, null, onProgress);
+	}
+
+	/**
+	 * Executes a {@link WorkflowDefinition} with runtime input arguments using the
+	 * {@code run_workflow} tool.
+	 *
+	 * @param workflow
+	 *            the workflow definition to execute
+	 * @param args
+	 *            optional JSON-serializable map of runtime arguments exposed via
+	 *            {@code workflows.args}
+	 * @return a CompletableFuture resolving to the {@link WorkflowResult}
+	 */
+	public CompletableFuture<WorkflowResult> runWorkflow(WorkflowDefinition workflow, Map<String, Object> args) {
+		return runWorkflow(workflow, "", args, null);
+	}
+
+	/**
+	 * Executes a {@link WorkflowDefinition} with description, runtime input
+	 * arguments, and a live progress callback using the {@code run_workflow} tool.
+	 *
+	 * @param workflow
+	 *            the workflow definition to execute
+	 * @param description
+	 *            optional human-readable description of the workflow run
+	 * @param args
+	 *            optional JSON-serializable map of runtime arguments exposed via
+	 *            {@code workflows.args}
+	 * @param onProgress
+	 *            optional callback invoked whenever a {@link WorkflowProgress}
+	 *            update is received
+	 * @return a CompletableFuture resolving to the {@link WorkflowResult}
+	 */
+	public CompletableFuture<WorkflowResult> runWorkflow(WorkflowDefinition workflow, String description,
+			Map<String, Object> args, Consumer<WorkflowProgress> onProgress) {
+		return agent.runWorkflowInternal(workflow, null, description, args, onProgress);
 	}
 
 	/**
@@ -165,8 +202,45 @@ public final class BetaOperations {
 	 */
 	public CompletableFuture<WorkflowResult> runWorkflow(Path scriptPath, String description,
 			Consumer<WorkflowProgress> onProgress) {
+		return runWorkflow(scriptPath, description, null, onProgress);
+	}
+
+	/**
+	 * Executes an existing {@code .py} workflow script on disk with runtime input
+	 * arguments using the {@code run_workflow} tool.
+	 *
+	 * @param scriptPath
+	 *            path to an existing {@code .py} workflow script
+	 * @param args
+	 *            optional JSON-serializable map of runtime arguments exposed via
+	 *            {@code workflows.args}
+	 * @return a CompletableFuture resolving to the {@link WorkflowResult}
+	 */
+	public CompletableFuture<WorkflowResult> runWorkflow(Path scriptPath, Map<String, Object> args) {
+		return runWorkflow(scriptPath, "", args, null);
+	}
+
+	/**
+	 * Executes an existing {@code .py} workflow script on disk with description,
+	 * runtime input arguments, and a live progress callback using the
+	 * {@code run_workflow} tool.
+	 *
+	 * @param scriptPath
+	 *            path to an existing {@code .py} workflow script
+	 * @param description
+	 *            optional human-readable description of the workflow run
+	 * @param args
+	 *            optional JSON-serializable map of runtime arguments exposed via
+	 *            {@code workflows.args}
+	 * @param onProgress
+	 *            optional callback invoked whenever a {@link WorkflowProgress}
+	 *            update is received
+	 * @return a CompletableFuture resolving to the {@link WorkflowResult}
+	 */
+	public CompletableFuture<WorkflowResult> runWorkflow(Path scriptPath, String description, Map<String, Object> args,
+			Consumer<WorkflowProgress> onProgress) {
 		Objects.requireNonNull(scriptPath, "scriptPath must not be null");
-		return agent.runWorkflowInternal(null, scriptPath.toString(), description, onProgress);
+		return agent.runWorkflowInternal(null, scriptPath.toString(), description, args, onProgress);
 	}
 
 	/**
@@ -225,6 +299,43 @@ public final class BetaOperations {
 	 */
 	public CompletableFuture<WorkflowResult> runWorkflow(String scriptPath, String description,
 			Consumer<WorkflowProgress> onProgress) {
-		return agent.runWorkflowInternal(null, scriptPath, description, onProgress);
+		return runWorkflow(scriptPath, description, null, onProgress);
+	}
+
+	/**
+	 * Executes an existing {@code .py} workflow script on disk with runtime input
+	 * arguments using the {@code run_workflow} tool.
+	 *
+	 * @param scriptPath
+	 *            path string to an existing {@code .py} workflow script
+	 * @param args
+	 *            optional JSON-serializable map of runtime arguments exposed via
+	 *            {@code workflows.args}
+	 * @return a CompletableFuture resolving to the {@link WorkflowResult}
+	 */
+	public CompletableFuture<WorkflowResult> runWorkflow(String scriptPath, Map<String, Object> args) {
+		return runWorkflow(scriptPath, "", args, null);
+	}
+
+	/**
+	 * Executes an existing {@code .py} workflow script on disk with description,
+	 * runtime input arguments, and a live progress callback using the
+	 * {@code run_workflow} tool.
+	 *
+	 * @param scriptPath
+	 *            path string to an existing {@code .py} workflow script
+	 * @param description
+	 *            optional human-readable description of the workflow run
+	 * @param args
+	 *            optional JSON-serializable map of runtime arguments exposed via
+	 *            {@code workflows.args}
+	 * @param onProgress
+	 *            optional callback invoked whenever a {@link WorkflowProgress}
+	 *            update is received
+	 * @return a CompletableFuture resolving to the {@link WorkflowResult}
+	 */
+	public CompletableFuture<WorkflowResult> runWorkflow(String scriptPath, String description,
+			Map<String, Object> args, Consumer<WorkflowProgress> onProgress) {
+		return agent.runWorkflowInternal(null, scriptPath, description, args, onProgress);
 	}
 }

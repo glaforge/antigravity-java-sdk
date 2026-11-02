@@ -131,13 +131,15 @@ public class WorkflowsTest {
 		assertThrows(WorkflowException.class, () -> Workflows.define("empty", "   "));
 		assertThrows(WorkflowException.class, () -> Workflows.builder("empty_builder").build());
 
-		// Forbidden imports
-		assertThrows(WorkflowException.class, () -> Workflows.validateWorkflowSource("import sys\nlog('x')"));
-		assertThrows(WorkflowException.class,
-				() -> Workflows.validateWorkflowSource("from pathlib import Path\nlog('x')"));
+		// Allowed in v0.1.23: imports, while loops, private/dunder identifiers
+		assertDoesNotThrow(() -> Workflows.validateWorkflowSource("import json\nwhile cond:\n    log('x')"));
 
-		// Forbidden while loops
-		assertThrows(WorkflowException.class, () -> Workflows.validateWorkflowSource("while cond:\n    log('x')"));
+		// Forbidden print() calls (must use workflows.log(...) instead)
+		WorkflowException printErr = assertThrows(WorkflowException.class,
+				() -> Workflows.validateWorkflowSource("phase('Step')\nprint('hello')"));
+		assertTrue(printErr.getMessage().contains("print() is not allowed in workflow scripts"));
+		assertThrows(WorkflowException.class,
+				() -> Workflows.validateWorkflowSource("import builtins\nbuiltins.print(1)"));
 
 		// Forbidden top-level return and yield
 		assertThrows(WorkflowException.class, () -> Workflows.validateWorkflowSource("return 'done'"));
@@ -145,10 +147,6 @@ public class WorkflowsTest {
 				() -> Workflows.validateWorkflowSource("async def gen():\n    yield 1\n"));
 		assertThrows(WorkflowException.class,
 				() -> Workflows.validateWorkflowSource("async def gen():\n    yield from items\n"));
-
-		// Forbidden private attribute and dunder access
-		assertThrows(WorkflowException.class, () -> Workflows.validateWorkflowSource("x = ctx._internal\nlog(x)"));
-		assertThrows(WorkflowException.class, () -> Workflows.validateWorkflowSource("x = __builtins__\nlog(x)"));
 
 		// Unbalanced delimiters
 		assertThrows(WorkflowException.class, () -> Workflows.validateWorkflowSource("log(\"unclosed\""));

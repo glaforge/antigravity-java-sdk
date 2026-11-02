@@ -159,6 +159,7 @@ message CompactionConfig {
   uint32 max_context_tokens = 3;
   string summary_prompt_override = 4;
   bool use_model_reported_token_count = 5;
+  bool include_last_user_message = 6;
 }
 
 message Workspace {
@@ -214,11 +215,18 @@ message CustomEndpoint {
 }
 
 message SystemInstructions {
+  enum SectionHeaderFormat {
+    SECTION_HEADER_FORMAT_UNSPECIFIED = 0;
+    SECTION_HEADER_FORMAT_XML = 1;
+    SECTION_HEADER_FORMAT_NONE = 2;
+  }
+
   oneof type {
     CustomSystemInstructions custom = 1;
     AppendedSystemInstructions appended = 2;
   }
   repeated TemplateOverride overrides = 3;
+  SectionHeaderFormat section_header_format = 4;
 }
 
 message TemplateOverride {
@@ -235,6 +243,7 @@ message CustomSystemInstructions {
       SystemInstructionTemplate template = 2;
       string builtin_section = 3;
     }
+    string title = 4;
   }
 
   repeated Part part = 1;
@@ -266,6 +275,7 @@ message Tool {
   string parameters_json_schema = 3;
   string response_json_schema = 4;
   bool defer_loading = 5;
+  ToolOutputTruncation tool_output_truncation = 8;
 }
 
 message HarnessSideTools {
@@ -304,6 +314,7 @@ message SubagentsConfig {
   bool enabled = 1;
   int32 max_nesting_depth = 2;
   repeated string allowed_subagents = 3;
+  bool disable_define_subagent_tool = 4;
 }
 
 message UserQuestionsConfig {
@@ -379,8 +390,18 @@ message SkillSource {
 }
 
 message SkillsConfig {
+  enum PresentationMode {
+    PRESENTATION_MODE_UNSPECIFIED = 0;
+    TOOL = 1;
+    FILE_SYSTEM = 2;
+  }
+
   bool enabled = 1;
   repeated SkillSource skills = 2;
+  map<string, string> skill_versions = 3;
+  PresentationMode presentation_mode = 4;
+  string materialized_skills_dir = 5;
+  repeated string preactivate_skills = 6;
 }
 
 message ManageTaskToolConfig {

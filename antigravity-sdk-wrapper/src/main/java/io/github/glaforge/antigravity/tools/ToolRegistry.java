@@ -209,6 +209,12 @@ public class ToolRegistry {
 				if (!defaultValue.isEmpty()) {
 					paramSchema.put("default", defaultValue);
 				}
+				if (SchemaGenerator.isReadOnly(p)) {
+					paramSchema.put("readOnly", true);
+				}
+				if (SchemaGenerator.isWriteOnly(p)) {
+					paramSchema.put("writeOnly", true);
+				}
 
 				properties.set(paramName, paramSchema);
 				if (SchemaGenerator.isRequired(p)) {

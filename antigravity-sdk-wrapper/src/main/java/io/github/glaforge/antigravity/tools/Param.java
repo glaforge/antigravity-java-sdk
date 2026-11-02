@@ -50,4 +50,20 @@ public @interface Param {
 	 * @return true if required (default), false if optional
 	 */
 	boolean required() default true;
+
+	/**
+	 * Whether this parameter or property is marked as readOnly in the generated
+	 * JSON schema.
+	 *
+	 * @return true if readOnly, false otherwise
+	 */
+	boolean readOnly() default false;
+
+	/**
+	 * Whether this parameter or property is marked as writeOnly in the generated
+	 * JSON schema.
+	 *
+	 * @return true if writeOnly, false otherwise
+	 */
+	boolean writeOnly() default false;
 }

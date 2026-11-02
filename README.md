@@ -1056,6 +1056,54 @@ try (Agent agent = new Agent(config)) {
 }
 ```
 
+### 29. Workflow `callTool`, Multi-Turn `WorkflowAgent`, Runtime `args`, Titled System Instructions & Schema/Media Enhancements (v0.1.23)
+
+- **Native Harness v0.1.23**: Updated `localharness` binaries and protocol definitions (`0.1.23`) across all 6 platform slices.
+- **Workflow `callTool`, Multi-Turn `WorkflowAgent` & Runtime `args`**:
+  - Invoke parent agent tools directly from workflows with `Workflows.callTool(...)` / `Workflows.builder(...).callTool(var, toolName, kwargs)` and handle failures via `Workflows.ToolError`.
+  - Create persistent multi-turn subagents inside workflows via `Workflows.builder(...).defineAgent(...)` and `.callAgent(...)` (`WorkflowAgent`).
+  - Pass runtime JSON-serializable arguments (`Map<String, Object>`) to `agent.beta().runWorkflow(..., args, progressCallback)`, exposed in workflow scripts via `workflows.args` (`args.get(...)`).
+  - Relaxed workflow script validation to allow `import`, `while`, and `_` attributes while rejecting `print(...)` calls in favor of `workflows.log(...)`.
+  - Multi-workspace script resolution searches across all configured agent workspaces when resolving relative workflow script paths.
+- **Titled Custom System Instructions (`CustomSystemInstructions`)**: Attach a section header/XML tag title to custom system instructions via `.customInstructions(String text, String title)` or `.customInstructions(CustomSystemInstructions.of(text, title))` across `AgentConfig`, `Agent.Builder`, `LocalOpenAIAgentConfig`, and `LiteRTAgentConfig`.
+- **Schema `readOnly` / `writeOnly` & Literal Metadata Preservation**: `@Param(readOnly = true, writeOnly = true)` and `@JsonProperty(access = READ_ONLY / WRITE_ONLY)` emit `readOnly` / `writeOnly` JSON Schema flags; `SchemaGenerator.normalizeSchema` converts `read_only` / `write_only` and preserves literal string metadata fields (`title`, `description`, `summary`, `format`, `pattern`) without upper/lowercasing them.
+- **Deterministic Wire Path Normalization (`ToolCall.canonicalPath()`)**: `ToolCall` normalizes path arguments in-place according to canonical wire priority (`path`, `file_path`, `filepath`, `directory_path`, `dir_path`, `target_directory`, `output_path`, `AbsolutePath`, `TargetFile`, `DirectoryPath`, `SearchPath`, `CodeContentFile`, `ScriptPath`) and exposes `toolCall.canonicalPath()`.
+- **Media `~` Expansion, `Media.fromData(...)` & `DiffFormatter`**: `AgentInput.Media.fromFile(...)` expands `~` to the user home directory, normalizes MIME types case-insensitively, and adds `AgentInput.Media.fromData(byte[], String, String)`. `DiffFormatter.formatDiffBlocks(...)` formats structured `edit_file` diff blocks into unified diff strings.
+
+```java
+// 1. Configure agent with titled custom system instructions
+AgentConfig config = AgentConfig.builder()
+    .customInstructions("Enforce strict null-safety and immutable records.", "CodingStandards")
+    .capabilities(CapabilitiesConfig.builder()
+        .enableSubagents(true)
+        .enableRunWorkflow(true)
+        .build())
+    .build();
+
+// 2. Build a workflow using callTool, multi-turn WorkflowAgent, and runtime args
+WorkflowDefinition workflow = Workflows.builder("pr_review_workflow")
+    .description("Read target file and run multi-turn review")
+    .phase("Read")
+    .callToolExpr("file_content", "view_file", Map.of("Path", "args.get('target', 'README.md')"))
+    .phase("Review")
+    .defineAgent("reviewer", "You are a principal Java reviewer.", "Reviewer", "self", "inherit")
+    .callAgent("initial_pass", "reviewer", "Summarize key risks in the file", String.class)
+    .callAgent("final_verdict", "reviewer", "Provide final pass/fail verdict", String.class)
+    .logExpr("initial_pass", "final_verdict")
+    .build();
+
+try (Agent agent = new Agent(config)) {
+    // 3. Execute workflow with runtime args
+    WorkflowResult result = agent.beta()
+        .runWorkflow(
+            workflow,
+            Map.of("target", "pom.xml"),
+            progress -> System.out.println("Progress: " + progress.output()))
+        .get(120, TimeUnit.SECONDS);
+    System.out.println("Workflow result:\n" + result.output());
+}
+```
+
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](LICENSE).

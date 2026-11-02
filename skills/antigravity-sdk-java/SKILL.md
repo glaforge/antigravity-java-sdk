@@ -454,6 +454,42 @@ try (Agent agent = new Agent(config)) {
 }
 ```
 
+### 17. Workflow `callTool`, Multi-Turn `WorkflowAgent`, Runtime `args` & Titled Custom Instructions (v0.1.23)
+
+- **Workflow `callTool`, Multi-Turn `WorkflowAgent` & Runtime `args`**:
+  - Invoke parent agent tools directly inside workflows via `Workflows.builder(...).callTool(...)` / `.callToolExpr(...)` (`await call_tool(...)`) and catch `Workflows.ToolError`.
+  - Create persistent multi-turn subagents via `.defineAgent(...)` and `.callAgent(...)` (`WorkflowAgent`).
+  - Pass runtime arguments (`Map<String, Object>`) to `agent.beta().runWorkflow(workflow, args, callback)`, accessible in workflow scripts as `args.get(...)`.
+- **Titled Custom System Instructions (`CustomSystemInstructions`)**: Attach a section title or XML tag name to custom system instructions via `.customInstructions(text, title)` across `AgentConfig`, `Agent.Builder`, `LocalOpenAIAgentConfig`, and `LiteRTAgentConfig`.
+- **Schema `readOnly` / `writeOnly` & Media `~` Expansion**: Use `@Param(readOnly = true, writeOnly = true)` on record components or tool parameters; load media from `~/...` paths or raw bytes via `AgentInput.Media.fromData(bytes, mimeType, description)`, and format structured edit diffs with `DiffFormatter.formatDiffBlocks(...)`.
+
+```java
+import io.github.glaforge.antigravity.CustomSystemInstructions;
+import io.github.glaforge.antigravity.beta.WorkflowDefinition;
+import io.github.glaforge.antigravity.beta.Workflows;
+import java.util.Map;
+
+AgentConfig config = AgentConfig.builder()
+    .customInstructions("Enforce immutable Java 21 records.", "ArchitectureRules")
+    .capabilities(CapabilitiesConfig.builder()
+        .enableSubagents(true)
+        .enableRunWorkflow(true)
+        .build())
+    .build();
+
+WorkflowDefinition wf = Workflows.builder("inspect_and_review")
+    .phase("Read")
+    .callToolExpr("raw", "view_file", Map.of("Path", "args.get('file', 'README.md')"))
+    .defineAgent("reviewer", "You are a code reviewer.", "Reviewer", "self", "inherit")
+    .callAgent("verdict", "reviewer", "Summarize key points", String.class)
+    .logExpr("verdict")
+    .build();
+
+try (Agent agent = new Agent(config)) {
+    agent.beta().runWorkflow(wf, Map.of("file", "pom.xml"), null).get(120, TimeUnit.SECONDS);
+}
+```
+
 ---
 
 ## Detailed References

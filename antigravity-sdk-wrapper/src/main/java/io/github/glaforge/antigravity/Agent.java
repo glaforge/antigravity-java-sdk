@@ -19,6 +19,7 @@ import io.github.glaforge.antigravity.triggers.AgentTrigger;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.glaforge.antigravity.localharness.*;
 import static io.github.glaforge.antigravity.localharness.AgentBehavior.AGENT_BEHAVIOR_AUTONOMOUS;
 import static io.github.glaforge.antigravity.localharness.AgentBehavior.AGENT_BEHAVIOR_INTERACTIVE;
@@ -1133,10 +1134,21 @@ public class Agent implements AutoCloseable, TriggerContext {
 		}
 		configBuilder.addModels(modelConfigBuilder.build());
 
-		configBuilder.setSystemInstructions(SystemInstructions.newBuilder()
-				.setAppended(
-						AppendedSystemInstructions.newBuilder().setCustomIdentity(config.getInstructions()).build())
-				.build());
+		if (config.getCustomSystemInstructions() != null) {
+			CustomSystemInstructions custom = config.getCustomSystemInstructions();
+			var sysBuilder = SystemInstructions.newBuilder();
+			var partBuilder = sysBuilder.getCustomBuilder().addPartBuilder()
+					.setText(custom.text() != null ? custom.text() : "");
+			if (custom.title() != null && !custom.title().isEmpty()) {
+				partBuilder.setTitle(custom.title());
+			}
+			configBuilder.setSystemInstructions(sysBuilder.build());
+		} else {
+			configBuilder.setSystemInstructions(SystemInstructions.newBuilder()
+					.setAppended(
+							AppendedSystemInstructions.newBuilder().setCustomIdentity(config.getInstructions()).build())
+					.build());
+		}
 
 		int mcpIndex = 1;
 		for (McpServerConfig mcp : config.getMcpServers()) {
@@ -1688,6 +1700,29 @@ public class Agent implements AutoCloseable, TriggerContext {
 	@Beta
 	public CompletableFuture<WorkflowResult> runWorkflowInternal(WorkflowDefinition workflow, String scriptPath,
 			String description, Consumer<WorkflowProgress> onProgress) {
+		return runWorkflowInternal(workflow, scriptPath, description, null, onProgress);
+	}
+
+	/**
+	 * Internal entrypoint for executing a workflow via the {@code run_workflow}
+	 * tool with optional runtime arguments.
+	 *
+	 * @param workflow
+	 *            optional {@link WorkflowDefinition}
+	 * @param scriptPath
+	 *            optional path string to an existing {@code .py} script
+	 * @param description
+	 *            optional human-readable description
+	 * @param args
+	 *            optional runtime input arguments map exposed via
+	 *            {@code workflows.args}
+	 * @param onProgress
+	 *            optional progress callback
+	 * @return CompletableFuture resolving to {@link WorkflowResult}
+	 */
+	@Beta
+	public CompletableFuture<WorkflowResult> runWorkflowInternal(WorkflowDefinition workflow, String scriptPath,
+			String description, Map<String, Object> args, Consumer<WorkflowProgress> onProgress) {
 		CapabilitiesConfig caps = config.getCapabilities();
 		if (caps == null || !caps.enableSubagents() || !caps.enableRunWorkflow()) {
 			throw new IllegalArgumentException(
@@ -1697,11 +1732,29 @@ public class Agent implements AutoCloseable, TriggerContext {
 			throw new IllegalArgumentException("Specify exactly one of workflow or scriptPath.");
 		}
 
-		Path workspaceBase = null;
-		if (config.getWorkspaceDir() != null) {
-			workspaceBase = config.getWorkspaceDir();
-		} else if (config.getWorkspaces() != null && !config.getWorkspaces().isEmpty()) {
-			workspaceBase = Paths.get(config.getWorkspaces().get(0));
+		String serializedWorkflowArgs = null;
+		if (args != null && !args.isEmpty()) {
+			if (containsNonFiniteNumbers(args)) {
+				throw new IllegalArgumentException(
+						"runWorkflow() `args` must be JSON-serializable (NaN/Infinity not allowed).");
+			}
+			try {
+				serializedWorkflowArgs = jsonMapper.writeValueAsString(args);
+			} catch (Exception e) {
+				throw new IllegalArgumentException("runWorkflow() `args` must be JSON-serializable: " + e.getMessage(),
+						e);
+			}
+		}
+
+		List<Path> workspaceCandidates = new ArrayList<>();
+		if (config.getWorkspaces() != null && !config.getWorkspaces().isEmpty()) {
+			for (String ws : config.getWorkspaces()) {
+				if (ws != null && !ws.isBlank()) {
+					workspaceCandidates.add(expandUserHome(ws));
+				}
+			}
+		} else if (config.getWorkspaceDir() != null) {
+			workspaceCandidates.add(config.getWorkspaceDir());
 		}
 
 		final Path resolvedScriptPath;
@@ -1710,9 +1763,18 @@ public class Agent implements AutoCloseable, TriggerContext {
 			if (scriptPath.isBlank()) {
 				throw new IllegalArgumentException("scriptPath must not be empty.");
 			}
-			Path candidate = Paths.get(scriptPath);
-			if (!candidate.isAbsolute() && workspaceBase != null) {
-				candidate = workspaceBase.resolve(candidate);
+			Path candidate = expandUserHome(scriptPath);
+			if (!candidate.isAbsolute() && !workspaceCandidates.isEmpty()) {
+				for (Path ws : workspaceCandidates) {
+					try {
+						Path resolvedCandidate = ws.toAbsolutePath().normalize().resolve(candidate);
+						if (Files.isRegularFile(resolvedCandidate)) {
+							candidate = resolvedCandidate;
+							break;
+						}
+					} catch (Exception ignored) {
+					}
+				}
 			}
 			resolvedScriptPath = candidate.toAbsolutePath().normalize();
 			if (!Files.isRegularFile(resolvedScriptPath)) {
@@ -1732,16 +1794,29 @@ public class Agent implements AutoCloseable, TriggerContext {
 			if (safeName.isEmpty()) {
 				safeName = "workflow";
 			}
-			Path targetDir = workspaceBase != null ? workspaceBase : Paths.get(System.getProperty("java.io.tmpdir"));
-			try {
-				Files.createDirectories(targetDir);
-				tempFileToCleanup = Files.createTempFile(targetDir, ".agy_workflow_" + safeName + "_", ".py")
-						.toAbsolutePath().normalize();
-				Files.writeString(tempFileToCleanup, workflow.source(), StandardCharsets.UTF_8);
-				resolvedScriptPath = tempFileToCleanup;
-			} catch (Exception e) {
-				return CompletableFuture.failedFuture(e);
+			String prefix = ".agy_workflow_" + safeName + "_";
+			Path createdTemp = null;
+			for (Path ws : workspaceCandidates) {
+				try {
+					Path wsDir = ws.toAbsolutePath().normalize();
+					if (Files.isDirectory(wsDir)) {
+						createdTemp = writeTempWorkflowScript(wsDir, prefix, workflow.source());
+						break;
+					}
+				} catch (Exception ignored) {
+				}
 			}
+			if (createdTemp == null) {
+				try {
+					Path sysTempDir = Paths.get(System.getProperty("java.io.tmpdir"));
+					Files.createDirectories(sysTempDir);
+					createdTemp = writeTempWorkflowScript(sysTempDir, prefix, workflow.source());
+				} catch (Exception e) {
+					return CompletableFuture.failedFuture(e);
+				}
+			}
+			tempFileToCleanup = createdTemp;
+			resolvedScriptPath = createdTemp;
 		}
 
 		String effectiveDescription = (description != null && !description.isBlank())
@@ -1750,8 +1825,9 @@ public class Agent implements AutoCloseable, TriggerContext {
 						? workflow.description()
 						: "Execute workflow "
 								+ (workflow != null ? workflow.name() : resolvedScriptPath.getFileName()));
-		String prompt = String.format("Run the workflow script at `%s` (%s) using the `run_workflow` tool.",
-				resolvedScriptPath, effectiveDescription);
+		String argsClause = serializedWorkflowArgs != null ? " with Args `" + serializedWorkflowArgs + "`" : "";
+		String prompt = String.format("Run the workflow script at `%s` (%s)%s using the `run_workflow` tool.",
+				resolvedScriptPath, effectiveDescription, argsClause);
 
 		this.currentWorkflowProgressConsumer = onProgress;
 		CompletableFuture<AgentResponse> turnFuture;
@@ -1807,18 +1883,63 @@ public class Agent implements AutoCloseable, TriggerContext {
 		}
 	}
 
-	static String normalizeFileUri(String uriOrPath) {
-		if (uriOrPath == null || !uriOrPath.startsWith("file://")) {
-			return uriOrPath;
-		}
+	private static Path writeTempWorkflowScript(Path targetDir, String prefix, String scriptSource) throws Exception {
+		Path tempFile = null;
 		try {
-			URI uri = URI.create(uriOrPath);
-			if ("file".equalsIgnoreCase(uri.getScheme()) && uri.getPath() != null) {
-				return uri.getPath();
-			}
-		} catch (Exception ignored) {
+			tempFile = Files.createTempFile(targetDir, prefix, ".py").toAbsolutePath().normalize();
+			Files.writeString(tempFile, scriptSource, StandardCharsets.UTF_8);
+			return tempFile;
+		} catch (Exception e) {
+			deleteTempWorkflowFile(tempFile);
+			throw e;
 		}
-		return URLDecoder.decode(uriOrPath.substring("file://".length()), StandardCharsets.UTF_8);
+	}
+
+	private static boolean containsNonFiniteNumbers(Object obj) {
+		if (obj instanceof Double d) {
+			return d.isNaN() || d.isInfinite();
+		}
+		if (obj instanceof Float f) {
+			return f.isNaN() || f.isInfinite();
+		}
+		if (obj instanceof Map<?, ?> map) {
+			for (Object val : map.values()) {
+				if (containsNonFiniteNumbers(val)) {
+					return true;
+				}
+			}
+		} else if (obj instanceof Iterable<?> iter) {
+			for (Object item : iter) {
+				if (containsNonFiniteNumbers(item)) {
+					return true;
+				}
+			}
+		} else if (obj instanceof Object[] arr) {
+			for (Object item : arr) {
+				if (containsNonFiniteNumbers(item)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	static Path expandUserHome(String pathStr) {
+		if (pathStr == null || pathStr.isEmpty()) {
+			return Paths.get("");
+		}
+		String normalized = ToolCall.normalizeWirePath(pathStr);
+		if ("~".equals(normalized)) {
+			return Paths.get(System.getProperty("user.home"));
+		}
+		if (normalized.startsWith("~/") || normalized.startsWith("~\\")) {
+			return Paths.get(System.getProperty("user.home"), normalized.substring(2));
+		}
+		return Paths.get(normalized);
+	}
+
+	static String normalizeFileUri(String uriOrPath) {
+		return ToolCall.normalizeWirePath(uriOrPath);
 	}
 
 	private CompletableFuture<Void> triggerSessionStart() {
