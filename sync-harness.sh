@@ -4,8 +4,49 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 HARNESS_DIR="${SCRIPT_DIR}/antigravity-sdk-harness"
 BIN_DIR="${HARNESS_DIR}/src/main/resources/google/antigravity/bin"
+DOWNLOADER_JAVA="${SCRIPT_DIR}/antigravity-sdk-wrapper/src/main/java/io/github/glaforge/antigravity/HarnessDownloader.java"
 
 SLICES=("linux-x86_64" "osx-aarch64" "osx-x86_64" "linux-aarch64" "windows-x86_64" "windows-aarch64")
+
+sync_version_references() {
+  local ver="$1"
+  if [ -n "$ver" ] && [ "$ver" != "unknown" ] && [ -f "$DOWNLOADER_JAVA" ]; then
+    python3 -c "
+import re, pathlib
+p = pathlib.Path('$DOWNLOADER_JAVA')
+text = p.read_text()
+updated = re.sub(r'(public static final String DEFAULT_UPSTREAM_VERSION = \")[^\"]+(\";)', r'\g<1>${ver}\g<2>', text)
+if updated != text:
+    p.write_text(updated)
+    print('Updated HarnessDownloader.DEFAULT_UPSTREAM_VERSION to v${ver}')
+"
+  fi
+
+  local os_name="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  local arch_name="$(uname -m | tr '[:upper:]' '[:lower:]')"
+  local host_os=""
+  local host_arch=""
+  if [[ "$os_name" == *linux* ]]; then host_os="linux"; elif [[ "$os_name" == *darwin* ]] || [[ "$os_name" == *mac* ]]; then host_os="osx"; fi
+  if [[ "$arch_name" == *x86_64* ]] || [[ "$arch_name" == *amd64* ]]; then host_arch="x86_64"; elif [[ "$arch_name" == *arm64* ]] || [[ "$arch_name" == *aarch64* ]]; then host_arch="aarch64"; fi
+  if [ -n "$host_os" ] && [ -n "$host_arch" ]; then
+    local host_slice="${host_os}-${host_arch}"
+    local src_bin="${BIN_DIR}/${host_slice}/localharness"
+    local cache_dir="${HOME}/.antigravity/bin/${host_slice}"
+    if [ -f "$src_bin" ] && [ -d "${HOME}/.antigravity/bin" ]; then
+      local cache_ver=""
+      if [ -f "${cache_dir}/.version" ]; then
+        cache_ver=$(tr -d '[:space:]' < "${cache_dir}/.version")
+      fi
+      if [ "$cache_ver" != "$ver" ] || [ ! -f "${cache_dir}/localharness" ]; then
+        mkdir -p "$cache_dir"
+        cp "$src_bin" "${cache_dir}/localharness"
+        chmod +x "${cache_dir}/localharness"
+        echo "$ver" > "${cache_dir}/.version"
+        echo "Updated local cache in ${cache_dir} to v${ver}"
+      fi
+    fi
+  fi
+}
 
 # Check if binaries exist in legacy wrapper dir locally, copy them over
 LEGACY_WRAPPER_BIN="${SCRIPT_DIR}/antigravity-sdk-wrapper/src/main/resources/google/antigravity/bin"
@@ -28,7 +69,9 @@ if [ -d "$PARENT_BIN_DIR" ] && [ -n "$(ls -A "$PARENT_BIN_DIR" 2>/dev/null)" ]; 
   exit 0
 fi
 
-PACKAGE_INFO=$(curl -s https://pypi.org/pypi/google-antigravity/json)
+CURL_OPTS=(-sSfL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 15)
+
+PACKAGE_INFO=$(curl "${CURL_OPTS[@]}" https://pypi.org/pypi/google-antigravity/json)
 UPSTREAM_VERSION=$(echo "$PACKAGE_INFO" | jq -r '.info.version // "unknown"')
 echo "Detected upstream google-antigravity version: v${UPSTREAM_VERSION}"
 
@@ -52,6 +95,7 @@ for SLICE in "${SLICES[@]}"; do
 done
 
 if [ "$ALL_EXIST" = true ] && [ "$CURRENT_VERSION" = "$UPSTREAM_VERSION" ] && [ "${FORCE_SYNC:-false}" != "true" ]; then
+  sync_version_references "$UPSTREAM_VERSION"
   echo "All Go harness binaries are already present and up-to-date (v${CURRENT_VERSION}) in $BIN_DIR. (Set FORCE_SYNC=true to re-download and unpack Python source)"
   exit 0
 fi
@@ -75,7 +119,7 @@ for i in "${!PLATFORMS[@]}"; do
   if [ -n "$WHEEL_URL" ] && [ "$WHEEL_URL" != "null" ]; then
     WHEEL_FILE="wheel_${SLICE}.whl"
     echo "Downloading $SLICE from $WHEEL_URL"
-    curl -sL -o "$WHEEL_FILE" "$WHEEL_URL"
+    curl "${CURL_OPTS[@]}" -o "$WHEEL_FILE" "$WHEEL_URL"
     
     # Extract Python package source from the first downloaded wheel for systematic diffing and API audit
     if [ "$EXTRACTED_PYTHON" = false ]; then
@@ -108,8 +152,9 @@ for i in "${!PLATFORMS[@]}"; do
   fi
 done
 
-# Write version stamp
+# Write version stamp and synchronize version references
 echo "$UPSTREAM_VERSION" > "$BIN_DIR/.version"
+sync_version_references "$UPSTREAM_VERSION"
 
 echo "================================================================="
 echo "Go harness synchronization complete (upstream v${UPSTREAM_VERSION})."

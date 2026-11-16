@@ -18,12 +18,38 @@ package io.github.glaforge.antigravity;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("unit")
 public class HarnessDownloaderTest {
+
+	@Test
+	public void testVersionConsistencyWithBundledHarness() throws IOException {
+		assertNotNull(HarnessDownloader.DEFAULT_UPSTREAM_VERSION);
+		assertTrue(HarnessDownloader.DEFAULT_UPSTREAM_VERSION.matches("\\d+\\.\\d+\\.\\d+.*"),
+				"DEFAULT_UPSTREAM_VERSION must be a valid semantic version: "
+						+ HarnessDownloader.DEFAULT_UPSTREAM_VERSION);
+		assertEquals(HarnessDownloader.DEFAULT_UPSTREAM_VERSION, PlatformResolver.getExpectedVersion(),
+				"PlatformResolver.getExpectedVersion() must match HarnessDownloader.DEFAULT_UPSTREAM_VERSION");
+
+		// Verify consistency with antigravity-sdk-harness/.version if present in the
+		// workspace
+		Path[] candidatePaths = {
+				Path.of("../antigravity-sdk-harness/src/main/resources/google/antigravity/bin/.version"),
+				Path.of("antigravity-sdk-harness/src/main/resources/google/antigravity/bin/.version")};
+		for (Path versionPath : candidatePaths) {
+			if (Files.exists(versionPath)) {
+				String bundledVersion = Files.readString(versionPath).trim();
+				assertEquals(bundledVersion, HarnessDownloader.DEFAULT_UPSTREAM_VERSION,
+						"HarnessDownloader.DEFAULT_UPSTREAM_VERSION (" + HarnessDownloader.DEFAULT_UPSTREAM_VERSION
+								+ ") is out of sync with bundled harness .version (" + bundledVersion + ") at "
+								+ versionPath + ". Run ./sync-harness.sh to synchronize.");
+			}
+		}
+	}
 
 	@Test
 	public void testResolveWheelUrls() throws IOException {
@@ -37,7 +63,9 @@ public class HarnessDownloaderTest {
 			assertNotNull(url, "Wheel URL for " + slice + " should not be null");
 			assertTrue(url.startsWith("https://"), "Wheel URL should start with https://: " + url);
 			assertTrue(url.endsWith(".whl"), "Wheel URL should end with .whl: " + url);
-			assertTrue(url.contains("google_antigravity"), "Wheel URL should contain google_antigravity: " + url);
+			assertTrue(url.contains("google_antigravity-" + HarnessDownloader.DEFAULT_UPSTREAM_VERSION),
+					"Wheel URL should contain google_antigravity-" + HarnessDownloader.DEFAULT_UPSTREAM_VERSION + ": "
+							+ url);
 		}
 	}
 

@@ -1058,7 +1058,7 @@ try (Agent agent = new Agent(config)) {
 
 ### 29. Workflow `callTool`, Multi-Turn `WorkflowAgent`, Runtime `args`, Titled System Instructions & Schema/Media Enhancements (v0.1.23)
 
-- **Native Harness v0.1.23**: Updated `localharness` binaries and protocol definitions (`0.1.23`) across all 6 platform slices.
+- **Native Harness v0.1.23 & Gemini 4 Models (`gemini-4-carbon`, `gemini-4-hydrogen`, `gemini-4-argon`)**: Updated `localharness` binaries, `HarnessDownloader.DEFAULT_UPSTREAM_VERSION` (`0.1.23`), and protocol definitions across all 6 platform slices with full support for the Gemini 4 model family (`gemini-4-carbon`, `gemini-4-hydrogen`, and `gemini-4-argon`).
 - **Workflow `callTool`, Multi-Turn `WorkflowAgent` & Runtime `args`**:
   - Invoke parent agent tools directly from workflows with `Workflows.callTool(...)` / `Workflows.builder(...).callTool(var, toolName, kwargs)` and handle failures via `Workflows.ToolError`.
   - Create persistent multi-turn subagents inside workflows via `Workflows.builder(...).defineAgent(...)` and `.callAgent(...)` (`WorkflowAgent`).

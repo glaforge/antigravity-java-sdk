@@ -456,6 +456,7 @@ try (Agent agent = new Agent(config)) {
 
 ### 17. Workflow `callTool`, Multi-Turn `WorkflowAgent`, Runtime `args` & Titled Custom Instructions (v0.1.23)
 
+- **Gemini 4 Models & Native Harness (`0.1.23`)**: Supports `gemini-4-carbon`, `gemini-4-hydrogen`, and `gemini-4-argon` via `.modelName(...)`, with `HarnessDownloader.DEFAULT_UPSTREAM_VERSION` and `PlatformResolver.getExpectedVersion()` synchronized to `0.1.23`.
 - **Workflow `callTool`, Multi-Turn `WorkflowAgent` & Runtime `args`**:
   - Invoke parent agent tools directly inside workflows via `Workflows.builder(...).callTool(...)` / `.callToolExpr(...)` (`await call_tool(...)`) and catch `Workflows.ToolError`.
   - Create persistent multi-turn subagents via `.defineAgent(...)` and `.callAgent(...)` (`WorkflowAgent`).

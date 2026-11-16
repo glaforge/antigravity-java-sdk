@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -68,6 +69,28 @@ public class PlatformResolver {
 			throw new IllegalStateException("Unsupported Architecture: " + arch);
 
 		return osPart + "-" + archPart;
+	}
+
+	/**
+	 * Returns the expected upstream version of the localharness binary. Reads the
+	 * bundled {@code /google/antigravity/bin/.version} classpath resource if an
+	 * offline classifier artifact is present, falling back to
+	 * {@link HarnessDownloader#DEFAULT_UPSTREAM_VERSION}.
+	 *
+	 * @return the expected upstream version string
+	 */
+	public static String getExpectedVersion() {
+		try (InputStream versionStream = PlatformResolver.class
+				.getResourceAsStream("/google/antigravity/bin/.version")) {
+			if (versionStream != null) {
+				String bundled = new String(versionStream.readAllBytes(), StandardCharsets.UTF_8).trim();
+				if (!bundled.isEmpty()) {
+					return bundled;
+				}
+			}
+		} catch (Exception ignored) {
+		}
+		return HarnessDownloader.DEFAULT_UPSTREAM_VERSION;
 	}
 
 	/**
@@ -126,13 +149,16 @@ public class PlatformResolver {
 
 		File targetBinary = new File(baseDir, binaryFileName);
 		File versionFile = new File(baseDir, ".version");
+		String expectedVersion = getExpectedVersion();
+		boolean versionMatches = false;
 
 		// 2. Check if cached binary already exists and matches expected version
 		if (targetBinary.exists() && targetBinary.canExecute()) {
 			if (versionFile.exists()) {
 				try {
 					String cachedVersion = Files.readString(versionFile.toPath()).trim();
-					if (HarnessDownloader.DEFAULT_UPSTREAM_VERSION.equals(cachedVersion)) {
+					if (expectedVersion.equals(cachedVersion)) {
+						versionMatches = true;
 						return targetBinary;
 					}
 				} catch (Exception ignored) {
@@ -147,7 +173,7 @@ public class PlatformResolver {
 		try (InputStream binaryStream = PlatformResolver.class.getResourceAsStream(resourcePath)) {
 			if (binaryStream != null) {
 				byte[] resourceBytes = binaryStream.readAllBytes();
-				if (!targetBinary.exists() || targetBinary.length() != resourceBytes.length) {
+				if (!targetBinary.exists() || targetBinary.length() != resourceBytes.length || !versionMatches) {
 					File tempFile = File.createTempFile("localharness-extract-", ext, baseDir);
 					Files.write(tempFile.toPath(), resourceBytes);
 					if (!tempFile.setExecutable(true)) {
@@ -160,7 +186,7 @@ public class PlatformResolver {
 					} catch (AtomicMoveNotSupportedException e) {
 						Files.move(tempFile.toPath(), targetBinary.toPath(), StandardCopyOption.REPLACE_EXISTING);
 					}
-					Files.writeString(versionFile.toPath(), HarnessDownloader.DEFAULT_UPSTREAM_VERSION);
+					Files.writeString(versionFile.toPath(), expectedVersion);
 				}
 				if (targetBinary.canExecute() || targetBinary.setExecutable(true)) {
 					return targetBinary;

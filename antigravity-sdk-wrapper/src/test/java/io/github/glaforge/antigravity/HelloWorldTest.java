@@ -87,4 +87,48 @@ public class HelloWorldTest {
 					"Response should contain weather conditions");
 		}
 	}
+
+	@Test
+	@Retry(2)
+	@Timeout(value = 240, unit = TimeUnit.SECONDS)
+	public void testGemini4CarbonAgent() throws Exception {
+		WeatherTools tools = new WeatherTools();
+		try (Agent agent = Agent.builder().instructions("""
+				You are a helpful weather assistant powered by Gemini 4 Carbon.
+				You MUST use the get_weather tool to fetch weather and NEVER use bash commands.
+				""").modelName("gemini-4-carbon").addTool(tools).build()) {
+			CompletableFuture<AgentResponse> future = agent.chat("What is the weather in London right now?");
+
+			await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+			AgentResponse response = future.get(5, TimeUnit.SECONDS);
+
+			assertNotNull(response);
+			assertNotNull(response.text());
+			assertTrue(response.text().contains("22.5"), "Response should contain the temperature");
+			assertTrue(response.text().contains("Celsius") || response.text().contains("Sunny"),
+					"Response should contain weather conditions");
+		}
+	}
+
+	@Test
+	@Retry(2)
+	@Timeout(value = 240, unit = TimeUnit.SECONDS)
+	public void testGemini4HydrogenAgent() throws Exception {
+		WeatherTools tools = new WeatherTools();
+		try (Agent agent = Agent.builder().instructions("""
+				You are a helpful weather assistant powered by Gemini 4 Hydrogen.
+				You MUST use the get_weather tool to fetch weather and NEVER use bash commands.
+				""").modelName("gemini-4-hydrogen").addTool(tools).build()) {
+			CompletableFuture<AgentResponse> future = agent.chat("What is the weather in Berlin right now?");
+
+			await().atMost(120, TimeUnit.SECONDS).until(future::isDone);
+			AgentResponse response = future.get(5, TimeUnit.SECONDS);
+
+			assertNotNull(response);
+			assertNotNull(response.text());
+			assertTrue(response.text().contains("22.5"), "Response should contain the temperature");
+			assertTrue(response.text().contains("Celsius") || response.text().contains("Sunny"),
+					"Response should contain weather conditions");
+		}
+	}
 }

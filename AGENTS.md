@@ -65,8 +65,9 @@ This entire project was autonomously generated and implemented by me (the Antigr
 
 Keeping this SDK at feature parity with the upstream Antigravity project requires a rigorous six-step sync process whenever new features are released:
 
-1. **Update the Go Harness Binaries**:
-   * Execute `./sync-harness.sh`. This script scrapes the Python Package Index (PyPI), downloads the latest upstream wheels, extracts the native Go binaries for all supported platforms, and places them in `src/main/resources/google/antigravity/bin/`.
+1. **Update the Go Harness Binaries & Version Constants**:
+   * Execute `./sync-harness.sh`. This script scrapes the Python Package Index (PyPI), downloads the latest upstream wheels, extracts the native Go binaries for all supported platforms into `antigravity-sdk-harness/src/main/resources/google/antigravity/bin/`, automatically updates `HarnessDownloader.DEFAULT_UPSTREAM_VERSION` in `HarnessDownloader.java`, and refreshes the local developer cache (`~/.antigravity/bin/<slice>/`).
+   * `HarnessDownloaderTest.testVersionConsistencyWithBundledHarness()` verifies on every `./mvnw test` run that `HarnessDownloader.DEFAULT_UPSTREAM_VERSION`, `PlatformResolver.getExpectedVersion()`, and `antigravity-sdk-harness/.../.version` are strictly synchronized.
    * Keep the extracted Python package directory (or unpack to `/tmp/antigravity_upstream/`) to enable direct Python source diffing.
 
 2. **Accurate Protocol Extraction (Never Guess Field Names)**:

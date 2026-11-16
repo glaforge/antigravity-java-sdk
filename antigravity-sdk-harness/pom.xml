@@ -31,6 +31,7 @@
                             <classifier>linux-x86_64</classifier>
                             <includes>
                                 <include>google/antigravity/bin/linux-x86_64/**</include>
+                                <include>google/antigravity/bin/.version</include>
                             </includes>
                         </configuration>
                     </execution>
@@ -43,6 +44,7 @@
                             <classifier>linux-aarch64</classifier>
                             <includes>
                                 <include>google/antigravity/bin/linux-aarch64/**</include>
+                                <include>google/antigravity/bin/.version</include>
                             </includes>
                         </configuration>
                     </execution>
@@ -55,6 +57,7 @@
                             <classifier>osx-aarch64</classifier>
                             <includes>
                                 <include>google/antigravity/bin/osx-aarch64/**</include>
+                                <include>google/antigravity/bin/.version</include>
                             </includes>
                         </configuration>
                     </execution>
@@ -67,6 +70,7 @@
                             <classifier>osx-x86_64</classifier>
                             <includes>
                                 <include>google/antigravity/bin/osx-x86_64/**</include>
+                                <include>google/antigravity/bin/.version</include>
                             </includes>
                         </configuration>
                     </execution>
@@ -79,6 +83,7 @@
                             <classifier>windows-x86_64</classifier>
                             <includes>
                                 <include>google/antigravity/bin/windows-x86_64/**</include>
+                                <include>google/antigravity/bin/.version</include>
                             </includes>
                         </configuration>
                     </execution>
@@ -91,6 +96,7 @@
                             <classifier>windows-aarch64</classifier>
                             <includes>
                                 <include>google/antigravity/bin/windows-aarch64/**</include>
+                                <include>google/antigravity/bin/.version</include>
                             </includes>
                         </configuration>
                     </execution>
