@@ -21,6 +21,9 @@ import io.github.glaforge.antigravity.BuiltinTools;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -95,7 +98,7 @@ public record ToolCall(String name, JsonNode args, String id, String stepId, Str
 
 	/**
 	 * Translates wire-format URIs ({@code file:///...}, {@code cns://...}) to clean
-	 * absolute filesystem paths.
+	 * absolute filesystem paths with {@code .} and {@code ..} segments collapsed.
 	 *
 	 * @param path
 	 *            raw path or URI string
@@ -106,30 +109,109 @@ public record ToolCall(String name, JsonNode args, String id, String stepId, Str
 			return path;
 		}
 		if (path.startsWith("file://")) {
+			String decodedPath;
 			try {
 				URI uri = URI.create(path);
 				if ("file".equalsIgnoreCase(uri.getScheme()) && uri.getPath() != null) {
-					return uri.getPath();
+					decodedPath = uri.getPath();
+				} else {
+					decodedPath = URLDecoder.decode(path.substring("file://".length()), StandardCharsets.UTF_8);
 				}
 			} catch (Exception ignored) {
+				decodedPath = URLDecoder.decode(path.substring("file://".length()), StandardCharsets.UTF_8);
 			}
-			return URLDecoder.decode(path.substring("file://".length()), StandardCharsets.UTF_8);
+			return normalizeNativePath(collapseExtraLeadingSlashes(decodedPath));
 		}
 		if (path.startsWith("cns://")) {
+			String cnsSubpath;
 			try {
 				URI uri = URI.create(path);
 				if ("cns".equalsIgnoreCase(uri.getScheme())) {
 					String host = uri.getHost() != null ? uri.getHost() : uri.getAuthority();
 					String uriPath = uri.getPath() != null ? uri.getPath() : "";
-					if (host != null) {
-						return "/cns/" + host + uriPath;
-					}
+					cnsSubpath = host != null ? host + uriPath : path.substring("cns://".length());
+				} else {
+					cnsSubpath = path.substring("cns://".length());
 				}
 			} catch (Exception ignored) {
+				cnsSubpath = URLDecoder.decode(path.substring("cns://".length()), StandardCharsets.UTF_8);
 			}
-			return "/cns/" + path.substring("cns://".length());
+			String normalizedSubpath = normalizePosixPath("/" + stripLeadingSlashes(cnsSubpath));
+			return "/".equals(normalizedSubpath) ? "/cns" : "/cns" + normalizedSubpath;
+		}
+		if (!hasNonDriveScheme(path)) {
+			return normalizeNativePath(path);
 		}
 		return path;
+	}
+
+	private static String collapseExtraLeadingSlashes(String path) {
+		if (path.startsWith("//") && !isWindowsDriveOrUnc()) {
+			return "/" + stripLeadingSlashes(path);
+		}
+		return path;
+	}
+
+	private static String stripLeadingSlashes(String path) {
+		int i = 0;
+		while (i < path.length() && path.charAt(i) == '/') {
+			i++;
+		}
+		return path.substring(i);
+	}
+
+	private static boolean isWindowsDriveOrUnc() {
+		return java.io.File.separatorChar == '\\';
+	}
+
+	private static boolean hasNonDriveScheme(String path) {
+		int colon = path.indexOf(':');
+		if (colon <= 1) {
+			return false;
+		}
+		for (int i = 0; i < colon; i++) {
+			char c = path.charAt(i);
+			boolean valid = (i == 0)
+					? Character.isLetter(c)
+					: (Character.isLetterOrDigit(c) || c == '+' || c == '-' || c == '.');
+			if (!valid) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private static String normalizeNativePath(String rawPath) {
+		Path normalized = Paths.get(rawPath).normalize();
+		String result = normalized.toString();
+		if (!isWindowsDriveOrUnc() && result.startsWith("//")) {
+			return "/" + stripLeadingSlashes(result);
+		}
+		return result;
+	}
+
+	private static String normalizePosixPath(String rawPath) {
+		boolean absolute = rawPath.startsWith("/");
+		List<String> stack = new ArrayList<>();
+		for (String segment : rawPath.split("/")) {
+			if (segment.isEmpty() || ".".equals(segment)) {
+				continue;
+			}
+			if ("..".equals(segment)) {
+				if (!stack.isEmpty() && !"..".equals(stack.get(stack.size() - 1))) {
+					stack.remove(stack.size() - 1);
+				} else if (!absolute) {
+					stack.add("..");
+				}
+			} else {
+				stack.add(segment);
+			}
+		}
+		String joined = String.join("/", stack);
+		if (absolute) {
+			return "/" + joined;
+		}
+		return joined.isEmpty() ? "." : joined;
 	}
 
 	/**

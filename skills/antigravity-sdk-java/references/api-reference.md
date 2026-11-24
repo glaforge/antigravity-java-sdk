@@ -19,7 +19,7 @@ import java.util.Map;
 // Option A: AgentConfig.builder()
 AgentConfig config = AgentConfig.builder()
     .instructions("System instructions for the agent model.")
-    .modelName("gemini-3.8-flash") // Default model selection
+    .modelName("gemini-4-hydrogen") // Default model selection
     .apiKey("optional-explicit-api-key") // Or via GEMINI_API_KEY env / system property / environmentVariables
     .vertex(false) // Set true (with .project(...) and .location(...)) for Vertex AI
     .conversationId("session-123") // Resume existing session context (populates agent.getHistory())
@@ -29,7 +29,7 @@ AgentConfig config = AgentConfig.builder()
     .generation(GenerationConfig.builder()
         .temperature(0.2)
         .maxOutputTokens(2048)
-        .thinkingLevel(ThinkingLevel.EXTRA_HIGH) // Configure "extra_high" reasoning severity
+        .thinkingLevel(ThinkingLevel.EXTRA_HIGH) // Configure "xhigh" reasoning severity
         .build())
     .capabilities(CapabilitiesConfig.builder()
         .enableWebSearch(true)
@@ -48,7 +48,7 @@ AgentConfig config = AgentConfig.builder()
 // Option B: Fluent Agent.builder() directly
 Agent agent = Agent.builder()
     .instructions("System instructions for the agent model.")
-    .modelName("gemini-3.8-flash")
+    .modelName("gemini-4-hydrogen")
     .addSkillPath("/path/to/my-agent-skill")
     .build();
 ```
@@ -1191,3 +1191,13 @@ public record ApiTokenRecord(
 - `ToolCall` normalizes wire path arguments in-place in deterministic priority order (`path`, `file_path`, `filepath`, `directory_path`, `dir_path`, `target_directory`, `output_path`, `AbsolutePath`, `TargetFile`, `DirectoryPath`, `SearchPath`, `CodeContentFile`, `ScriptPath`) and exposes `toolCall.canonicalPath()`.
 - `DiffFormatter.formatDiffBlocks(blocks)` formats structured `edit_file` diff blocks into unified diff strings (`@@ -start +end @@`).
 - `AgentInput.Media` expands `~` home directories in `fromFile(String)` / `fromFile(Path)`, normalizes MIME strings case-insensitively, and provides `AgentInput.Media.fromData(byte[] data, String mimeType, String description)`.
+
+---
+
+## 21. Default Model `gemini-4-hydrogen`, `ThinkingLevel.EXTRA_HIGH` (`xhigh`), Tool Media Return Values & Hardening (v0.1.24)
+
+- **Default Model & `ThinkingLevel`**: `AgentConfig.DEFAULT_MODEL_NAME` is `"gemini-4-hydrogen"`; `ThinkingLevel.EXTRA_HIGH` emits `"xhigh"` (while `ThinkingLevel.fromValue(...)` accepts both `"xhigh"` and `"extra_high"`). `GOOGLE_GEMINI_BASE_URL` from config environment variables or system properties/env populates `GeminiAPIEndpoint.baseUrl` (never `VertexEndpoint`).
+- **LiteRT Vision Backend**: `LiteRTAgentConfig.builder().visionBackend(LiteRTAgentConfig.Backend.CPU)` overrides vision hardware acceleration.
+- **Tool Media Return Values**: `@Tool` methods returning `AgentInput.Image`, `Audio`, `Video`, or `Document` (directly or inside records/lists/maps) automatically extract media attachments into `ToolResponse.supplementalMedia` with clean JSON summaries.
+- **Path Traversal Hardening**: `ToolCall.normalizeWirePath(...)` collapses `.` and `..` segments in `file://`, `cns://`, and plain paths before exposing `toolCall.canonicalPath()`.
+- **Compaction Tracking & Turn Isolation**: `agent.getCompactionIndices()` returns indices of completed (`STATE_DONE`) root-level (`depth == 0`) compactions; `AgentResponse.stopReason()` snapshots the turn's `StopReason`.

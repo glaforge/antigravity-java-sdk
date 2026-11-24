@@ -283,7 +283,7 @@ AgentConfig config = AgentConfig.builder()
 
 ### 10. Lightweight Mode, Command Sandboxing & Stop Hooks (v0.1.16)
 
-Agents now default to `gemini-3.8-flash`. Configure lightweight agents for local/small models using `.lightweight()`, sandbox shell executions, and handle termination events with `OnStopHook`.
+Agents default to `gemini-4-hydrogen` (updated from `gemini-3.8-flash` in v0.1.24). Configure lightweight agents for local/small models using `.lightweight()`, sandbox shell executions, and handle termination events with `OnStopHook`.
 
 ```java
 AgentConfig config = AgentConfig.builder()
@@ -490,6 +490,13 @@ try (Agent agent = new Agent(config)) {
     agent.beta().runWorkflow(wf, Map.of("file", "pom.xml"), null).get(120, TimeUnit.SECONDS);
 }
 ```
+
+### 18. Default Model `gemini-4-hydrogen`, `ThinkingLevel.EXTRA_HIGH` (`xhigh`) & Tool Media Return Values (v0.1.24)
+
+- **Default Model & Native Harness (`0.1.24`)**: `AgentConfig.DEFAULT_MODEL_NAME` is `"gemini-4-hydrogen"`, `HarnessDownloader.DEFAULT_UPSTREAM_VERSION` and `PlatformResolver.getExpectedVersion()` are `"0.1.24"`, `ThinkingLevel.EXTRA_HIGH` emits `"xhigh"`, and `GOOGLE_GEMINI_BASE_URL` is resolved automatically for `GeminiAPIEndpoint`.
+- **`LiteRTAgentConfig.visionBackend(...)`**: Override hardware acceleration for vision (`CPU`, `GPU`, `NPU`) via `LiteRTAgentConfig.builder().visionBackend(...)`.
+- **Tool Media Return Values**: Custom `@Tool` methods may return `AgentInput.Image`, `Audio`, `Video`, `Document` (or collections/maps/records containing them); `ToolRegistry` routes them to `ToolResponse.supplementalMedia` automatically.
+- **Path Hardening, Compaction Tracking & Turn Isolation**: `ToolCall.normalizeWirePath(...)` collapses `.` and `..` segments; `agent.getCompactionIndices()` tracks completed (`STATE_DONE`) root (`depth == 0`) compactions; `AgentResponse.stopReason()` snapshots the turn stop reason.
 
 ---
 

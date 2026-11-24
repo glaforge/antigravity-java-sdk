@@ -47,7 +47,7 @@ public enum ThinkingLevel {
 	/**
 	 * Extra-high thinking budget for complex reasoning tasks.
 	 */
-	EXTRA_HIGH("extra_high");
+	EXTRA_HIGH("xhigh");
 
 	private final String value;
 
@@ -74,6 +74,9 @@ public enum ThinkingLevel {
 	public static ThinkingLevel fromValue(String text) {
 		if (text == null) {
 			return null;
+		}
+		if ("extra_high".equalsIgnoreCase(text)) {
+			return EXTRA_HIGH;
 		}
 		for (ThinkingLevel level : ThinkingLevel.values()) {
 			if (level.value.equalsIgnoreCase(text) || level.name().equalsIgnoreCase(text)) {

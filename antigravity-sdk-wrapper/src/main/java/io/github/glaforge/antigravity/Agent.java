@@ -106,6 +106,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 	private UsageMetadata currentUsage;
 	private UsageMetadata cumulativeUsage = new UsageMetadata(0, 0, 0, 0, 0);
 	private UsageMetadata turnStartUsage;
+	private StopReason currentStopReason = StopReason.UNSPECIFIED;
 	private final ConcurrentMap<String, UsageMetadata> trajectoryUsages = new ConcurrentHashMap<>();
 	private final List<Policy> policies;
 	private boolean hasStructuredOutput;
@@ -146,6 +147,27 @@ public class Agent implements AutoCloseable, TriggerContext {
 		synchronized (history) {
 			history.clear();
 			activeTurnStepIndexMap.clear();
+		}
+	}
+
+	/**
+	 * Returns the zero-based indices in {@link #getHistory()} of completed
+	 * root-level ({@code depth == 0} and {@code STATE_DONE}) trajectory compaction
+	 * steps. In-progress compactions and subagent compactions ({@code depth > 0})
+	 * are excluded.
+	 *
+	 * @return unmodifiable list of root compaction step indices
+	 */
+	public List<Integer> getCompactionIndices() {
+		synchronized (history) {
+			List<Integer> indices = new ArrayList<>();
+			for (int i = 0; i < history.size(); i++) {
+				ConversationStep step = history.get(i);
+				if (step.compaction() && step.depth() == 0 && "STATE_DONE".equals(step.state())) {
+					indices.add(i);
+				}
+			}
+			return Collections.unmodifiableList(indices);
 		}
 	}
 
@@ -1066,12 +1088,29 @@ public class Agent implements AutoCloseable, TriggerContext {
 				throw new IllegalStateException("Failed to connect to localharness WebSocket", lastWsErr);
 			}
 			this.webSocket = connectedWs;
-		} catch (Exception e) {
-			if (goProcess.isAlive())
-				goProcess.destroyForcibly();
-			throw e;
+			triggerSessionStart().join();
+		} catch (Throwable t) {
+			cleanupFailedStartup();
+			if (t instanceof InterruptedException) {
+				Thread.currentThread().interrupt();
+			}
+			if (t instanceof Exception e) {
+				throw e;
+			}
+			throw new RuntimeException(t);
 		}
-		triggerSessionStart().join();
+	}
+
+	private void cleanupFailedStartup() {
+		if (this.webSocket != null) {
+			try {
+				this.webSocket.abort();
+			} catch (Exception ignored) {
+			}
+			this.webSocket = null;
+		}
+		terminateAndReapProcess();
+		toolExecutor.shutdownNow();
 	}
 
 	HarnessConfig buildHarnessConfig() {
@@ -1127,6 +1166,10 @@ public class Agent implements AutoCloseable, TriggerContext {
 					: (apiKey != null ? apiKey : resolveGeminiApiKey(config));
 			GeminiAPIEndpoint.Builder apiEndpointBuilder = GeminiAPIEndpoint.newBuilder()
 					.setApiKey(effectiveKey != null ? effectiveKey : "placeholder");
+			String resolvedGeminiBaseUrl = resolveGeminiBaseUrl(config);
+			if (resolvedGeminiBaseUrl != null && !resolvedGeminiBaseUrl.isEmpty()) {
+				apiEndpointBuilder.setBaseUrl(resolvedGeminiBaseUrl);
+			}
 			if (config.getGeneration() != null) {
 				apiEndpointBuilder.setOptions(buildGeminiModelOptions(config.getGeneration()));
 			}
@@ -1641,6 +1684,7 @@ public class Agent implements AutoCloseable, TriggerContext {
 		this.hasStructuredOutput = false;
 		this.turnStartUsage = this.cumulativeUsage;
 		this.currentUsage = null;
+		this.currentStopReason = StopReason.UNSPECIFIED;
 		this.lastWorkflowProgress = null;
 		this.lastWorkflowStepId = null;
 		this.sawRunWorkflowStep = false;
@@ -2624,6 +2668,10 @@ public class Agent implements AutoCloseable, TriggerContext {
 					String state = tsu.path("state").asText();
 					String error = tsu.path("error").asText("");
 					String errorCode = tsu.has("errorCode") ? tsu.path("errorCode").asText(null) : null;
+					StopReason parsedStopReason = parseStopReason(tsu);
+					if (parsedStopReason != StopReason.UNSPECIFIED) {
+						this.currentStopReason = parsedStopReason;
+					}
 					boolean isTurnIdle = "STATE_FULLY_IDLE".equals(state)
 							|| (goProcess == null && "STATE_IDLE".equals(state));
 					if (!error.isEmpty() && !"STATE_RUNNING".equals(state)) {
@@ -2662,7 +2710,8 @@ public class Agent implements AutoCloseable, TriggerContext {
 								}
 								currentChatFuture
 										.complete(new AgentResponse(currentText != null ? currentText.toString() : "",
-												currentThoughts != null ? currentThoughts.toString() : "", finalUsage));
+												currentThoughts != null ? currentThoughts.toString() : "", finalUsage,
+												currentStopReason));
 								if (currentThoughtsPublisher != null) {
 									currentThoughtsPublisher.close();
 								}
@@ -2733,33 +2782,34 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 				toolExecutor.submit(() -> {
 					try {
-						String resultJson = toolRegistry.execute(name, args, new ToolContext() {
-							@Override
-							public String getConversationId() {
-								return Agent.this.getConversationId();
-							}
-							@Override
-							public boolean isIdle() {
-								return currentChatFuture == null;
-							}
-							@Override
-							public void send(String message) {
-								Agent.this.fireTrigger(message);
-							}
-							@Override
-							public Object getState(String key, Object defaultValue) {
-								return toolState.getOrDefault(key, defaultValue);
-							}
-							@Override
-							public void setState(String key, Object value) {
-								toolState.put(key, value);
-							}
-							@Override
-							public ConcurrentMap<String, Object> getStateMap() {
-								return toolState;
-							}
-						});
-						sendToolResponse(callId, resultJson);
+						ToolRegistry.ToolExecutionResult execResult = toolRegistry.executeWithMedia(name, args,
+								new ToolContext() {
+									@Override
+									public String getConversationId() {
+										return Agent.this.getConversationId();
+									}
+									@Override
+									public boolean isIdle() {
+										return currentChatFuture == null;
+									}
+									@Override
+									public void send(String message) {
+										Agent.this.fireTrigger(message);
+									}
+									@Override
+									public Object getState(String key, Object defaultValue) {
+										return toolState.getOrDefault(key, defaultValue);
+									}
+									@Override
+									public void setState(String key, Object value) {
+										toolState.put(key, value);
+									}
+									@Override
+									public ConcurrentMap<String, Object> getStateMap() {
+										return toolState;
+									}
+								});
+						sendToolResponse(callId, execResult.responseJson(), execResult.supplementalMedia());
 					} catch (Exception e) {
 						log.error("Tool execution error for {}", name, e);
 						sendToolResponse(callId, "{\"error\": \"Tool error: " + e.getMessage() + "\"}");
@@ -2772,10 +2822,23 @@ public class Agent implements AutoCloseable, TriggerContext {
 	}
 
 	private void sendToolResponse(String callId, String resultJson) {
+		sendToolResponse(callId, resultJson, List.of());
+	}
+
+	private void sendToolResponse(String callId, String resultJson, List<AgentInput.Media> supplementalMedia) {
 		try {
-			InputEvent responseEvent = InputEvent.newBuilder()
-					.setToolResponse(ToolResponse.newBuilder().setId(callId).setResponseJson(resultJson).build())
-					.build();
+			ToolResponse.Builder responseBuilder = ToolResponse.newBuilder().setId(callId).setResponseJson(resultJson);
+			if (supplementalMedia != null) {
+				for (AgentInput.Media media : supplementalMedia) {
+					Media.Builder mediaBuilder = Media.newBuilder().setMimeType(media.mimeType())
+							.setData(ByteString.copyFrom(media.data()));
+					if (media.description() != null) {
+						mediaBuilder.setDescription(media.description());
+					}
+					responseBuilder.addSupplementalMedia(mediaBuilder.build());
+				}
+			}
+			InputEvent responseEvent = InputEvent.newBuilder().setToolResponse(responseBuilder.build()).build();
 			String responsePayload = JSON_PRINTER.print(responseEvent);
 			sendWebSocketMessage(responsePayload);
 		} catch (Exception e) {
@@ -2801,45 +2864,118 @@ public class Agent implements AutoCloseable, TriggerContext {
 
 	@Override
 	public void close() throws Exception {
-		triggerSessionEnd().join();
-
-		for (AgentTrigger trigger : config.getTriggers()) {
-			trigger.stop();
-		}
-
-		if (webSocket != null) {
+		Exception hookError = null;
+		try {
 			try {
-				webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "").join();
+				triggerSessionEnd().join();
 			} catch (Exception e) {
-				// Ignore
+				hookError = e;
 			}
-		}
-
-		if (goProcess != null && goProcess.isAlive()) {
-			try {
-				boolean exited = goProcess.waitFor(2, TimeUnit.SECONDS);
-				if (!exited) {
-					goProcess.getOutputStream().close();
-					exited = goProcess.waitFor(3, TimeUnit.SECONDS);
+		} finally {
+			for (AgentTrigger trigger : config.getTriggers()) {
+				try {
+					trigger.stop();
+				} catch (Exception e) {
+					log.debug("Failed stopping trigger during close", e);
 				}
+			}
 
-				if (!exited) {
-					goProcess.destroyForcibly();
+			if (webSocket != null) {
+				try {
+					webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "").get(500, TimeUnit.MILLISECONDS);
+				} catch (Exception ignored) {
+				} finally {
+					try {
+						webSocket.abort();
+					} catch (Exception ignored) {
+					}
+					webSocket = null;
+				}
+			}
+
+			terminateAndReapProcess();
+
+			toolExecutor.shutdown();
+			try {
+				if (!toolExecutor.awaitTermination(2, TimeUnit.SECONDS)) {
+					toolExecutor.shutdownNow();
 				}
 			} catch (InterruptedException e) {
-				goProcess.destroyForcibly();
+				toolExecutor.shutdownNow();
 				Thread.currentThread().interrupt();
 			}
 		}
-		toolExecutor.shutdown();
-		try {
-			if (!toolExecutor.awaitTermination(2, TimeUnit.SECONDS)) {
-				toolExecutor.shutdownNow();
-			}
-		} catch (InterruptedException e) {
-			toolExecutor.shutdownNow();
-			Thread.currentThread().interrupt();
+		if (hookError != null) {
+			throw hookError;
 		}
+	}
+
+	private void terminateAndReapProcess() {
+		if (goProcess == null) {
+			return;
+		}
+		try {
+			closeQuietly(goProcess.getOutputStream());
+			if (goProcess.isAlive()) {
+				boolean exited = false;
+				try {
+					exited = goProcess.waitFor(2, TimeUnit.SECONDS);
+					if (!exited) {
+						goProcess.destroy();
+						exited = goProcess.waitFor(1, TimeUnit.SECONDS);
+					}
+					if (!exited) {
+						goProcess.destroyForcibly();
+						goProcess.waitFor(1, TimeUnit.SECONDS);
+					}
+				} catch (InterruptedException e) {
+					goProcess.destroyForcibly();
+					Thread.currentThread().interrupt();
+				}
+			}
+		} finally {
+			closeQuietly(goProcess.getInputStream());
+			closeQuietly(goProcess.getErrorStream());
+		}
+	}
+
+	private static void closeQuietly(AutoCloseable closeable) {
+		if (closeable != null) {
+			try {
+				closeable.close();
+			} catch (Exception ignored) {
+			}
+		}
+	}
+
+	private static StopReason parseStopReason(JsonNode tsu) {
+		if (tsu == null) {
+			return StopReason.UNSPECIFIED;
+		}
+		String raw = tsu.has("stopReason") ? tsu.path("stopReason").asText("") : tsu.path("stop_reason").asText("");
+		if (raw.isEmpty()) {
+			return StopReason.UNSPECIFIED;
+		}
+		try {
+			return StopReason.fromProtobuf(TrajectoryStateUpdate.StopReason.valueOf(raw));
+		} catch (IllegalArgumentException ignored) {
+			return StopReason.UNSPECIFIED;
+		}
+	}
+
+	static String resolveGeminiBaseUrl(AgentConfig config) {
+		if (config != null && config.getEnvironmentVariables() != null) {
+			String envUrl = config.getEnvironmentVariables().get("GOOGLE_GEMINI_BASE_URL");
+			if (envUrl != null && !envUrl.isEmpty()) {
+				return envUrl;
+			}
+		}
+		String propUrl = System.getProperty("GOOGLE_GEMINI_BASE_URL");
+		if (propUrl != null && !propUrl.isEmpty()) {
+			return propUrl;
+		}
+		String sysEnvUrl = System.getenv("GOOGLE_GEMINI_BASE_URL");
+		return (sysEnvUrl != null && !sysEnvUrl.isEmpty()) ? sysEnvUrl : null;
 	}
 
 	void initTurnForTest(Consumer<AgentResponseChunk> chunkConsumer) {
@@ -3093,11 +3229,13 @@ public class Agent implements AutoCloseable, TriggerContext {
 			errorMsg = prev.error();
 		}
 
+		boolean compaction = stepNode.has("compaction") || (prev != null && prev.compaction());
+
 		boolean completeResponse = "SOURCE_MODEL".equals(source) && "STATE_DONE".equals(state) && !content.isEmpty()
 				&& "TARGET_USER".equals(target);
 
 		return new ConversationStep(id, stepIdx, trajId, parentTrajId, depth, source, state, target, content,
-				fullThinking, toolCalls, errorMsg, completeResponse, structuredOutput, wfProgress);
+				fullThinking, toolCalls, errorMsg, completeResponse, structuredOutput, wfProgress, compaction);
 	}
 
 	private JsonNode extractStepToolArgs(JsonNode node) {

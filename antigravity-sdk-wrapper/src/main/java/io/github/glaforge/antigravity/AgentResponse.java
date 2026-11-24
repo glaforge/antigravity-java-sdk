@@ -26,15 +26,32 @@ import io.github.glaforge.antigravity.tools.SchemaGenerator;
  *            the thoughts of the agent
  * @param usageMetadata
  *            the usage metadata
+ * @param stopReason
+ *            the reason the execution turn stopped
  */
-public record AgentResponse(String text, String thoughts, UsageMetadata usageMetadata) {
+public record AgentResponse(String text, String thoughts, UsageMetadata usageMetadata, StopReason stopReason) {
 
 	/**
-	 * Compact constructor ensuring text and thoughts are non-null.
+	 * Compact constructor ensuring non-null defaults.
 	 */
 	public AgentResponse {
 		text = text != null ? text : "";
 		thoughts = thoughts != null ? thoughts : "";
+		stopReason = stopReason != null ? stopReason : StopReason.UNSPECIFIED;
+	}
+
+	/**
+	 * Backward-compatible constructor without explicit stop reason.
+	 *
+	 * @param text
+	 *            the text response
+	 * @param thoughts
+	 *            the thoughts of the agent
+	 * @param usageMetadata
+	 *            the usage metadata
+	 */
+	public AgentResponse(String text, String thoughts, UsageMetadata usageMetadata) {
+		this(text, thoughts, usageMetadata, StopReason.UNSPECIFIED);
 	}
 
 	/**

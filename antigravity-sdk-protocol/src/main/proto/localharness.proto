@@ -63,13 +63,21 @@ enum ToolExecutionMode {
   TOOL_EXECUTION_MODE_ASYNC = 2;
 }
 
+enum ThinkingEffort {
+  THINKING_EFFORT_UNSPECIFIED = 0;
+  THINKING_EFFORT_MINIMAL = 1;
+  THINKING_EFFORT_LOW = 2;
+  THINKING_EFFORT_MEDIUM = 3;
+  THINKING_EFFORT_HIGH = 4;
+  THINKING_EFFORT_MAX = 5;
+}
+
 message InputConfig {
   string storage_directory = 1;
   uint32 port = 2;
   string bind_address = 3;
   ClientInfo client_info = 4;
   map<string, string> env = 5;
-  bool use_interactions_api = 6;
 }
 
 message InitializeConversationEvent {
@@ -315,6 +323,7 @@ message SubagentsConfig {
   int32 max_nesting_depth = 2;
   repeated string allowed_subagents = 3;
   bool disable_define_subagent_tool = 4;
+  bool disable_manage_subagents_tool = 5;
 }
 
 message UserQuestionsConfig {

@@ -33,11 +33,11 @@ import static org.junit.jupiter.api.Assertions.*;
 public class FeatureParity0116Test {
 
 	@Test
-	public void testDefaultModelUpdatedToGemini38Flash() {
-		assertEquals("gemini-3.8-flash", AgentConfig.DEFAULT_MODEL_NAME);
+	public void testDefaultModelUpdatedToGemini4Hydrogen() {
+		assertEquals("gemini-4-hydrogen", AgentConfig.DEFAULT_MODEL_NAME);
 
 		AgentConfig config = AgentConfig.builder().build();
-		assertEquals("gemini-3.8-flash", config.getModelName());
+		assertEquals("gemini-4-hydrogen", config.getModelName());
 	}
 
 	@Test

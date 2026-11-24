@@ -62,10 +62,23 @@ import io.github.glaforge.antigravity.hooks.ToolCall;
  * @param workflowProgress
  *            workflow execution progress for {@code run_workflow} steps, or
  *            null if none
+ * @param compaction
+ *            true if this step represents a trajectory compaction event
  */
 public record ConversationStep(String id, int stepIndex, String trajectoryId, String parentTrajectoryId, int depth,
 		String source, String state, String target, String content, String thinking, List<ToolCall> toolCalls,
-		String error, boolean completeResponse, String structuredOutput, WorkflowProgress workflowProgress) {
+		String error, boolean completeResponse, String structuredOutput, WorkflowProgress workflowProgress,
+		boolean compaction) {
+
+	/**
+	 * Backward-compatible constructor without explicit compaction flag.
+	 */
+	public ConversationStep(String id, int stepIndex, String trajectoryId, String parentTrajectoryId, int depth,
+			String source, String state, String target, String content, String thinking, List<ToolCall> toolCalls,
+			String error, boolean completeResponse, String structuredOutput, WorkflowProgress workflowProgress) {
+		this(id, stepIndex, trajectoryId, parentTrajectoryId, depth, source, state, target, content, thinking,
+				toolCalls, error, completeResponse, structuredOutput, workflowProgress, false);
+	}
 
 	/**
 	 * Compact constructor ensuring non-null defaults and unmodifiable toolCalls.

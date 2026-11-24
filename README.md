@@ -746,9 +746,9 @@ AgentConfig config = AgentConfig.builder()
     .build();
 ```
 
-### 24. Gemini 3.8 Flash, Lightweight Agent Mode, Command Sandboxing & Stop Hooks (v0.1.16)
+### 24. Lightweight Agent Mode, Command Sandboxing & Stop Hooks (v0.1.16)
 
-Agents now default to **`gemini-3.8-flash`** for higher quality reasoning. Configure lightweight agents optimized for small/local models via `.lightweight()`, isolate shell execution with command sandboxing, and listen to cancellation/stop events with `OnStopHook`.
+Agents default to **`gemini-4-hydrogen`** (updated from `gemini-3.8-flash` in v0.1.24) for higher quality reasoning. Configure lightweight agents optimized for small/local models via `.lightweight()`, isolate shell execution with command sandboxing, and listen to cancellation/stop events with `OnStopHook`.
 
 ```java
 // 1. Configure lightweight agent for local/small models with sandboxed command execution
@@ -1101,6 +1101,32 @@ try (Agent agent = new Agent(config)) {
             progress -> System.out.println("Progress: " + progress.output()))
         .get(120, TimeUnit.SECONDS);
     System.out.println("Workflow result:\n" + result.output());
+}
+```
+
+### 30. Default Model `gemini-4-hydrogen`, `ThinkingLevel.EXTRA_HIGH` (`xhigh`), Tool Media Return Values & Hardening (v0.1.24)
+
+- **Native Harness v0.1.24 & `gemini-4-hydrogen` Default**: Updated `localharness` binaries, `HarnessDownloader.DEFAULT_UPSTREAM_VERSION` (`0.1.24`), and `AgentConfig.DEFAULT_MODEL_NAME` (`"gemini-4-hydrogen"`). Added `ThinkingEffort` and `SubagentsConfig.disable_manage_subagents_tool` to `localharness.proto` (removing obsolete `InputConfig.use_interactions_api`).
+- **`ThinkingLevel.EXTRA_HIGH` (`"xhigh"`) & `GOOGLE_GEMINI_BASE_URL`**: Mapped `ThinkingLevel.EXTRA_HIGH` to `"xhigh"` across Gemini API and Vertex AI endpoints (while still accepting `"extra_high"` in `ThinkingLevel.fromValue(...)`). Added automatic `GOOGLE_GEMINI_BASE_URL` resolution from environment variables when building `GeminiAPIEndpoint`.
+- **`LiteRTAgentConfig.visionBackend(...)`**: Added optional `visionBackend(LiteRTAgentConfig.Backend)` override on `LiteRTAgentConfig.Builder` alongside native `localharness` v0.1.24's OpenAI-compatible usage/latency/retry reporting and LiteRT vision/prefix-caching/thought-streaming updates.
+- **Tool Media Return Values (`AgentInput.Media`)**: Custom `@Tool` methods can return `AgentInput.Image`, `Audio`, `Video`, or `Document` directly or nested inside records, lists, or maps; `ToolRegistry` extracts them into `ToolResponse.supplementalMedia` with clean JSON summaries instead of raw base64 blobs.
+- **Path Traversal Hardening (`ToolCall.normalizeWirePath`)**: Collapses `.` and `..` segments in `file://`, `cns://`, and plain paths so `ToolCall.canonicalPath()` and normalized arguments cannot be bypassed in user hooks.
+- **Compaction Tracking, Multi-Turn Isolation & Lifecycle Cleanup**: Added `agent.getCompactionIndices()` (recording only completed `STATE_DONE` root compactions with `depth == 0`), exposed `AgentResponse.stopReason()`, isolated per-turn state, and hardened `Agent` startup and `close()` cleanup across WebSocket, stdio pipes, and `localharness` subprocess termination.
+
+```java
+// 1. Default model is gemini-4-hydrogen; EXTRA_HIGH maps to "xhigh"
+AgentConfig config = AgentConfig.builder()
+    .generation(GenerationConfig.builder()
+        .thinkingLevel(ThinkingLevel.EXTRA_HIGH)
+        .build())
+    .addTool(new MediaTools())
+    .build();
+
+public class MediaTools {
+    @Tool(name = "render_chart", description = "Returns a PNG chart image")
+    public AgentInput.Image renderChart() throws Exception {
+        return AgentInput.Image.fromFile("chart.png", "Quarterly revenue");
+    }
 }
 ```
 

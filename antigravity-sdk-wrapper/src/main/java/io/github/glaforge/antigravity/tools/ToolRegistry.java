@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.glaforge.antigravity.AgentInput;
 import io.github.glaforge.antigravity.DynamicTool;
 import io.github.glaforge.antigravity.ToolContext;
 import io.github.glaforge.antigravity.ToolExecutionError;
@@ -27,9 +28,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.RecordComponent;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -246,6 +250,26 @@ public class ToolRegistry {
 	}
 
 	/**
+	 * Result of executing a tool, pairing its serialized JSON response with any
+	 * extracted {@link AgentInput.Media} attachments.
+	 *
+	 * @param responseJson
+	 *            serialized JSON payload
+	 * @param supplementalMedia
+	 *            extracted media attachments to transmit via
+	 *            {@code ToolResponse.supplemental_media}
+	 */
+	public record ToolExecutionResult(String responseJson, List<AgentInput.Media> supplementalMedia) {
+		/**
+		 * Compact constructor ensuring non-null fields.
+		 */
+		public ToolExecutionResult {
+			responseJson = responseJson != null ? responseJson : "{}";
+			supplementalMedia = supplementalMedia != null ? List.copyOf(supplementalMedia) : List.of();
+		}
+	}
+
+	/**
 	 * Executes a registered tool by name with the given JSON arguments.
 	 *
 	 * @param toolName
@@ -259,10 +283,29 @@ public class ToolRegistry {
 	 *             if tool execution fails
 	 */
 	public String execute(String toolName, JsonNode arguments, ToolContext toolContext) throws Exception {
+		return executeWithMedia(toolName, arguments, toolContext).responseJson();
+	}
+
+	/**
+	 * Executes a registered tool by name and extracts any {@link AgentInput.Media}
+	 * primitives into {@link ToolExecutionResult#supplementalMedia()}.
+	 *
+	 * @param toolName
+	 *            the name of the tool to execute
+	 * @param arguments
+	 *            the JSON node containing the arguments
+	 * @param toolContext
+	 *            the context for the tool execution
+	 * @return the execution result with serialized JSON and extracted media
+	 * @throws Exception
+	 *             if tool execution fails
+	 */
+	public ToolExecutionResult executeWithMedia(String toolName, JsonNode arguments, ToolContext toolContext)
+			throws Exception {
 		try {
 			if (dynamicRegistry.containsKey(toolName)) {
 				Object result = dynamicRegistry.get(toolName).execute(arguments);
-				return formatToolResult(result);
+				return formatToolExecutionResult(result);
 			}
 
 			ToolMethodHandler handler = registry.get(toolName);
@@ -273,7 +316,7 @@ public class ToolRegistry {
 			Object[] parsedArgs = resolveArguments(handler.method(), arguments, toolContext);
 			Object result = handler.method().invoke(handler.instance(), parsedArgs);
 
-			return formatToolResult(result);
+			return formatToolExecutionResult(result);
 		} catch (ToolExecutionError tee) {
 			throw tee;
 		} catch (Exception e) {
@@ -286,6 +329,102 @@ public class ToolRegistry {
 			}
 			throw new ToolExecutionError(toolName, arguments != null ? arguments.toString() : "{}", cause);
 		}
+	}
+
+	private ToolExecutionResult formatToolExecutionResult(Object result) throws Exception {
+		if (result instanceof CompletionStage<?> cs) {
+			result = cs.toCompletableFuture().get();
+		}
+		List<AgentInput.Media> extractedMedia = new ArrayList<>();
+		Object cleaned = extractMediaFromResult(result, extractedMedia);
+		if (!extractedMedia.isEmpty() && cleaned == null) {
+			cleaned = "Returned " + extractedMedia.size() + " media attachment(s).";
+		}
+		return new ToolExecutionResult(formatToolResult(cleaned), extractedMedia);
+	}
+
+	private Object extractMediaFromResult(Object value, List<AgentInput.Media> mediaOut) throws Exception {
+		if (value == null) {
+			return null;
+		}
+		if (value instanceof AgentInput.Media media) {
+			mediaOut.add(media);
+			return null;
+		}
+		if (value instanceof Optional<?> opt) {
+			return opt.isPresent() ? extractMediaFromResult(opt.get(), mediaOut) : null;
+		}
+		if (value instanceof Collection<?> collection) {
+			int beforeSize = mediaOut.size();
+			List<Object> cleanedList = new ArrayList<>();
+			for (Object item : collection) {
+				Object cleanedItem = extractMediaFromResult(item, mediaOut);
+				if (cleanedItem != null) {
+					cleanedList.add(cleanedItem);
+				}
+			}
+			return cleanedList.isEmpty() && mediaOut.size() > beforeSize ? null : cleanedList;
+		}
+		if (value instanceof Map<?, ?> map) {
+			int beforeSize = mediaOut.size();
+			Map<Object, Object> cleanedMap = new LinkedHashMap<>();
+			for (Map.Entry<?, ?> entry : map.entrySet()) {
+				Object cleanedItem = extractMediaFromResult(entry.getValue(), mediaOut);
+				if (cleanedItem != null) {
+					cleanedMap.put(entry.getKey(), cleanedItem);
+				}
+			}
+			return cleanedMap.isEmpty() && mediaOut.size() > beforeSize ? null : cleanedMap;
+		}
+		if (value.getClass().isRecord() && containsMediaValue(value)) {
+			int beforeSize = mediaOut.size();
+			Map<String, Object> recordMap = new LinkedHashMap<>();
+			for (RecordComponent component : value.getClass().getRecordComponents()) {
+				Object fieldVal = component.getAccessor().invoke(value);
+				Object cleanedField = extractMediaFromResult(fieldVal, mediaOut);
+				if (cleanedField != null) {
+					recordMap.put(component.getName(), cleanedField);
+				}
+			}
+			return recordMap.isEmpty() && mediaOut.size() > beforeSize ? null : recordMap;
+		}
+		return value;
+	}
+
+	private boolean containsMediaValue(Object value) throws Exception {
+		if (value == null) {
+			return false;
+		}
+		if (value instanceof AgentInput.Media) {
+			return true;
+		}
+		if (value instanceof Optional<?> opt) {
+			return opt.isPresent() && containsMediaValue(opt.get());
+		}
+		if (value instanceof Collection<?> collection) {
+			for (Object item : collection) {
+				if (containsMediaValue(item)) {
+					return true;
+				}
+			}
+			return false;
+		}
+		if (value instanceof Map<?, ?> map) {
+			for (Object item : map.values()) {
+				if (containsMediaValue(item)) {
+					return true;
+				}
+			}
+			return false;
+		}
+		if (value.getClass().isRecord()) {
+			for (RecordComponent component : value.getClass().getRecordComponents()) {
+				if (containsMediaValue(component.getAccessor().invoke(value))) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	private String formatToolResult(Object result) throws Exception {

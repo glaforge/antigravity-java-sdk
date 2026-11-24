@@ -50,6 +50,7 @@ public class LiteRTAgentConfig {
 
 	private final String modelPath;
 	private final Backend backend;
+	private final Backend visionBackend;
 	private final int port;
 	private final String baseUrl;
 	private final AgentConfig agentConfig;
@@ -57,6 +58,7 @@ public class LiteRTAgentConfig {
 	private LiteRTAgentConfig(Builder builder) {
 		this.modelPath = builder.modelPath;
 		this.backend = builder.backend;
+		this.visionBackend = builder.visionBackend;
 		this.port = builder.port;
 		int effectivePort = builder.port > 0 ? builder.port : 9379;
 		this.baseUrl = (builder.baseUrl != null && !builder.baseUrl.isEmpty())
@@ -84,6 +86,15 @@ public class LiteRTAgentConfig {
 	 */
 	public Backend getBackend() {
 		return backend;
+	}
+
+	/**
+	 * Returns the optional vision hardware backend override.
+	 *
+	 * @return vision backend, or null for automatic detection
+	 */
+	public Backend getVisionBackend() {
+		return visionBackend;
 	}
 
 	/**
@@ -173,6 +184,7 @@ public class LiteRTAgentConfig {
 	public static class Builder {
 		private String modelPath = "";
 		private Backend backend = Backend.GPU;
+		private Backend visionBackend;
 		private int port = 0;
 		private String baseUrl = "";
 		private String modelName = "gemma-local";
@@ -206,6 +218,18 @@ public class LiteRTAgentConfig {
 		 */
 		public Builder backend(Backend backend) {
 			this.backend = backend;
+			return this;
+		}
+
+		/**
+		 * Sets the optional vision hardware acceleration backend override.
+		 *
+		 * @param visionBackend
+		 *            vision backend option, or null for automatic detection
+		 * @return this builder
+		 */
+		public Builder visionBackend(Backend visionBackend) {
+			this.visionBackend = visionBackend;
 			return this;
 		}
 

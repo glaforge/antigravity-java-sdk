@@ -35,7 +35,7 @@ public class AgentConfig {
 	/**
 	 * Default model for new agents.
 	 */
-	public static final String DEFAULT_MODEL_NAME = "gemini-3.8-flash";
+	public static final String DEFAULT_MODEL_NAME = "gemini-4-hydrogen";
 
 	/**
 	 * Default lightweight model for image generation tasks.
